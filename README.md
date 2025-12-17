@@ -12,40 +12,71 @@ opsxcli 是一个面向运维和开发的集成化命令行工具集，内置数
 - 📦 **网络工具替代**: 完全替代 iproute 和 net-tools 包
 - 🔧 **busybox兼容**: 整合常用基础命令
 
-## 🛠️ 工具分类
+## 🛠️ 完整命令列表
 
-### 数据库工具
+使用 `opsxcli <command> --help` 查看具体命令的帮助信息。
+
+### 📁 文件 - 文件和目录操作
+- **ls**: 列出目录内容
+- **cat**: 显示文件内容
+- **grep**: 文本搜索
+- **vi**: 文本编辑器
+- **cp**: 复制文件/目录
+- **mv**: 移动/重命名文件
+- **rm**: 删除文件/目录
+- **mkdir**: 创建目录
+- **tree**: 树形显示目录结构
+
+### 💾 数据库 - MySQL, PostgreSQL, Redis
 - **mysql**: MySQL数据库操作（支持交互式shell）
 - **psql**: PostgreSQL数据库操作
 - **redis**: Redis操作（支持单机和集群）
 
-### 网络工具
+### 🖥️ 系统 - 进程和系统信息
+- **ps**: 进程查看
+- **top**: 进程实时监控
+- **free**: 内存使用情况
+- **df**: 磁盘空间使用
+- **du**: 目录空间使用
+- **uname**: 系统信息
+- **hostname**: 主机名管理
+
+### 🌐 网络 - SSH, Ping, 端口扫描等
 - **ssh**: SSH连接、命令执行、文件传输、端口转发
-- **telnet**: Telnet客户端
-- **nc**: 网络连接工具（端口监听、内网反弹）
 - **ping**: 网络连通性测试
 - **traceroute**: 路由追踪
+- **telnet**: Telnet客户端
+- **nc**: 网络连接工具（端口监听、内网反弹）
 - **ss**: 网络连接状态查看（高性能，替代netstat）
-- **netstat**: 网络连接状态查看（兼容模式）
 - **nmap**: 网络端口扫描
 
-### 监控工具
-- **sys**: 系统监控 TUI（实时2秒刷新）
-  - CPU/内存/磁盘实时监控
-  - 进程列表（支持多种排序）
-  - 磁盘I/O统计
-- **net**: 网络监控 TUI（实时2秒刷新）
-  - 网络流量实时监控
-  - 活跃连接TOP10
-  - 连接状态统计
+### ⚙️ 网络配置 - 网络接口和路由管理
+- **ifconfig**: 网络接口配置（兼容传统命令）
+- **route**: 路由表管理
+- **ip**: 现代网络配置工具
 
-### 服务端工具
+### 📦 压缩 - 归档和压缩工具
+- **tar**: 归档工具
+- **gzip**: GZIP压缩
+- **unzip**: ZIP解压
+
+### 🚀 服务 - HTTP/WebSocket/gRPC 服务
 - **server**: HTTP/WebSocket/gRPC 服务端
 
-### 其他工具
+### 🔧 工具 - 下载, HTTP请求, 安装
 - **wget**: 文件下载（支持断点续传）
 - **request**: 高级HTTP请求工具
 - **install**: 工具安装脚本
+
+### 📊 监控 - 系统监控, 网络监控 (2秒实时刷新)
+- **sys**: 系统监控 TUI
+  - CPU/内存/磁盘实时监控
+  - 进程列表（支持多种排序）
+  - 磁盘I/O统计
+- **net**: 网络监控 TUI
+  - 网络流量实时监控
+  - 活跃连接TOP10
+  - 连接状态统计
 
 ## 安装
 
@@ -78,23 +109,6 @@ sudo mv opsxcli /usr/local/bin/
 # 解压 zip 文件后直接运行
 ```
 
-### 从源码构建
-
-```bash
-# 克隆仓库
-git clone https://gitee.com/opsx-tools/opsxcli.git
-cd opsxcli
-
-# 开发版本（保留调试信息，便于调试）
-make build
-
-# 生产版本（优化编译，体积更小）
-make release
-
-# 或手动编译
-go build -o opsxcli .                      # 开发版 (~22M)
-go build -ldflags="-s -w" -o opsxcli .     # 生产版 (~15M)
-```
 
 ## 使用示例
 
@@ -195,67 +209,17 @@ opsxcli ss -l
 opsxcli ss -a
 ```
 
-## 目录结构
 
-```
-opsxcli/
-├── cmd/              # 命令定义
-├── internal/          # 内部核心模块
-│   ├── config/       # 配置管理
-│   ├── logger/       # 日志系统
-│   └── ui/           # UI框架
-├── plugins/          # 工具插件
-│   ├── ssh/          # SSH工具
-│   ├── mysql/        # MySQL工具
-│   ├── redis/        # Redis工具
-│   ├── wget/         # 下载工具
-│   ├── nc/           # 网络连接工具
-│   ├── request/      # HTTP请求工具
-│   ├── sys/          # 系统监控
-│   └── net/          # 网络监控
-├── docs/             # 工具文档（详见 docs/README.md）
-├── main.go           # 入口文件
-└── go.mod            # 依赖管理
-```
+## 📸 界面预览
 
-## 🔧 开发
+### 系统监控 (sys)
 
-### 构建命令
+![系统监控界面](docs/sys.jpeg)
 
-```bash
-make build      # 开发版本（保留调试信息）
-make release    # 生产版本（优化体积）
-make clean      # 清理构建文件
-```
+### 网络监控 (net)
 
-### 添加新工具
+![网络监控界面](docs/net.jpeg)
 
-1. 在 `plugins/` 目录下创建新的工具目录
-2. 实现工具的核心功能
-3. 在 `cmd/` 目录下添加命令定义
-4. 在 `cmd/root.go` 中注册新命令
-
-### 代码规范
-
-- 单个文件代码量不超过600行
-- 尽量模块化拆分
-- 遵循Go代码规范
-
-## 📚 文档
-
-- [OPTIMIZATION.md](./docs/OPTIMIZATION.md) - 性能优化总结
-- [NETWORK_TOOLS_REPLACEMENT.md](./docs/NETWORK_TOOLS_REPLACEMENT.md) - 网络工具替代方案
-- [OFFLINE_SUPPORT.md](./OFFLINE_SUPPORT.md) - 离线环境支持
-
-## 离线/内网环境支持
-
-✅ **完全支持离线/内网环境运行**，所有功能都无需网络连接。
-
-- 所有保护机制都是纯本地运行
-- 所有工具都支持内网环境
-- 支持内网调试（设置 `OPSXCLI_ALLOW_DEBUG=1`）
-
-详见 [OFFLINE_SUPPORT.md](./OFFLINE_SUPPORT.md)
 
 ## 许可证
 
