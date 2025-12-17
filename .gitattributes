@@ -1,0 +1,9 @@
+# 代码保护：标记敏感文件
+*.go linguist-generated=false
+internal/** linguist-generated=false
+plugins/** linguist-generated=false
+
+# 防止 GitHub 自动识别为某种语言
+*.go -diff
+internal/** -diff
+plugins/** -diff
