@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strings"
 
 	"opsxcli/cmd"
 	"opsxcli/internal/core"
@@ -37,7 +38,42 @@ func removeHelpFlagShorthand(c *cobra.Command) {
 	}
 }
 
+// preprocessDatabasePasswordArgs 预处理数据库命令的密码参数
+// 将 -pPASSWORD 格式转换为 -p PASSWORD 以兼容 Cobra flag 解析
+func preprocessDatabasePasswordArgs() {
+	if len(os.Args) < 2 {
+		return
+	}
+
+	// 检查是否是数据库命令 (mysql, psql, redis)
+	dbCommands := map[string]bool{"mysql": true, "psql": true, "redis": true}
+	if !dbCommands[os.Args[1]] {
+		return
+	}
+
+	// 查找并处理 -pXXX 格式的密码参数
+	for i := 2; i < len(os.Args); i++ {
+		arg := os.Args[i]
+
+		// 匹配 -pXXX 格式（密码紧跟在 -p 后面）
+		if strings.HasPrefix(arg, "-p") && len(arg) > 2 && arg[2] != '-' {
+			// 提取并保存密码到 cmd 包的全局变量
+			cmd.OriginalPassword = arg[2:]
+
+			// 将 -pPASSWORD 替换为 -p 和 PASSWORD 两个参数
+			os.Args[i] = "-p"
+			// 在后面插入密码参数
+			os.Args = append(os.Args[:i+1], append([]string{cmd.OriginalPassword}, os.Args[i+1:]...)...)
+			break // 只处理第一个匹配项
+		}
+	}
+}
+
 func main() {
+	// 预处理数据库密码参数（必须在创建命令之前）
+	// 将 -pPASSWORD 拆分为 -p PASSWORD 避免 Cobra 解析错误
+	preprocessDatabasePasswordArgs()
+
 	// 初始化日志系统
 	logger.Init()
 
@@ -64,8 +100,8 @@ func main() {
 
 	// 执行命令
 	if err := rootCmd.Execute(); err != nil {
-		logger.Error("执行失败: %v", err)
-		logger.Close() // 确保错误日志被写入
+		// Cobra 已经输出了错误信息,这里只需要关闭日志并退出
+		logger.Close()
 		os.Exit(1)
 	}
 

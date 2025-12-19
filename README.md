@@ -58,6 +58,15 @@ opsxcli 是一个面向运维和开发的集成化命令行工具集,内置数�
 - **wget**: 文件下载（支持断点续传）
 - **request**: HTTP 请求工具
 - **install**: 安装脚本
+- **upgrade**: 升级 opsxcli 到最新版本
+
+### 🐳 Docker 工具
+- **docker pull**: Docker 镜像拉取（自动加速、多源极速、并发下载、断点续传）
+
+### ☸️ Kubernetes 工具
+- **kubectl**: kubectl 命令行代理
+- **consul**: 从 K8s 集群自动发现服务并注册到 Consul
+- **kubernetes**: K8s 资源管理（YAML 生成、资源操作）
 
 ### 📊 监控 TUI (2秒实时刷新)
 - **sys**: 系统监控（CPU/内存/磁盘/进程）
@@ -150,6 +159,38 @@ opsxcli sys
 # 1/2/3/4: 切换磁盘排序 (空间/Inodes/IO/名称)
 # ↑↓: 选择进程
 # q/ESC: 退出
+```
+
+### Docker 镜像管理
+
+```bash
+# 拉取单个镜像（自动加速）
+opsxcli docker pull nginx:latest
+
+# 拉取多个镜像（并发）
+opsxcli docker pull nginx:latest redis:alpine mysql:8.0
+
+# 使用自定义镜像源
+opsxcli docker pull nginx:latest -r docker.aityp.com -r docker.1ms.run
+
+# 设置并发数
+opsxcli docker pull nginx redis mysql -c 5
+```
+
+### Consul 服务注册
+
+```bash
+# 从 K8s 集群注册服务到 Consul
+opsxcli consul -s https://consul.example.com:8500 -m /actuator/prometheus
+
+# 指定 kubeconfig 路径
+opsxcli consul -k /path/to/kubeconfig -s https://consul.example.com:8500 -m /metrics
+
+# 清理失效实例
+opsxcli consul -s https://consul.example.com:8500 --clean
+
+# 清除缓存后重新扫描
+opsxcli consul -s https://consul.example.com:8500 -m /actuator/prometheus --clear-cache
 ```
 
 ### 网络监控 (net)
