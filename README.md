@@ -191,7 +191,7 @@ opsxcli ss -tan --timewait
 ```bash
 # 检查并升级到最新版本; 权限不够时请使用sudo
 opsxcli upgrade
-
+```
 
 升级命令会自动:
 - 检测当前系统和架构
