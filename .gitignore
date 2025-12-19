@@ -2,7 +2,6 @@
 opsxcli
 opsxcli.exe
 dist/
-plugins
 *.tar.gz
 *.zip
 test.sh
@@ -33,3 +32,4 @@ __pycache__
 docs/!*.md
 release.py
 .claude
+plugins/
