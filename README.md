@@ -184,6 +184,21 @@ opsxcli ss -tan --timewait
 
 ![网络监控界面](docs/net.jpeg)
 
+## 🔄 自动升级
+
+保持工具始终最新:
+
+```bash
+# 检查并升级到最新版本; 权限不够时请使用sudo
+opsxcli upgrade
+
+
+升级命令会自动:
+- 检测当前系统和架构
+- 从 Gitee Releases 获取最新版本
+- 下载并替换当前执行文件
+- 保留所有配置和数据
+
 ## 许可证
 
 MIT License
