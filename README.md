@@ -93,7 +93,10 @@ opsxcli mysql -u root -h localhost -p
 opsxcli mysql -u root -p "password" -h localhost -e "SELECT VERSION()"
 
 # Redis 交互式 shell
-opsxcli redis interactive -h 127.0.0.1 -a password
+opsxcli redis -h 127.0.0.1
+
+# Redis 集群连接
+opsxcli redis -h 127.0.0.1 -p 6001 -c -a password
 
 # Redis 操作
 opsxcli redis get mykey -h 127.0.0.1
