@@ -156,7 +156,7 @@ opsxcli net
 ```bash
 # 在kubectl主机上运行，自动搜索集群所有svc的metrics接口并注册服务到 Consul
 opsxcli consul -s https://consul.example.com:8500 -m /actuator/prometheus
-opsxcli consul -s https://consul.example.com:8500 -m /actuator/prometheus
+
 
 # 清理失效实例
 opsxcli consul -s https://consul.example.com:8500 --clean
