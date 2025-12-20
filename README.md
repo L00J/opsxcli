@@ -154,7 +154,8 @@ opsxcli net
 ### Kubernetes 服务管理
 
 ```bash
-# 从 K8s 集群注册服务到 Consul
+# 在kubectl主机上运行，自动搜索集群所有svc的metrics接口并注册服务到 Consul
+opsxcli consul -s https://consul.example.com:8500 -m /actuator/prometheus
 opsxcli consul -s https://consul.example.com:8500 -m /actuator/prometheus
 
 # 清理失效实例
