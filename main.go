@@ -5,9 +5,7 @@ import (
 	"strings"
 
 	"opsxcli/cmd"
-	"opsxcli/internal/core"
 	"opsxcli/internal/logger"
-	"opsxcli/internal/security"
 
 	"github.com/spf13/cobra"
 )
@@ -76,20 +74,7 @@ func main() {
 
 	// 初始化日志系统
 	logger.Init()
-
-	// 初始化核心引擎（包含代码保护）
-	engine := core.NewEngine(version, buildTime, gitCommit)
-	if err := engine.Validate(); err != nil {
-		logger.Error("引擎验证失败: %v", err)
-		os.Exit(1)
-	}
-
-	// 初始化安全保护
-	protection := security.NewProtection()
-	if err := protection.Verify(); err != nil {
-		logger.Error("安全验证失败: %v", err)
-		os.Exit(1)
-	}
+	defer logger.Close()
 
 	// 创建根命令
 	rootCmd := cmd.NewRootCmd(version)
@@ -100,11 +85,6 @@ func main() {
 
 	// 执行命令
 	if err := rootCmd.Execute(); err != nil {
-		// Cobra 已经输出了错误信息,这里只需要关闭日志并退出
-		logger.Close()
 		os.Exit(1)
 	}
-
-	// 正常退出时也关闭日志
-	logger.Close()
 }

@@ -26,6 +26,9 @@ build.sh
 Thumbs.db
 __pycache__
 
+# 个人开发代码（不提交到仓库）
+internal/agent/
+
 # 排除其他文档文件（只保留 README.md）
 *.md
 !README.md
@@ -33,3 +36,4 @@ docs/!*.md
 release.py
 .claude
 plugins/
+*.py

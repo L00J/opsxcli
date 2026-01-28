@@ -30,10 +30,8 @@ func NewRootCmd(version string) *cobra.Command {
 				return NewUpgradeCmd().RunE(cmd, args)
 			}
 
-			if len(args) == 0 {
-				cmd.Help()
-				return nil
-			}
+			// 没有参数，显示帮助
+			cmd.Help()
 			return nil
 		},
 	}
@@ -73,12 +71,14 @@ func NewRootCmd(version string) *cobra.Command {
 		NewCurlCmd(),
 		NewWgetCmd(),
 		NewRequestCmd(),
+		NewWebSearchCmd(), // Web搜索
 		NewDockerCmd(),
 		NewKubectlCmd(),
 		NewConsulCmd(),
 		NewKubernetesCmd(),
 		NewInstallCmd(),
 		NewUpgradeCmd(),
+		NewTestCmd(), // 测试命令
 	)
 
 	// === Busybox 兼容命令 ===
@@ -134,6 +134,10 @@ func NewRootCmd(version string) *cobra.Command {
 		NewMountCmd(),
 		NewUmountCmd(),
 	)
+	// 磁盘工具
+	rootCmd.AddCommand(
+		NewDdCmd(),
+	)
 	// 时间日期
 	rootCmd.AddCommand(
 		NewDateCmd(),
@@ -186,6 +190,7 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 		{"文件", []string{"ls", "cat", "grep", "vi", "cp", "mv", "rm", "mkdir", "tree"}, "文件和目录操作"},
 		{"数据库", []string{"mysql", "psql", "redis"}, "MySQL, PostgreSQL, Redis"},
 		{"系统", []string{"ps", "top", "free", "df", "du", "uname", "hostname"}, "进程和系统信息"},
+		{"磁盘", []string{"dd"}, "磁盘读写和数据转换"},
 		{"", []string{}, ""}, // 空行分隔
 		// === 网络工具 ===
 		{"网络", []string{"ssh", "ping", "traceroute", "telnet", "nc", "ss", "nmap"}, "SSH, Ping, 端口扫描等"},
@@ -194,7 +199,7 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 		// === 其他工具 ===
 		{"压缩", []string{"tar", "gzip", "unzip"}, "归档和压缩工具"},
 		{"服务", []string{"server"}, "HTTP/WebSocket/gRPC 服务"},
-		{"工具", []string{"curl", "wget", "request"}, "HTTP请求, 文件下载"},
+		{"工具", []string{"curl", "wget", "request", "websearch"}, "HTTP请求, 文件下载, Web搜索"},
 		{"", []string{}, ""}, // 空行分隔
 		// === Docker 工具 ===
 		{"Docker", []string{"docker"}, "镜像管理, 多源极速下载"},
@@ -239,13 +244,15 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 	}
 
 	// 底部提示
-	fmt.Printf("\n%s:\n", color.GreenString("Tips"))
+	fmt.Printf("\n%s:\n", color.GreenString("使用提示"))
 	fmt.Printf("  • 查看命令帮助: %s\n", color.CyanString("opsxcli <command> --help"))
 	fmt.Printf("  • 升级到最新版: %s 或 %s\n", color.CyanString("opsxcli --upgrade"), color.CyanString("opsxcli upgrade"))
 	fmt.Printf("  • 系统监控TUI: %s\n", color.CyanString("opsxcli sys"))
 	fmt.Printf("  • 网络监控TUI: %s\n", color.CyanString("opsxcli net"))
 	fmt.Printf("  • 快速端口扫描: %s\n", color.CyanString("opsxcli nmap <host>"))
 	fmt.Printf("  • SSH连接: %s\n", color.CyanString("opsxcli ssh user@host"))
+	fmt.Printf("  • MySQL连接: %s\n", color.CyanString("opsxcli mysql -u root -h localhost"))
+	fmt.Printf("  • Redis连接: %s\n", color.CyanString("opsxcli redis -h 127.0.0.1"))
 }
 
 // formatCommandList 格式化命令列表为紧凑格式

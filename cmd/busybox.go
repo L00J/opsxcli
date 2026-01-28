@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/spf13/cobra"
 	"opsxcli/internal/exec"
 	"opsxcli/plugins/busybox"
@@ -99,7 +102,18 @@ func NewMkdirCmd() *cobra.Command {
 }
 
 func NewRmdirCmd() *cobra.Command {
-	return createForwardCmd("rmdir", "删除空目录", "删除空目录")
+	var parents bool
+	cmd := &cobra.Command{
+		Use:   "rmdir [flags] directories...",
+		Short: "删除空目录",
+		Long:  "删除空目录（Go 原生实现）",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return busybox.Rmdir(args, parents)
+		},
+	}
+	cmd.Flags().BoolVarP(&parents, "parents", "p", false, "删除目录及其祖先目录")
+	return cmd
 }
 
 func NewTreeCmd() *cobra.Command {
@@ -119,15 +133,76 @@ func NewTouchCmd() *cobra.Command {
 }
 
 func NewChmodCmd() *cobra.Command {
-	return createForwardCmd("chmod", "修改文件权限", "修改文件或目录的访问权限")
+	var recursive bool
+	cmd := &cobra.Command{
+		Use:   "chmod [flags] mode files...",
+		Short: "修改文件权限",
+		Long: `修改文件或目录的访问权限（Go 原生实现）
+
+权限模式使用八进制表示，例如:
+  755 - rwxr-xr-x
+  644 - rw-r--r--
+  777 - rwxrwxrwx
+
+示例:
+  opsxcli chmod 755 file.sh
+  opsxcli chmod -R 644 /path/to/dir`,
+		Args: cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			mode := args[0]
+			paths := args[1:]
+			return busybox.Chmod(mode, paths, recursive)
+		},
+	}
+	cmd.Flags().BoolVarP(&recursive, "recursive", "R", false, "递归修改目录权限")
+	return cmd
 }
 
 func NewChownCmd() *cobra.Command {
-	return createForwardCmd("chown", "修改文件所有者", "修改文件或目录的所有者和组")
+	var recursive bool
+	cmd := &cobra.Command{
+		Use:   "chown [flags] owner[:group] files...",
+		Short: "修改文件所有者",
+		Long: `修改文件或目录的所有者和组（Go 原生实现）
+
+所有者格式:
+  UID       - 只改变所有者
+  UID:GID   - 同时改变所有者和组
+
+示例:
+  opsxcli chown 1000 file.txt
+  opsxcli chown 1000:1000 file.txt
+  opsxcli chown -R 0:0 /path/to/dir`,
+		Args: cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			owner := args[0]
+			paths := args[1:]
+			return busybox.Chown(owner, paths, recursive)
+		},
+	}
+	cmd.Flags().BoolVarP(&recursive, "recursive", "R", false, "递归修改目录所有者")
+	return cmd
 }
 
 func NewLnCmd() *cobra.Command {
-	return createForwardCmd("ln", "创建链接", "创建硬链接或符号链接")
+	var symbolic bool
+	cmd := &cobra.Command{
+		Use:   "ln [flags] target link",
+		Short: "创建链接",
+		Long: `创建硬链接或符号链接（Go 原生实现）
+
+示例:
+  opsxcli ln file.txt hardlink.txt        # 创建硬链接
+  opsxcli ln -s /path/to/file symlink     # 创建符号链接`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			target := args[0]
+			link := args[1]
+			return busybox.Ln(target, link, symbolic)
+		},
+	}
+	cmd.Flags().BoolVarP(&symbolic, "symbolic", "s", false, "创建符号链接而非硬链接")
+	return cmd
 }
 
 // === 文件查看/编辑 ===
@@ -155,11 +230,41 @@ func NewLessCmd() *cobra.Command {
 }
 
 func NewHeadCmd() *cobra.Command {
-	return createForwardCmd("head", "显示文件开头", "显示文件的前几行")
+	var lines int
+	cmd := &cobra.Command{
+		Use:   "head [flags] [files...]",
+		Short: "显示文件开头",
+		Long: `显示文件的前几行（Go 原生实现）
+
+示例:
+  opsxcli head file.txt          # 显示前 10 行
+  opsxcli head -n 20 file.txt    # 显示前 20 行
+  cat file.txt | opsxcli head    # 从标准输入读取`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return busybox.Head(args, lines)
+		},
+	}
+	cmd.Flags().IntVarP(&lines, "lines", "n", 10, "显示的行数")
+	return cmd
 }
 
 func NewTailCmd() *cobra.Command {
-	return createForwardCmd("tail", "显示文件末尾", "显示文件的后几行")
+	var lines int
+	cmd := &cobra.Command{
+		Use:   "tail [flags] [files...]",
+		Short: "显示文件末尾",
+		Long: `显示文件的后几行（Go 原生实现）
+
+示例:
+  opsxcli tail file.txt          # 显示后 10 行
+  opsxcli tail -n 20 file.txt    # 显示后 20 行
+  cat file.txt | opsxcli tail    # 从标准输入读取`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return busybox.Tail(args, lines)
+		},
+	}
+	cmd.Flags().IntVarP(&lines, "lines", "n", 10, "显示的行数")
+	return cmd
 }
 
 func NewGrepCmd() *cobra.Command {
@@ -325,18 +430,97 @@ func NewRouteCmd() *cobra.Command {
 
 func NewIpCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "ip",
-		Short: "网络配置工具",
-		Long:  "显示网络配置信息",
+		Use:   "ip [ OPTIONS ] OBJECT { COMMAND | help }",
+		Short: "显示/操作路由、网络设备、接口和隧道",
+		Long: `ip - 显示/操作路由、网络设备、接口和隧道
+
+用法: ip [ OPTIONS ] OBJECT { COMMAND | help }
+      ip [ -force ] -batch filename
+
+OBJECT := { link | address | route | help }
+OPTIONS := { -V[ersion] | -h[uman-readable] | -s[tatistics] |
+             -r[esolve] | -f[amily] { inet | inet6 } |
+             -4 | -6 | -o[neline] | -br[ief] }
+
+常用命令:
+  ip addr           显示所有网络接口的 IP 地址
+  ip addr show      显示所有网络接口的 IP 地址
+  ip link           显示所有网络接口信息
+  ip link show      显示所有网络接口信息
+  ip route          显示路由表
+  ip route show     显示路由表
+
+简写形式:
+  ip a              等同于 ip addr
+  ip l              等同于 ip link
+  ip r              等同于 ip route`,
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// 简化实现，只支持 ip addr show
-			if len(args) > 0 && (args[0] == "addr" || args[0] == "address" || args[0] == "a") {
-				return busybox.ShowIPAddr()
-			}
-			// 默认显示 addr
-			return busybox.ShowIPAddr()
+			return handleIPCommand(args)
 		},
 	}
+}
+
+// handleIPCommand 处理 ip 命令的各种子命令
+func handleIPCommand(args []string) error {
+	// 没有参数，默认显示 addr
+	if len(args) == 0 {
+		return busybox.ShowIPAddr()
+	}
+
+	// 过滤掉选项参数（以 - 开头的）
+	var object string
+	for i, arg := range args {
+		if arg == "-h" || arg == "--help" || arg == "help" {
+			// 显示帮助信息
+			fmt.Println(getIPHelpText())
+			return nil
+		}
+		if !strings.HasPrefix(arg, "-") {
+			object = arg
+			break
+		}
+		_ = i // 避免未使用变量警告
+	}
+
+	// 处理对象别名
+	switch object {
+	case "a", "add", "addr", "address":
+		return busybox.ShowIPAddr()
+	case "l", "link":
+		return busybox.ShowInterfaces()
+	case "r", "route":
+		return busybox.ShowRoutes()
+	case "help", "":
+		fmt.Println(getIPHelpText())
+		return nil
+	default:
+		return fmt.Errorf("对象 \"%s\" 未知，请尝试 \"ip help\"", object)
+	}
+}
+
+// getIPHelpText 返回 ip 命令的帮助文本
+func getIPHelpText() string {
+	return `用法: ip [ OPTIONS ] OBJECT { COMMAND | help }
+      ip [ -force ] -batch filename
+
+OBJECT := { link | address | route | help }
+OPTIONS := { -V[ersion] | -h[uman-readable] | -s[tatistics] |
+             -r[esolve] | -f[amily] { inet | inet6 } |
+             -4 | -6 | -o[neline] | -br[ief] }
+
+常用命令:
+  ip addr           显示所有网络接口的 IP 地址
+  ip addr show      显示所有网络接口的 IP 地址
+  ip link           显示所有网络接口信息
+  ip link show      显示所有网络接口信息
+  ip route          显示路由表
+  ip route show     显示路由表
+
+简写形式:
+  ip a              等同于 ip addr
+  ip l              等同于 ip link
+  ip r              等同于 ip route`
 }
 
 // === 网络传输 ===
@@ -348,4 +532,62 @@ func NewFtpCmd() *cobra.Command {
 
 func NewTftpCmd() *cobra.Command {
 	return createForwardCmd("tftp", "TFTP 客户端", "简单文件传输协议客户端")
+}
+
+// === 磁盘工具 ===
+
+func NewDdCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "dd [options]",
+		Short: "转换和复制文件",
+		Long: `转换和复制文件,支持底层数据复制
+
+参数格式: key=value
+
+常用选项:
+  if=FILE         输入文件 (默认: stdin)
+  of=FILE         输出文件 (默认: stdout)
+  bs=BYTES        块大小 (默认: 512)
+  count=N         复制 N 个块
+  skip=N          跳过输入文件的前 N 个块
+  seek=N          跳过输出文件的前 N 个块
+  conv=CONVS      转换选项 (notrunc: 不截断输出文件)
+  status=LEVEL    显示级别 (progress, noxfer, none)
+
+大小单位: K (1024), M (1024*1024), G (1024*1024*1024)
+
+示例:
+  # 创建 100MB 的空文件
+  opsxcli dd if=/dev/zero of=test.img bs=1M count=100
+
+  # 复制文件
+  opsxcli dd if=input.bin of=output.bin bs=4K
+
+  # 备份磁盘分区
+  opsxcli dd if=/dev/sda1 of=backup.img bs=1M status=progress
+
+  # 创建引导盘
+  opsxcli dd if=ubuntu.iso of=/dev/sdb bs=4M status=progress
+
+  # 擦除磁盘数据
+  opsxcli dd if=/dev/zero of=/dev/sdb bs=1M count=1024
+
+  # 从文件中读取特定位置的数据
+  opsxcli dd if=data.bin of=output.bin bs=512 skip=10 count=20`,
+		DisableFlagParsing: true, // 禁用标准参数解析,使用自定义格式
+		RunE: func(c *cobra.Command, args []string) error {
+			// 处理帮助请求
+			if len(args) > 0 && (args[0] == "-h" || args[0] == "--help" || args[0] == "help") {
+				fmt.Println(c.Long)
+				return nil
+			}
+
+			opts, err := busybox.ParseDdArgs(args)
+			if err != nil {
+				return fmt.Errorf("参数错误: %v", err)
+			}
+			return busybox.Dd(opts)
+		},
+	}
+	return cmd
 }

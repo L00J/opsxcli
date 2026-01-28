@@ -292,12 +292,103 @@ func NewKubectlCmd() *cobra.Command {
 	kubectlExecCmd.Flags().BoolVarP(&execStdin, "stdin", "i", false, "传递 stdin 到容器")
 	kubectlExecCmd.Flags().BoolVarP(&execTTY, "tty", "t", false, "分配 TTY")
 
+	// kubectl cp 命令
+	var cpContainer string
+	kubectlCpCmd := &cobra.Command{
+		Use:   "cp [源路径] [目标路径]",
+		Short: "复制文件到 Pod 或从 Pod 复制文件",
+		Long: `在 Pod 和本地之间复制文件
+
+格式:
+  opsxcli kubectl cp <本地路径> <pod名称>:<pod路径>  # 复制到 Pod
+  opsxcli kubectl cp <pod名称>:<pod路径> <本地路径>  # 从 Pod 复制
+
+示例:
+  # 复制文件到 Pod
+  opsxcli kubectl cp /usr/local/bin/opsxcli my-pod:/usr/local/bin
+  opsxcli kubectl cp ./config.yaml my-pod:/etc/config.yaml -n default
+
+  # 从 Pod 复制文件
+  opsxcli kubectl cp my-pod:/var/log/app.log ./app.log
+  opsxcli kubectl cp my-pod:/etc/nginx/nginx.conf ./nginx.conf -n kube-system
+
+  # 指定容器
+  opsxcli kubectl cp file.txt my-pod:/tmp/file.txt -c container-name`,
+		Args: cobra.ExactArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			srcPath := args[0]
+			destPath := args[1]
+
+			err := kubernetes.CopyFile(kubectlKubeconfig, srcPath, destPath, kubectlNamespace, cpContainer)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("文件复制成功")
+		},
+	}
+
+	kubectlCpCmd.Flags().StringVarP(&kubectlKubeconfig, "kubeconfig", "k", "", "kubeconfig 文件路径（默认：~/.kube/config）")
+	kubectlCpCmd.Flags().StringVarP(&kubectlNamespace, "namespace", "n", "", "命名空间（默认：default）")
+	kubectlCpCmd.Flags().StringVarP(&cpContainer, "container", "c", "", "容器名称")
+
+	// kubectl top 命令
+	kubectlTopCmd := &cobra.Command{
+		Use:   "top",
+		Short: "显示资源使用情况",
+		Long:  `显示 Pod 或 Node 的资源使用情况（需要 Metrics Server）`,
+	}
+
+	kubectlTopPodsCmd := &cobra.Command{
+		Use:   "pods",
+		Short: "显示 Pod 资源使用情况",
+		Long: `显示 Pod 的 CPU 和内存使用情况
+
+示例:
+  opsxcli kubectl top pods
+  opsxcli kubectl top pods -n kube-system
+  opsxcli kubectl top pods -A`,
+		Run: func(cmd *cobra.Command, args []string) {
+			err := kubernetes.TopPods(kubectlKubeconfig, kubectlNamespace, kubectlAllNs)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+				os.Exit(1)
+			}
+		},
+	}
+
+	kubectlTopPodsCmd.Flags().StringVarP(&kubectlKubeconfig, "kubeconfig", "k", "", "kubeconfig 文件路径（默认：~/.kube/config）")
+	kubectlTopPodsCmd.Flags().StringVarP(&kubectlNamespace, "namespace", "n", "", "命名空间（默认：default）")
+	kubectlTopPodsCmd.Flags().BoolVarP(&kubectlAllNs, "all-namespaces", "A", false, "所有命名空间")
+
+	kubectlTopNodesCmd := &cobra.Command{
+		Use:   "nodes",
+		Short: "显示 Node 资源使用情况",
+		Long: `显示 Node 的 CPU 和内存使用情况
+
+示例:
+  opsxcli kubectl top nodes`,
+		Run: func(cmd *cobra.Command, args []string) {
+			err := kubernetes.TopNodes(kubectlKubeconfig)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+				os.Exit(1)
+			}
+		},
+	}
+
+	kubectlTopNodesCmd.Flags().StringVarP(&kubectlKubeconfig, "kubeconfig", "k", "", "kubeconfig 文件路径（默认：~/.kube/config）")
+
+	kubectlTopCmd.AddCommand(kubectlTopPodsCmd)
+	kubectlTopCmd.AddCommand(kubectlTopNodesCmd)
 
 	// 添加子命令
 	kubectlCmd.AddCommand(kubectlGetCmd)
 	kubectlCmd.AddCommand(kubectlDescribeCmd)
 	kubectlCmd.AddCommand(kubectlLogsCmd)
 	kubectlCmd.AddCommand(kubectlExecCmd)
+	kubectlCmd.AddCommand(kubectlCpCmd)
+	kubectlCmd.AddCommand(kubectlTopCmd)
 	kubectlCmd.AddCommand(kubectlDeleteCmd)
 	kubectlCmd.AddCommand(kubectlScaleCmd)
 	kubectlCmd.AddCommand(kubectlRolloutCmd)

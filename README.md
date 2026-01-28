@@ -1,14 +1,15 @@
 # opsxcli - 运维瑞士军刀 | 一站式命令行工具集
 
-面向运维和开发的集成化命令行工具,**一条命令操作 MySQL、Redis、SSH、Docker、Kubernetes 等服务**。
+面向运维和开发的集成化命令行工具，**一条命令操作 MySQL、Redis、SSH、Docker、Kubernetes 等服务**。
 
 ## ✨ 核心特性
 
 - 🚀 **多合一工具**: 整合数据库、网络、系统、容器编排等 70+ 命令
-- ⚡ **实时监控**: 网络和系统监控终端设计
+- ⚡ **实时监控**: 网络和系统监控终端 UI 设计
 - 📦 **网络工具**: 替代 iproute、net-tools 等常用包
 - 🐳 **容器加速**: Docker 镜像自动加速、多源极速、断点续传
 - ☸️ **K8s 集成**: kubectl 代理、服务发现、资源管理
+- 🔧 **Busybox 兼容**: 支持 70+ 常用 Linux 命令
 
 ## 🛠️ 主要功能
 
@@ -108,7 +109,7 @@ opsxcli redis set mykey "myvalue" -h 127.0.0.1
 ```bash
 # 交互式登录
 opsxcli ssh root@172.16.1.123
-opsxcli ssh -i ~/.ssh/id_rsa root@opsx.vip  -p55555
+opsxcli ssh -i ~/.ssh/id_rsa root@opsx.vip -p55555
 
 # 执行命令
 opsxcli ssh root@172.16.1.123 "ls -la"
@@ -134,7 +135,7 @@ opsxcli docker pull nginx:latest redis:alpine mysql:8.0
 opsxcli docker pull nginx:latest -r docker.aityp.com -r docker.1ms.run -c 5
 ```
 
-### 系统监控 
+### 系统监控
 
 ```bash
 # 进入系统监控界面(2秒实时刷新)
@@ -159,6 +160,10 @@ opsxcli consul -s https://consul.example.com:8500 -m /actuator/prometheus
 
 # 清理失效实例
 opsxcli consul -s https://consul.example.com:8500 --clean
+
+# kubectl 命令代理
+opsxcli kubectl get pods
+opsxcli kubectl describe pod nginx-xxx
 ```
 
 ### 网络连接分析
@@ -205,3 +210,4 @@ opsxcli upgrade
 ## 许可证
 
 MIT License
+
