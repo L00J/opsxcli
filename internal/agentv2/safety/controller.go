@@ -29,6 +29,9 @@ type Controller struct {
 	history     []ExecutionRecord // 执行历史记录
 }
 
+// maxHistorySize 执行历史记录最大条数，防止长时间运行导致内存无限增长
+const maxHistorySize = 1000
+
 // ExecutionRecord 单次工具执行记录
 type ExecutionRecord struct {
 	ToolName  string                 // 工具名称
@@ -78,15 +81,24 @@ func (c *Controller) Check(tool tools.Tool, args map[string]interface{}) (bool, 
 	// 不需要确认或已开启自动批准
 	if !needsConfirm || c.autoApprove {
 		record.Approved = true
-		c.history = append(c.history, record)
+		c.addRecord(record)
 		return true, nil
 	}
 
 	// 请求用户交互式确认
 	approved := c.requestConfirmation(tool, args, riskLevel)
 	record.Approved = approved
-	c.history = append(c.history, record)
+	c.addRecord(record)
 	return approved, nil
+}
+
+// addRecord 添加执行记录，自动限制历史大小
+func (c *Controller) addRecord(record ExecutionRecord) {
+	if len(c.history) >= maxHistorySize {
+		// 淘汰最旧的 10% 记录，避免每次添加都复制切片
+		c.history = c.history[maxHistorySize/10:]
+	}
+	c.history = append(c.history, record)
 }
 
 // MarkExecuted 标记工具已执行完成

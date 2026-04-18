@@ -39,8 +39,12 @@ func NewAgent(llmClient llm.Client, registry *tools.Registry, config *Config, sa
 		safetyCtl = safety.NewController(safety.SafetyMode(config.SafetyMode))
 	}
 
-	// 初始化 Evolver 引擎
-	evolverEngine, _ := evolver.NewEvolverEngine(config.SessionDir)
+	// 初始化 Evolver 引擎（失败时降级处理，不影响 Agent 正常运行）
+	evolverEngine, err := evolver.NewEvolverEngine(config.SessionDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[警告] 初始化 Evolver 引擎失败: %v，将以降级模式运行\n", err)
+		evolverEngine = nil
+	}
 
 	return &Agent{
 		llmClient: llmClient,
@@ -108,7 +112,7 @@ func (a *Agent) Run(ctx context.Context, query string) (*tools.Result, error) {
 			}
 
 			// Evolver: 触发 10 步进化循环（异步）
-			a.triggerEvolve(query, finalResult.Output, len(toolCallRecords), startTime, toolCallRecords, true)
+			a.triggerEvolve(ctx, query, finalResult.Output, len(toolCallRecords), startTime, toolCallRecords, true)
 
 			return finalResult, nil
 		}
@@ -234,7 +238,7 @@ func (a *Agent) Run(ctx context.Context, query string) (*tools.Result, error) {
 	err := fmt.Errorf("达到最大迭代次数(%d)，任务未能完成。可能原因：任务过于复杂、遇到循环调用或需要更多步骤", a.config.MaxIterations)
 
 	// 即使失败也触发 Evolver（记录失败经验）
-	a.triggerEvolve(query, "", len(toolCallRecords), startTime, toolCallRecords, false)
+	a.triggerEvolve(ctx, query, "", len(toolCallRecords), startTime, toolCallRecords, false)
 
 	return nil, err
 }
@@ -318,7 +322,7 @@ func (a *Agent) trimMessages(msgs []llm.Message) []llm.Message {
 }
 
 // triggerEvolve 触发 Evolver 10 步进化循环（异步，不阻塞）
-func (a *Agent) triggerEvolve(query, finalAnswer string, totalSteps int, startTime time.Time, records []evolver.ToolCallRecord, success bool) {
+func (a *Agent) triggerEvolve(ctx context.Context, query, finalAnswer string, totalSteps int, startTime time.Time, records []evolver.ToolCallRecord, success bool) {
 	if a.evolver == nil {
 		return
 	}
@@ -337,11 +341,20 @@ func (a *Agent) triggerEvolve(query, finalAnswer string, totalSteps int, startTi
 
 	// 在后台 goroutine 中执行进化（不阻塞用户）
 	go func() {
-		ctx := context.Background()
-		result := a.evolver.Evolve(ctx, exec)
+		defer func() {
+			if r := recover(); r != nil {
+				// panic recovery: 防止 Evolver 异常导致整个程序崩溃
+				fmt.Fprintf(os.Stderr, "[警告] Evolver 进化过程发生 panic: %v\n", r)
+			}
+		}()
+
+		// 使用带超时的 context，避免 goroutine 泄漏
+		evolveCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+
+		result := a.evolver.Evolve(evolveCtx, exec)
 		if result != nil && result.UserFeedback != "" {
-			// 静默记录，不在 CLI 中打扰用户
-			// 可通过 /stats 命令查看进化状态
+			// 可通过 debug 模式或 /stats 命令查看进化状态
 			_ = result
 		}
 	}()

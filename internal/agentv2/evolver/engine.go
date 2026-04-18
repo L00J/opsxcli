@@ -63,7 +63,10 @@ type EvolveResult struct {
 // NewEvolverEngine 创建进化引擎
 func NewEvolverEngine(baseDir string) (*EvolverEngine, error) {
 	if baseDir == "" {
-		home, _ := os.UserHomeDir()
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("获取用户主目录失败: %w", err)
+		}
 		baseDir = filepath.Join(home, ".opsxcli", "agentv2")
 	}
 
@@ -310,7 +313,7 @@ func (e *EvolverEngine) stepConsolidate(taskType string) bool {
 		sequenceMap[key] = append(sequenceMap[key], exp)
 	}
 
-	// 如果某个序列积累了多条经验，提升其权重
+	// 如果某个序列积累了多条经验，合并并删除重复项
 	consolidated := false
 	for _, group := range sequenceMap {
 		if len(group) >= 3 {
@@ -323,8 +326,18 @@ func (e *EvolverEngine) stepConsolidate(taskType string) bool {
 			}
 			merged.SuccessRate = totalRate / float64(len(group))
 			merged.LastUsedAt = time.Now()
+
+			// 从经验列表中删除其他重复项（保留 merged 即 group[0]）
+			for i := 1; i < len(group); i++ {
+				e.experience.RemoveExperience(group[i])
+			}
 			consolidated = true
 		}
+	}
+
+	// 如果触发了整合，保存更新后的经验
+	if consolidated {
+		_ = e.experience.Save()
 	}
 
 	return consolidated

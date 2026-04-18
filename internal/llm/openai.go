@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // OpenAIClient OpenAI 兼容的客户端（DeepSeek、Ollama等）
@@ -21,10 +22,12 @@ type OpenAIClient struct {
 // NewOpenAIClient 创建 OpenAI 兼容客户端
 func NewOpenAIClient(baseURL, apiKey, model string) *OpenAIClient {
 	return &OpenAIClient{
-		baseURL:    strings.TrimSuffix(baseURL, "/"),
-		apiKey:     apiKey,
-		model:      model,
-		httpClient: &http.Client{},
+		baseURL: strings.TrimSuffix(baseURL, "/"),
+		apiKey:  apiKey,
+		model:   model,
+		httpClient: &http.Client{
+			Timeout: 120 * time.Second, // 默认请求超时 120 秒
+		},
 	}
 }
 
@@ -33,8 +36,53 @@ func (c *OpenAIClient) Name() string {
 	return "openai-compatible"
 }
 
-// Complete 完成对话
+// Complete 完成对话（带指数退避重试）
 func (c *OpenAIClient) Complete(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
+	const maxRetries = 3
+	var lastErr error
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			// 指数退避: 1s, 2s, 4s
+			backoff := time.Duration(1<<(attempt-1)) * time.Second
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+
+		resp, err := c.doComplete(ctx, req)
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+
+		// 如果不是可重试错误，直接返回
+		if !isRetryableError(err) {
+			return nil, err
+		}
+	}
+
+	return nil, fmt.Errorf("LLM 请求失败（已重试 %d 次）: %w", maxRetries, lastErr)
+}
+
+// isRetryableError 判断错误是否可重试
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	// 网络超时、连接重置、5xx 错误等可重试
+	return strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "no such host") ||
+		strings.Contains(errStr, "EOF") ||
+		strings.Contains(errStr, "connection refused")
+}
+
+// doComplete 实际执行单次请求
+func (c *OpenAIClient) doComplete(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
 	// 构建请求体
 	reqBody := map[string]interface{}{
 		"model":    c.model,

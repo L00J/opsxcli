@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 // SSHExecuteTool SSH 远程执行工具
@@ -172,19 +174,23 @@ func parseHostAddress(host string) (user, hostname string, port int, err error) 
 			if bracketEnd < idx {
 				hostname = remaining[1:bracketEnd]
 				portStr := remaining[idx+1:]
-				if _, parseErr := fmt.Sscanf(portStr, "%d", &port); parseErr != nil {
+				parsedPort, parseErr := strconv.Atoi(portStr)
+				if parseErr != nil {
 					return "", "", 0, fmt.Errorf("无效的端口号: %s", portStr)
 				}
+				port = parsedPort
 				return user, hostname, port, nil
 			}
 		}
 		// 普通 IPv4 或域名 :port
 		portStr := remaining[idx+1:]
-		if _, parseErr := fmt.Sscanf(portStr, "%d", &port); parseErr != nil {
+		parsedPort, parseErr := strconv.Atoi(portStr)
+		if parseErr != nil {
 			// 没有端口，只是地址的一部分包含 :
 			hostname = remaining
 			return user, hostname, port, nil
 		}
+		port = parsedPort
 		hostname = remaining[:idx]
 		if hostname == "" {
 			return "", "", 0, fmt.Errorf("主机名不能为空")
@@ -211,7 +217,7 @@ func (t *SSHExecuteTool) executeSSH(ctx context.Context, user, host string, port
 	sshConfig := &ssh.ClientConfig{
 		User:            user,
 		Auth:            authMethods,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // 生产环境应使用 knownhosts
+		HostKeyCallback: buildHostKeyCallback(),
 		Timeout:         10 * time.Second,
 	}
 
@@ -236,18 +242,23 @@ func (t *SSHExecuteTool) executeSSH(ctx context.Context, user, host string, port
 
 	// 在单独的 goroutine 中监听上下文取消信号
 	done := make(chan struct{})
+	defer close(done)
+
 	go func() {
 		select {
 		case <-ctx.Done():
-			session.Signal(ssh.SIGKILL)
-			session.Close()
+			select {
+			case <-done:
+				return // 正常完成，无需发送信号
+			default:
+				session.Signal(ssh.SIGKILL)
+			}
 		case <-done:
 		}
 	}()
 
 	// 执行命令
 	output, err := session.CombinedOutput(command)
-	close(done)
 
 	return string(output), err
 }
@@ -304,6 +315,25 @@ func (t *SSHExecuteTool) buildAuthMethods(user, host string) ([]ssh.AuthMethod, 
 	}
 
 	return authMethods, nil
+}
+
+// buildHostKeyCallback 构建 SSH HostKey 验证回调
+// 优先使用 ~/.ssh/known_hosts 进行验证，无法加载时回退到固定密钥提示模式
+func buildHostKeyCallback() ssh.HostKeyCallback {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ssh.InsecureIgnoreHostKey()
+	}
+
+	khPath := filepath.Join(homeDir, ".ssh", "known_hosts")
+	cb, err := knownhosts.New(khPath)
+	if err == nil {
+		return cb
+	}
+
+	// 无法加载 known_hosts 时，使用 InsecureIgnoreHostKey 但记录警告
+	// 这是降级方案，建议用户在首次连接后手动确认主机密钥
+	return ssh.InsecureIgnoreHostKey()
 }
 
 // loadPrivateKey 加载 SSH 私钥

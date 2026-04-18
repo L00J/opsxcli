@@ -3,7 +3,9 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -75,7 +77,10 @@ func NewAgentCmd() *cobra.Command {
 				}
 
 				// 重新加载配置
-				configManager, _ = llm.NewConfigManager("")
+				configManager, err = llm.NewConfigManager("")
+				if err != nil {
+					return fmt.Errorf("重新加载配置失败: %w", err)
+				}
 				providers = configManager.List()
 
 				if len(providers) == 0 {
@@ -215,7 +220,7 @@ func runInteractive(ag *core.Agent, manager session.Manager, provider string, de
 
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				fmt.Println()
 				fmt.Println(color.YellowString("👋 再见！"))
 				return nil
@@ -285,7 +290,7 @@ func runInteractiveWithTasks(ag *core.Agent, manager session.Manager, provider s
 
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				fmt.Println()
 				fmt.Println(color.YellowString("👋 再见！"))
 				return nil
@@ -506,7 +511,7 @@ func runResumeSession(ag *core.Agent, manager session.Manager, sessionID string,
 
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				fmt.Println()
 				fmt.Println(color.YellowString("👋 再见！"))
 				return nil

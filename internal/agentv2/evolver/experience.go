@@ -216,6 +216,21 @@ func (em *ExperienceMemory) Count() int {
 	return len(em.experiences)
 }
 
+// RemoveExperience 从经验列表中移除指定经验
+func (em *ExperienceMemory) RemoveExperience(exp *Experience) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	key := em.makeKey(exp.TaskType, exp.ToolSequence)
+	newList := make([]*Experience, 0, len(em.experiences))
+	for _, e := range em.experiences {
+		if em.makeKey(e.TaskType, e.ToolSequence) != key {
+			newList = append(newList, e)
+		}
+	}
+	em.experiences = newList
+}
+
 // GetTaskTypeStats 获取任务类型统计
 func (em *ExperienceMemory) GetTaskTypeStats() map[string]int {
 	em.mu.RLock()

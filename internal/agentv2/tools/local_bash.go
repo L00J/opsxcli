@@ -154,50 +154,53 @@ func (t *LocalBashTool) Execute(ctx context.Context, args map[string]interface{}
 	return result, nil
 }
 
+// dangerousPattern 危险命令匹配模式
+type dangerousPattern struct {
+	pattern *regexp.Regexp
+	desc    string
+}
+
+// 包级别预编译危险命令正则（避免每次调用重复编译）
+var dangerousPatterns = []dangerousPattern{
+	// rm -rf / 及其变体
+	{regexp.MustCompile(`(?i)rm\s+-[a-zA-Z]*f[a-zA-Z]*\s+/(\s|$)`), "禁止执行 rm -rf / 或类似命令"},
+	{regexp.MustCompile(`(?i)rm\s+--no-preserve-root`), "禁止执行 rm --no-preserve-root"},
+	// mkfs 系列（格式化文件系统）
+	{regexp.MustCompile(`(?i)^\s*mkfs\.`), "禁止执行文件系统格式化命令"},
+	{regexp.MustCompile(`(?i)^\s*mkfs\s+`), "禁止执行文件系统格式化命令"},
+	// dd 命令写入 /dev/zero 到磁盘设备
+	{regexp.MustCompile(`(?i)dd\s+.*if=/dev/zero\s+.*of=/dev/`), "禁止执行 dd 覆盖磁盘设备命令"},
+	{regexp.MustCompile(`(?i)dd\s+.*if=/dev/urandom\s+.*of=/dev/`), "禁止执行 dd 覆盖磁盘设备命令"},
+	{regexp.MustCompile(`(?i)dd\s+.*if=/dev/random\s+.*of=/dev/`), "禁止执行 dd 覆盖磁盘设备命令"},
+	{regexp.MustCompile(`(?i)dd\s+.*of=/dev/[sh]d[a-z]`), "禁止执行 dd 覆盖磁盘设备命令"},
+	{regexp.MustCompile(`(?i)dd\s+.*of=/dev/nvme`), "禁止执行 dd 覆盖磁盘设备命令"},
+	// 著名的 fork bomb
+	{regexp.MustCompile(`:?\(\)\{\s*:\|:\&\s*\};\s*:`), "禁止执行 fork bomb"},
+	{regexp.MustCompile(`:?\(\)\{\s*:\|:\s*\};\s*:`), "禁止执行 fork bomb"},
+	// 直接写入系统设备
+	{regexp.MustCompile(`(?i)>\s*/dev/sd[a-z]`), "禁止直接写入磁盘设备"},
+	{regexp.MustCompile(`(?i)>\s*/dev/hd[a-z]`), "禁止直接写入磁盘设备"},
+	{regexp.MustCompile(`(?i)>\s*/dev/nvme`), "禁止直接写入磁盘设备"},
+	{regexp.MustCompile(`(?i)>\s*/dev/mem`), "禁止直接写入内存设备"},
+	{regexp.MustCompile(`(?i)>\s*/dev/kmem`), "禁止直接写入内核内存设备"},
+	{regexp.MustCompile(`(?i)>\s*/dev/port`), "禁止直接写入端口设备"},
+	{regexp.MustCompile(`(?i)>\s*/dev/zero\s+\d+`), "禁止执行覆盖设备命令"},
+	// 权限提升危险操作
+	{regexp.MustCompile(`(?i)chmod\s+-R\s+777\s+/`), "禁止修改根目录权限为 777"},
+	{regexp.MustCompile(`(?i)chmod\s+-R\s+000\s+/`), "禁止修改根目录权限为 000"},
+	// 删除关键系统目录
+	{regexp.MustCompile(`(?i)rm\s+.*\s+/bin\b`), "禁止删除 /bin 目录"},
+	{regexp.MustCompile(`(?i)rm\s+.*\s+/sbin\b`), "禁止删除 /sbin 目录"},
+	{regexp.MustCompile(`(?i)rm\s+.*\s+/usr/bin\b`), "禁止删除 /usr/bin 目录"},
+	{regexp.MustCompile(`(?i)rm\s+.*\s+/lib\b`), "禁止删除 /lib 目录"},
+	{regexp.MustCompile(`(?i)rm\s+.*\s+/lib64\b`), "禁止删除 /lib64 目录"},
+	{regexp.MustCompile(`(?i)rm\s+.*\s+/etc\b`), "禁止删除 /etc 目录"},
+	{regexp.MustCompile(`(?i)rm\s+.*\s+/boot\b`), "禁止删除 /boot 目录"},
+}
+
 // checkDangerousCommand 检查命令是否在危险黑名单中
 func checkDangerousCommand(command string) error {
 	lowerCmd := strings.ToLower(strings.TrimSpace(command))
-
-	// 定义危险命令黑名单（正则表达式模式）
-	dangerousPatterns := []struct {
-		pattern   *regexp.Regexp
-		desc      string
-	}{
-		// rm -rf / 及其变体
-		{regexp.MustCompile(`(?i)rm\s+-[a-zA-Z]*f[a-zA-Z]*\s+/(\s|$)`), "禁止执行 rm -rf / 或类似命令"},
-		{regexp.MustCompile(`(?i)rm\s+--no-preserve-root`), "禁止执行 rm --no-preserve-root"},
-		// mkfs 系列（格式化文件系统）
-		{regexp.MustCompile(`(?i)^\s*mkfs\.`), "禁止执行文件系统格式化命令"},
-		{regexp.MustCompile(`(?i)^\s*mkfs\s+`), "禁止执行文件系统格式化命令"},
-		// dd 命令写入 /dev/zero 到磁盘设备
-		{regexp.MustCompile(`(?i)dd\s+.*if=/dev/zero\s+.*of=/dev/`), "禁止执行 dd 覆盖磁盘设备命令"},
-		{regexp.MustCompile(`(?i)dd\s+.*if=/dev/urandom\s+.*of=/dev/`), "禁止执行 dd 覆盖磁盘设备命令"},
-		{regexp.MustCompile(`(?i)dd\s+.*if=/dev/random\s+.*of=/dev/`), "禁止执行 dd 覆盖磁盘设备命令"},
-		{regexp.MustCompile(`(?i)dd\s+.*of=/dev/[sh]d[a-z]`), "禁止执行 dd 覆盖磁盘设备命令"},
-		{regexp.MustCompile(`(?i)dd\s+.*of=/dev/nvme`), "禁止执行 dd 覆盖磁盘设备命令"},
-		// 著名的 fork bomb
-		{regexp.MustCompile(`:?\(\)\{\s*:\|:\&\s*\};\s*:`), "禁止执行 fork bomb"},
-		{regexp.MustCompile(`:?\(\)\{\s*:\|:\s*\};\s*:`), "禁止执行 fork bomb"},
-		// 直接写入系统设备
-		{regexp.MustCompile(`(?i)>\s*/dev/sd[a-z]`), "禁止直接写入磁盘设备"},
-		{regexp.MustCompile(`(?i)>\s*/dev/hd[a-z]`), "禁止直接写入磁盘设备"},
-		{regexp.MustCompile(`(?i)>\s*/dev/nvme`), "禁止直接写入磁盘设备"},
-		{regexp.MustCompile(`(?i)>\s*/dev/mem`), "禁止直接写入内存设备"},
-		{regexp.MustCompile(`(?i)>\s*/dev/kmem`), "禁止直接写入内核内存设备"},
-		{regexp.MustCompile(`(?i)>\s*/dev/port`), "禁止直接写入端口设备"},
-		{regexp.MustCompile(`(?i)>\s*/dev/zero\s+\d+`), "禁止执行覆盖设备命令"},
-		// 权限提升危险操作
-		{regexp.MustCompile(`(?i)chmod\s+-R\s+777\s+/`), "禁止修改根目录权限为 777"},
-		{regexp.MustCompile(`(?i)chmod\s+-R\s+000\s+/`), "禁止修改根目录权限为 000"},
-		// 删除关键系统目录
-		{regexp.MustCompile(`(?i)rm\s+.*\s+/bin\b`), "禁止删除 /bin 目录"},
-		{regexp.MustCompile(`(?i)rm\s+.*\s+/sbin\b`), "禁止删除 /sbin 目录"},
-		{regexp.MustCompile(`(?i)rm\s+.*\s+/usr/bin\b`), "禁止删除 /usr/bin 目录"},
-		{regexp.MustCompile(`(?i)rm\s+.*\s+/lib\b`), "禁止删除 /lib 目录"},
-		{regexp.MustCompile(`(?i)rm\s+.*\s+/lib64\b`), "禁止删除 /lib64 目录"},
-		{regexp.MustCompile(`(?i)rm\s+.*\s+/etc\b`), "禁止删除 /etc 目录"},
-		{regexp.MustCompile(`(?i)rm\s+.*\s+/boot\b`), "禁止删除 /boot 目录"},
-	}
 
 	for _, dp := range dangerousPatterns {
 		if dp.pattern.MatchString(lowerCmd) {
@@ -215,120 +218,137 @@ type BashCommandAnalyzer struct {
 	dangerousPatterns []*regexp.Regexp
 }
 
+// 包级别预编译命令分析正则（避免每次创建分析器重复编译）
+var (
+	readOnlyPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`^(cat|less|more|head|tail|grep|awk|sed)\s+`),
+		regexp.MustCompile(`^ls\s*`),
+		regexp.MustCompile(`^find\s+.*-print`),
+		regexp.MustCompile(`^ps\s*`),
+		regexp.MustCompile(`^top\s*`),
+		regexp.MustCompile(`^free\s*`),
+		regexp.MustCompile(`^df\s*`),
+		regexp.MustCompile(`^du\s+`),
+		regexp.MustCompile(`^uname\s*`),
+		regexp.MustCompile(`^hostname\s*$`),
+		regexp.MustCompile(`^whoami\s*$`),
+		regexp.MustCompile(`^id\s*`),
+		regexp.MustCompile(`^date\s*`),
+		regexp.MustCompile(`^uptime\s*$`),
+		regexp.MustCompile(`^w\s*$`),
+		regexp.MustCompile(`^who\s*$`),
+		regexp.MustCompile(`^pwd\s*$`),
+		regexp.MustCompile(`^(ping|traceroute|nslookup|dig|host)\s+`),
+		regexp.MustCompile(`^netstat\s*`),
+		regexp.MustCompile(`^ss\s*`),
+		regexp.MustCompile(`^ip\s+addr`),
+		regexp.MustCompile(`^ip\s+route\s+show`),
+		regexp.MustCompile(`^ifconfig\s*$`),
+		regexp.MustCompile(`^telnet\s+`),
+		regexp.MustCompile(`^nc\s+-[zv]+\s+`),
+		regexp.MustCompile(`^nmap\s+`),
+		regexp.MustCompile(`^stat\s+`),
+		regexp.MustCompile(`^file\s+`),
+		regexp.MustCompile(`^wc\s+`),
+		regexp.MustCompile(`^od\s+`),
+		regexp.MustCompile(`^xxd\s+`),
+		regexp.MustCompile(`^tree\s*`),
+		regexp.MustCompile(`^java\s+-version`),
+		regexp.MustCompile(`^javac\s+-version`),
+		regexp.MustCompile(`^which\s+`),
+		regexp.MustCompile(`^whereis\s+`),
+		regexp.MustCompile(`^echo\s+["']?\$`),
+		regexp.MustCompile(`^echo\s+.*`),
+		regexp.MustCompile(`^printenv`),
+		regexp.MustCompile(`^env\s*`),
+		regexp.MustCompile(`^command\s+-v\s+`),
+		regexp.MustCompile(`^type\s+`),
+		regexp.MustCompile(`^hash\s+`),
+		regexp.MustCompile(`^(jq|yq)\s+`),
+		regexp.MustCompile(`^column\s+`),
+		regexp.MustCompile(`^nl\s+`),
+		regexp.MustCompile(`^tr\s+`),
+		regexp.MustCompile(`^sort\s+`),
+		regexp.MustCompile(`^uniq\s+`),
+		regexp.MustCompile(`^(lsof|strace|ltrace)\s+`),
+		regexp.MustCompile(`^(htop|iotop|vmstat|iostat)\s*`),
+		regexp.MustCompile(`^tcpdump\s+`),
+		regexp.MustCompile(`^docker\s+(ps|images|logs|inspect|stats|version|info)`),
+		regexp.MustCompile(`^kubectl\s+(get|describe|logs|top|explain|version|api-resources|api-versions)`),
+		regexp.MustCompile(`^git\s+(status|log|diff|show|branch(\s+-[vla])?)`),
+		regexp.MustCompile(`^(tar|unzip|zipinfo)\s+.*-[lt]`),
+		regexp.MustCompile(`(?i)^(mysql|psql).*\s+(SELECT|SHOW|EXPLAIN|DESC|DESCRIBE)\s+`),
+		regexp.MustCompile(`^redis-cli\s+(GET|KEYS|INFO|MONITOR|TTL|TYPE|SCAN|EXISTS|LLEN|SCARD|ZCARD|HLEN)`),
+		regexp.MustCompile(`^(apt|yum|dnf)\s+list\s+(installed|upgradable)`),
+		regexp.MustCompile(`^(pip|pip3)\s+list`),
+		regexp.MustCompile(`^npm\s+list`),
+		regexp.MustCompile(`^(vim|vi)\s+-R\s+`),
+		regexp.MustCompile(`^view\s+`),
+		regexp.MustCompile(`^.*(cat|grep|awk|sed|head|tail|wc|sort|uniq).*\|.*(cat|grep|awk|sed|head|tail|wc|sort|uniq)`),
+	}
+	writePatterns = []*regexp.Regexp{
+		regexp.MustCompile(`[^0-9]>\s*[^&/]`),
+		regexp.MustCompile(`[^0-9]>>\s*[^&/]`),
+		regexp.MustCompile(`^(vi|vim|nano|emacs|gedit)\s+`),
+		regexp.MustCompile(`^tar\s+.*-[xc]`),
+		regexp.MustCompile(`^(gzip|gunzip|bzip2|bunzip2|xz|unxz)\s+`),
+		regexp.MustCompile(`^unzip\s+[^-]`),
+		regexp.MustCompile(`^zip\s+-r`),
+		regexp.MustCompile(`^(wget|curl).*-[oO]`),
+		regexp.MustCompile(`^scp\s+`),
+		regexp.MustCompile(`^docker\s+(run|create|start|stop|restart|pause|unpause|exec|build|commit|tag|push|pull)`),
+		regexp.MustCompile(`^kubectl\s+(apply|create|patch|replace|scale|expose|rollout|set|edit|annotate|label)`),
+		regexp.MustCompile(`^git\s+(add|commit|push|pull|fetch|merge|rebase|cherry-pick|stash)`),
+		regexp.MustCompile(`^git\s+checkout`),
+		regexp.MustCompile(`(?i)^(mysql|psql).*\s+(INSERT|UPDATE|CREATE|ALTER)\s+`),
+		regexp.MustCompile(`^redis-cli\s+(SET|SETEX|SETNX|MSET|HSET|LPUSH|RPUSH|SADD|ZADD|INCR|DECR|APPEND)`),
+		regexp.MustCompile(`^(pip|pip3)\s+(install|uninstall)`),
+	}
+	dangerousPatternsAnalyzer = []*regexp.Regexp{
+		regexp.MustCompile(`^rm\s+`),
+		regexp.MustCompile(`^dd\s+`),
+		regexp.MustCompile(`^mkfs`),
+		regexp.MustCompile(`^fdisk`),
+		regexp.MustCompile(`^parted`),
+		regexp.MustCompile(`^kill\s+`),
+		regexp.MustCompile(`^killall\s+`),
+		regexp.MustCompile(`^shutdown`),
+		regexp.MustCompile(`^reboot`),
+		regexp.MustCompile(`^halt`),
+		regexp.MustCompile(`^init\s+`),
+		regexp.MustCompile(`^systemctl\s+(stop|restart|reload|disable)`),
+		regexp.MustCompile(`^service\s+.*\s+(stop|restart)`),
+		regexp.MustCompile(`^docker\s+(rm|rmi|system\s+prune|volume\s+rm|network\s+rm)`),
+		regexp.MustCompile(`^kubectl\s+(delete|drain)`),
+		regexp.MustCompile(`^git\s+reset\s+--hard`),
+		regexp.MustCompile(`^git\s+clean\s+-[fd]`),
+		regexp.MustCompile(`^git\s+push\s+.*--force`),
+		regexp.MustCompile(`(?i)^(mysql|psql).*\s+(DROP|DELETE|TRUNCATE)\s+`),
+		regexp.MustCompile(`^redis-cli\s+(DEL|FLUSHALL|FLUSHDB|CONFIG\s+SET)`),
+		regexp.MustCompile(`^route\s+(add|del)`),
+		regexp.MustCompile(`^ip\s+route\s+(add|del)`),
+		regexp.MustCompile(`^iptables\s+-[ADI]`),
+		regexp.MustCompile(`^(apt|yum|dnf)\s+(install|remove|purge|autoremove)`),
+		regexp.MustCompile(`^npm\s+(install|uninstall)\s+-g`),
+	}
+	// 预编译重定向清理正则
+	redirectCleanPatterns = []*struct {
+		re   *regexp.Regexp
+		repl string
+	}{
+		{regexp.MustCompile(`\s+2>&1`), ""},
+		{regexp.MustCompile(`\s+>/dev/null`), ""},
+		{regexp.MustCompile(`\s+2>/dev/null`), ""},
+		{regexp.MustCompile(`\s+&>/dev/null`), ""},
+	}
+)
+
 // NewBashCommandAnalyzer 创建 bash 命令分析器
 func NewBashCommandAnalyzer() *BashCommandAnalyzer {
 	return &BashCommandAnalyzer{
-		readOnlyPatterns: []*regexp.Regexp{
-			regexp.MustCompile(`^(cat|less|more|head|tail|grep|awk|sed)\s+`),
-			regexp.MustCompile(`^ls\s*`),
-			regexp.MustCompile(`^find\s+.*-print`),
-			regexp.MustCompile(`^ps\s*`),
-			regexp.MustCompile(`^top\s*`),
-			regexp.MustCompile(`^free\s*`),
-			regexp.MustCompile(`^df\s*`),
-			regexp.MustCompile(`^du\s+`),
-			regexp.MustCompile(`^uname\s*`),
-			regexp.MustCompile(`^hostname\s*$`),
-			regexp.MustCompile(`^whoami\s*$`),
-			regexp.MustCompile(`^id\s*`),
-			regexp.MustCompile(`^date\s*`),
-			regexp.MustCompile(`^uptime\s*$`),
-			regexp.MustCompile(`^w\s*$`),
-			regexp.MustCompile(`^who\s*$`),
-			regexp.MustCompile(`^pwd\s*$`),
-			regexp.MustCompile(`^(ping|traceroute|nslookup|dig|host)\s+`),
-			regexp.MustCompile(`^netstat\s*`),
-			regexp.MustCompile(`^ss\s*`),
-			regexp.MustCompile(`^ip\s+addr`),
-			regexp.MustCompile(`^ip\s+route\s+show`),
-			regexp.MustCompile(`^ifconfig\s*$`),
-			regexp.MustCompile(`^telnet\s+`),
-			regexp.MustCompile(`^nc\s+-[zv]+\s+`),
-			regexp.MustCompile(`^nmap\s+`),
-			regexp.MustCompile(`^stat\s+`),
-			regexp.MustCompile(`^file\s+`),
-			regexp.MustCompile(`^wc\s+`),
-			regexp.MustCompile(`^od\s+`),
-			regexp.MustCompile(`^xxd\s+`),
-			regexp.MustCompile(`^tree\s*`),
-			regexp.MustCompile(`^java\s+-version`),
-			regexp.MustCompile(`^javac\s+-version`),
-			regexp.MustCompile(`^which\s+`),
-			regexp.MustCompile(`^whereis\s+`),
-			regexp.MustCompile(`^echo\s+["']?\$`),
-			regexp.MustCompile(`^echo\s+.*`),
-			regexp.MustCompile(`^printenv`),
-			regexp.MustCompile(`^env\s*`),
-			regexp.MustCompile(`^command\s+-v\s+`),
-			regexp.MustCompile(`^type\s+`),
-			regexp.MustCompile(`^hash\s+`),
-			regexp.MustCompile(`^(jq|yq)\s+`),
-			regexp.MustCompile(`^column\s+`),
-			regexp.MustCompile(`^nl\s+`),
-			regexp.MustCompile(`^tr\s+`),
-			regexp.MustCompile(`^sort\s+`),
-			regexp.MustCompile(`^uniq\s+`),
-			regexp.MustCompile(`^(lsof|strace|ltrace)\s+`),
-			regexp.MustCompile(`^(htop|iotop|vmstat|iostat)\s*`),
-			regexp.MustCompile(`^tcpdump\s+`),
-			regexp.MustCompile(`^docker\s+(ps|images|logs|inspect|stats|version|info)`),
-			regexp.MustCompile(`^kubectl\s+(get|describe|logs|top|explain|version|api-resources|api-versions)`),
-			regexp.MustCompile(`^git\s+(status|log|diff|show|branch(\s+-[vla])?)`),
-			regexp.MustCompile(`^(tar|unzip|zipinfo)\s+.*-[lt]`),
-			regexp.MustCompile(`(?i)^(mysql|psql).*\s+(SELECT|SHOW|EXPLAIN|DESC|DESCRIBE)\s+`),
-			regexp.MustCompile(`^redis-cli\s+(GET|KEYS|INFO|MONITOR|TTL|TYPE|SCAN|EXISTS|LLEN|SCARD|ZCARD|HLEN)`),
-			regexp.MustCompile(`^(apt|yum|dnf)\s+list\s+(installed|upgradable)`),
-			regexp.MustCompile(`^(pip|pip3)\s+list`),
-			regexp.MustCompile(`^npm\s+list`),
-			regexp.MustCompile(`^(vim|vi)\s+-R\s+`),
-			regexp.MustCompile(`^view\s+`),
-			regexp.MustCompile(`^.*(cat|grep|awk|sed|head|tail|wc|sort|uniq).*\|.*(cat|grep|awk|sed|head|tail|wc|sort|uniq)`),
-		},
-		writePatterns: []*regexp.Regexp{
-			regexp.MustCompile(`[^0-9]>\s*[^&/]`),
-			regexp.MustCompile(`[^0-9]>>\s*[^&/]`),
-			regexp.MustCompile(`^(vi|vim|nano|emacs|gedit)\s+`),
-			regexp.MustCompile(`^tar\s+.*-[xc]`),
-			regexp.MustCompile(`^(gzip|gunzip|bzip2|bunzip2|xz|unxz)\s+`),
-			regexp.MustCompile(`^unzip\s+[^-]`),
-			regexp.MustCompile(`^zip\s+-r`),
-			regexp.MustCompile(`^(wget|curl).*-[oO]`),
-			regexp.MustCompile(`^scp\s+`),
-			regexp.MustCompile(`^docker\s+(run|create|start|stop|restart|pause|unpause|exec|build|commit|tag|push|pull)`),
-			regexp.MustCompile(`^kubectl\s+(apply|create|patch|replace|scale|expose|rollout|set|edit|annotate|label)`),
-			regexp.MustCompile(`^git\s+(add|commit|push|pull|fetch|merge|rebase|cherry-pick|stash)`),
-			regexp.MustCompile(`^git\s+checkout`),
-			regexp.MustCompile(`(?i)^(mysql|psql).*\s+(INSERT|UPDATE|CREATE|ALTER)\s+`),
-			regexp.MustCompile(`^redis-cli\s+(SET|SETEX|SETNX|MSET|HSET|LPUSH|RPUSH|SADD|ZADD|INCR|DECR|APPEND)`),
-			regexp.MustCompile(`^(pip|pip3)\s+(install|uninstall)`),
-		},
-		dangerousPatterns: []*regexp.Regexp{
-			regexp.MustCompile(`^rm\s+`),
-			regexp.MustCompile(`^dd\s+`),
-			regexp.MustCompile(`^mkfs`),
-			regexp.MustCompile(`^fdisk`),
-			regexp.MustCompile(`^parted`),
-			regexp.MustCompile(`^kill\s+`),
-			regexp.MustCompile(`^killall\s+`),
-			regexp.MustCompile(`^shutdown`),
-			regexp.MustCompile(`^reboot`),
-			regexp.MustCompile(`^halt`),
-			regexp.MustCompile(`^init\s+`),
-			regexp.MustCompile(`^systemctl\s+(stop|restart|reload|disable)`),
-			regexp.MustCompile(`^service\s+.*\s+(stop|restart)`),
-			regexp.MustCompile(`^docker\s+(rm|rmi|system\s+prune|volume\s+rm|network\s+rm)`),
-			regexp.MustCompile(`^kubectl\s+(delete|drain)`),
-			regexp.MustCompile(`^git\s+reset\s+--hard`),
-			regexp.MustCompile(`^git\s+clean\s+-[fd]`),
-			regexp.MustCompile(`^git\s+push\s+.*--force`),
-			regexp.MustCompile(`(?i)^(mysql|psql).*\s+(DROP|DELETE|TRUNCATE)\s+`),
-			regexp.MustCompile(`^redis-cli\s+(DEL|FLUSHALL|FLUSHDB|CONFIG\s+SET)`),
-			regexp.MustCompile(`^route\s+(add|del)`),
-			regexp.MustCompile(`^ip\s+route\s+(add|del)`),
-			regexp.MustCompile(`^iptables\s+-[ADI]`),
-			regexp.MustCompile(`^(apt|yum|dnf)\s+(install|remove|purge|autoremove)`),
-			regexp.MustCompile(`^npm\s+(install|uninstall)\s+-g`),
-		},
+		readOnlyPatterns:  readOnlyPatterns,
+		writePatterns:     writePatterns,
+		dangerousPatterns: dangerousPatternsAnalyzer,
 	}
 }
 
@@ -373,10 +393,9 @@ func (a *BashCommandAnalyzer) AnalyzeRisk(command string) RiskLevel {
 
 // cleanRedirects 清理命令中的重定向用于风险分析
 func (a *BashCommandAnalyzer) cleanRedirects(command string) string {
-	command = regexp.MustCompile(`\s+2>&1`).ReplaceAllString(command, "")
-	command = regexp.MustCompile(`\s+>/dev/null`).ReplaceAllString(command, "")
-	command = regexp.MustCompile(`\s+2>/dev/null`).ReplaceAllString(command, "")
-	command = regexp.MustCompile(`\s+&>/dev/null`).ReplaceAllString(command, "")
+	for _, p := range redirectCleanPatterns {
+		command = p.re.ReplaceAllString(command, p.repl)
+	}
 	return strings.TrimSpace(command)
 }
 
