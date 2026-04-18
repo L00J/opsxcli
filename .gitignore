@@ -33,7 +33,3 @@ internal/agent/
 *.md
 !README.md
 docs/!*.md
-release.py
-.claude
-plugins/
-*.py
