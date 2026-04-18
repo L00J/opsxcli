@@ -83,10 +83,10 @@ func (t *LocalBashTool) Execute(ctx context.Context, args map[string]interface{}
 		}, err
 	}
 
-	// 解析超时（默认 30 秒）
-	timeout := 30
-	if v, ok := parseNumberParam(args, "timeout"); ok && v > 0 {
-		timeout = v
+	// 解析超时（默认 30 秒，支持浮点数）
+	timeoutSec := 30.0
+	if v, ok := parseFloat64Param(args, "timeout"); ok && v > 0 {
+		timeoutSec = v
 	}
 
 	// 解析工作目录
@@ -106,7 +106,7 @@ func (t *LocalBashTool) Execute(ctx context.Context, args map[string]interface{}
 	riskDesc := t.analyzer.GetRiskDescription(command)
 
 	// 创建超时上下文
-	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSec*float64(time.Second)))
 	defer cancel()
 
 	// 执行命令

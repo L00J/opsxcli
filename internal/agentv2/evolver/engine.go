@@ -478,6 +478,12 @@ func (e *EvolverEngine) classifyTaskType(query string) string {
 		return "日志分析"
 	}
 
+	// SSH/远程相关（优先于服务，避免"服务器"被误判为服务）
+	if strings.Contains(q, "ssh") || strings.Contains(q, "远程") ||
+		strings.Contains(q, "remote") {
+		return "远程操作"
+	}
+
 	// 服务相关
 	if strings.Contains(q, "服务") || strings.Contains(q, "service") ||
 		strings.Contains(q, "systemctl") || strings.Contains(q, "nginx") ||
@@ -490,12 +496,6 @@ func (e *EvolverEngine) classifyTaskType(query string) string {
 		strings.Contains(q, "grep") || strings.Contains(q, "awk") ||
 		strings.Contains(q, "sed") {
 		return "文件操作"
-	}
-
-	// SSH/远程相关
-	if strings.Contains(q, "ssh") || strings.Contains(q, "远程") ||
-		strings.Contains(q, "remote") {
-		return "远程操作"
 	}
 
 	return "通用运维"

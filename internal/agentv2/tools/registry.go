@@ -151,6 +151,21 @@ func parseNumberParam(args map[string]interface{}, key string) (int, bool) {
 	return 0, false
 }
 
+// parseFloat64Param 解析浮点数参数
+func parseFloat64Param(args map[string]interface{}, key string) (float64, bool) {
+	if v, ok := args[key]; ok {
+		switch val := v.(type) {
+		case float64:
+			return val, true
+		case int:
+			return float64(val), true
+		case int64:
+			return float64(val), true
+		}
+	}
+	return 0, false
+}
+
 // parseBoolParam 解析布尔参数
 func parseBoolParam(args map[string]interface{}, key string) bool {
 	if v, ok := args[key]; ok {

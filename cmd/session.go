@@ -3,12 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"opsxcli/internal/agent"
-	"opsxcli/internal/db"
+
+	"opsxcli/internal/agentv2/session"
 )
 
 // NewSessionCmd 创建 session 命令
@@ -37,6 +38,26 @@ func NewSessionCmd() *cobra.Command {
 	return sessionCmd
 }
 
+// initSessionManager 初始化 V2 会话管理器
+func initSessionManager() (session.Manager, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("获取用户主目录失败: %w", err)
+	}
+
+	sessionDir := filepath.Join(homeDir, ".opsxcli", "agent", "sessions")
+	if err := os.MkdirAll(sessionDir, 0700); err != nil {
+		return nil, fmt.Errorf("创建会话目录失败: %w", err)
+	}
+
+	store, err := session.NewJSONLStore(sessionDir)
+	if err != nil {
+		return nil, fmt.Errorf("创建会话存储失败: %w", err)
+	}
+
+	return session.NewManager(store), nil
+}
+
 // newSessionListCmd 列出会话
 func newSessionListCmd() *cobra.Command {
 	var limit int
@@ -45,18 +66,12 @@ func newSessionListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "列出所有会话",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// 初始化数据库
-			database, user, err := initDB()
+			mgr, err := initSessionManager()
 			if err != nil {
 				return err
 			}
-			defer database.Close()
 
-			// 创建会话管理器
-			sessionMgr := agent.NewSessionManager(database, user)
-
-			// 获取会话列表
-			sessions, err := sessionMgr.ListSessions(limit)
+			sessions, err := mgr.List(limit)
 			if err != nil {
 				return fmt.Errorf("获取会话列表失败: %w", err)
 			}
@@ -68,16 +83,17 @@ func newSessionListCmd() *cobra.Command {
 
 			// 使用 tabwriter 格式化输出
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, color.CyanString("ID\tTITLE\tPROVIDER\tMODEL\tUPDATED"))
-			fmt.Fprintln(w, color.HiBlackString("──\t─────\t────────\t─────\t───────"))
+			fmt.Fprintln(w, color.CyanString("ID\tTITLE\tPROVIDER\tMODEL\tUPDATED\tMESSAGES"))
+			fmt.Fprintln(w, color.HiBlackString("──\t─────\t────────\t─────\t───────\t────────"))
 
-			for _, session := range sessions {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-					color.GreenString(session.ID),
-					session.Title,
-					session.Provider,
-					session.Model,
-					session.UpdatedAt.Format("2006-01-02 15:04"),
+			for _, sess := range sessions {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\n",
+					color.GreenString(sess.ID),
+					sess.Title,
+					sess.Provider,
+					sess.Model,
+					sess.UpdatedAt.Format("2006-01-02 15:04"),
+					sess.MessageCount,
 				)
 			}
 
@@ -102,30 +118,25 @@ func newSessionResumeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := args[0]
 
-			// 初始化数据库
-			database, user, err := initDB()
+			mgr, err := initSessionManager()
 			if err != nil {
 				return err
 			}
-			defer database.Close()
 
-			// 加载会话
-			sessionMgr := agent.NewSessionManager(database, user)
-			session, messages, err := sessionMgr.LoadSession(sessionID)
+			sess, messages, err := mgr.Load(sessionID)
 			if err != nil {
 				return fmt.Errorf("加载会话失败: %w", err)
 			}
 
 			// 显示会话信息
-			fmt.Printf("📝 %s\n", color.CyanString(session.Title))
-			fmt.Printf("   Provider: %s | Model: %s\n", session.Provider, session.Model)
+			fmt.Printf("📝 %s\n", color.CyanString(sess.Title))
+			fmt.Printf("   Provider: %s | Model: %s\n", sess.Provider, sess.Model)
 			fmt.Printf("   Messages: %d | Updated: %s\n\n",
 				len(messages),
-				session.UpdatedAt.Format("2006-01-02 15:04:05"),
+				sess.UpdatedAt.Format("2006-01-02 15:04:05"),
 			)
 
-			// TODO: 在交互模式下继续对话
-			// 当前仅显示历史消息
+			// 显示历史消息
 			for _, msg := range messages {
 				var roleColor *color.Color
 				var roleIcon string
@@ -140,6 +151,9 @@ func newSessionResumeCmd() *cobra.Command {
 				case "system":
 					roleColor = color.New(color.FgYellow)
 					roleIcon = "⚙️"
+				case "tool":
+					roleColor = color.New(color.FgWhite)
+					roleIcon = "🔧"
 				default:
 					roleColor = color.New(color.FgWhite)
 					roleIcon = "·"
@@ -152,7 +166,8 @@ func newSessionResumeCmd() *cobra.Command {
 				)
 			}
 
-			fmt.Println(color.YellowString("会话恢复功能开发中..."))
+			_ = provider // 保留 provider flag 供后续使用
+			fmt.Println(color.YellowString("提示: 使用 'opsxcli agent --resume " + sessionID + "' 继续对话"))
 			return nil
 		},
 	}
@@ -173,16 +188,12 @@ func newSessionExportCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := args[0]
 
-			// 初始化数据库
-			database, user, err := initDB()
+			mgr, err := initSessionManager()
 			if err != nil {
 				return err
 			}
-			defer database.Close()
 
-			// 导出会话
-			sessionMgr := agent.NewSessionManager(database, user)
-			markdown, err := sessionMgr.ExportSession(sessionID)
+			markdown, err := mgr.ExportMarkdown(sessionID)
 			if err != nil {
 				return fmt.Errorf("导出会话失败: %w", err)
 			}
@@ -220,16 +231,12 @@ func newSessionDeleteCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := args[0]
 
-			// 初始化数据库
-			database, user, err := initDB()
+			mgr, err := initSessionManager()
 			if err != nil {
 				return err
 			}
-			defer database.Close()
 
-			// 删除会话
-			sessionMgr := agent.NewSessionManager(database, user)
-			err = sessionMgr.DeleteSession(sessionID)
+			err = mgr.Delete(sessionID)
 			if err != nil {
 				return fmt.Errorf("删除会话失败: %w", err)
 			}
@@ -254,16 +261,12 @@ func newSessionRenameCmd() *cobra.Command {
 			sessionID := args[0]
 			newTitle := args[1]
 
-			// 初始化数据库
-			database, user, err := initDB()
+			mgr, err := initSessionManager()
 			if err != nil {
 				return err
 			}
-			defer database.Close()
 
-			// 重命名会话
-			sessionMgr := agent.NewSessionManager(database, user)
-			err = sessionMgr.UpdateSessionTitle(sessionID, newTitle)
+			err = mgr.UpdateTitle(sessionID, newTitle)
 			if err != nil {
 				return fmt.Errorf("重命名会话失败: %w", err)
 			}
@@ -277,28 +280,4 @@ func newSessionRenameCmd() *cobra.Command {
 			return nil
 		},
 	}
-}
-
-// initDB 初始化数据库和用户
-func initDB() (*db.DB, *db.User, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, nil, fmt.Errorf("获取用户主目录失败: %w", err)
-	}
-
-	dataDir := homeDir + "/.opsxcli"
-	database, err := db.NewDB(dataDir)
-	if err != nil {
-		return nil, nil, fmt.Errorf("初始化数据库失败: %w", err)
-	}
-
-	// 获取默认用户
-	userRepo := db.NewUserRepository(database)
-	user, err := userRepo.GetByUsername("admin")
-	if err != nil {
-		database.Close()
-		return nil, nil, fmt.Errorf("获取用户失败: %w", err)
-	}
-
-	return database, user, nil
 }
