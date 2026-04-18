@@ -4,6 +4,7 @@
 
 ## ✨ 核心特性
 
+- 🤖 **AI 运维助手**: 自然语言驱动，本地命令执行 + SSH 远程 + 文件传输 + 智能分析
 - 🚀 **多合一工具**: 整合数据库、网络、系统、容器编排等 70+ 命令
 - ⚡ **实时监控**: 网络和系统监控终端 UI 设计
 - 📦 **网络工具**: 替代 iproute、net-tools 等常用包
@@ -34,6 +35,14 @@
 - **sys**: 系统监控(CPU/内存/磁盘/进程)
 - **net**: 网络监控(流量/连接/状态统计)
 
+### 🤖 AI 运维助手
+- **agent**: 自然语言解决运维问题，支持本地/远程服务器操作
+  - 本地命令执行：grep/awk/sed/ps/df 等所有 Linux 工具
+  - SSH 远程执行：带安全审批和超时控制
+  - 文件传输：本地与远程服务器之间上传/下载
+  - 智能分析：自动提取关键信息、检测错误、生成摘要
+  - 会话管理：JSONL 存储，支持恢复、导出 Markdown
+
 ### 🖥️ 系统工具
 - **ps**, **top**, **kill**, **free**, **df**: 进程和资源管理
 - **tar**, **gzip**, **unzip**: 压缩和解压
@@ -57,6 +66,8 @@
 **压缩工具**: tar, gzip, unzip
 
 **服务端**: server (HTTP/WebSocket/gRPC)
+
+**AI 助手**: agent (自然语言运维)
 
 **实用工具**: wget, request, install, upgrade
 
@@ -83,6 +94,38 @@ sudo mv opsxcli /usr/local/bin/
 **注意**: Windows 用户请访问 [Releases 页面](https://gitee.com/opsx-tools/opsxcli/releases) 下载对应的 `.zip` 文件
 
 ## 使用示例
+
+### 🤖 AI 运维助手
+
+```bash
+# 单次查询 — 直接提问
+opsxcli agent "查看根目录磁盘使用情况"
+opsxcli agent "查找所有监听 80 端口的进程"
+opsxcli agent "SSH 到 192.168.1.100 查看 nginx 进程状态"
+
+# 交互模式 — 多轮对话
+opsxcli agent -i
+
+# 指定 LLM 提供商
+opsxcli agent -p deepseek "分析最近 Nginx 错误日志"
+
+# 安全模式 — 严格审批
+opsxcli agent -s strict "重启远程服务器上的 mysql 服务"
+
+# 自动批准（仅测试环境）
+opsxcli agent -y "快速清理 /var/log 下 30 天前的日志"
+
+# 调试模式 — 查看工具调用详情
+opsxcli agent -d "排查服务器高负载原因"
+
+# 后台任务模式 — 多任务并发
+opsxcli agent -b
+
+# 会话管理
+opsxcli agent --list-sessions          # 列出历史会话
+opsxcli agent --resume sess_xxx        # 恢复指定会话
+opsxcli agent --export sess_xxx > session.md  # 导出为 Markdown
+```
 
 ### 数据库操作
 

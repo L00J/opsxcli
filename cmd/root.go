@@ -224,7 +224,7 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 		// === Kubernetes 工具 ===
 		{"Kubernetes", []string{"kubectl", "consul", "kubernetes"}, "kubectl 命令行, 服务注册, 资源管理"},
 		// === AI 工具 ===
-		{"AI", []string{"agent", "session"}, "AI 运维助手, 会话管理"},
+		{"AI", []string{"agent", "agentv2", "session"}, "AI 运维助手, 会话管理"},
 		{"", []string{}, ""}, // 空行分隔
 		// === 监控工具 ===
 		{"监控", []string{"sys", "net"}, "系统监控, 网络监控 (2秒实时刷新)"},
