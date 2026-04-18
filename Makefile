@@ -15,13 +15,13 @@ LDFLAGS_STATIC=$(LDFLAGS_BASE) -extldflags '-static'
 # 构建开发版本（保留调试信息）
 build:
 	@echo "🔨 构建开发版本..."
-	go build $(GOFLAGS) -o $(BINARY_NAME) .
+	CGO_CFLAGS="-Wno-gnu-folding-constant" go build $(GOFLAGS) -o $(BINARY_NAME) .
 	@echo "✓ 构建完成: $$(ls -lh $(BINARY_NAME) | awk '{print $$5}')"
 
 # 构建生产版本（静态编译,使用纯 Go SQLite,跨平台兼容）
 release:
 	@echo "🚀 构建生产版本（静态编译）..."
-	CGO_ENABLED=0 go build $(GOFLAGS) -ldflags="$(LDFLAGS_STATIC)" -o $(BINARY_NAME) .
+	CGO_ENABLED=0 CGO_CFLAGS="-Wno-gnu-folding-constant" go build $(GOFLAGS) -ldflags="$(LDFLAGS_STATIC)" -o $(BINARY_NAME) .
 	@echo "✓ 编译完成: $$(ls -lh $(BINARY_NAME) | awk '{print $$5}')"
 
 # 构建生产版本并使用 UPX 压缩（需要安装 UPX）

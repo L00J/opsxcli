@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        run: CGO_CFLAGS="-Wno-gnu-folding-constant" go build -v -trimpath ./...
+
+      - name: Build (CGO disabled)
+        run: CGO_ENABLED=0 CGO_CFLAGS="-Wno-gnu-folding-constant" go build -v -trimpath -o opsxcli .
+
+  test:
+    name: Test with Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          fail_ci_if_error: false
+          verbose: true
+        continue-on-error: true
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          echo "Current coverage: ${COVERAGE}%"
+          echo "COVERAGE=${COVERAGE}" >> $GITHUB_ENV
+          # Minimum threshold: 15%
+          MIN_COVERAGE=15
+          FAIL=$(echo "$COVERAGE < $MIN_COVERAGE" | bc -l)
+          if [ "$FAIL" = "1" ]; then
+            echo "::error::Coverage ${COVERAGE}% is below minimum ${MIN_COVERAGE}%"
+            exit 1
+          fi
+          echo "Coverage check passed: ${COVERAGE}% >= ${MIN_COVERAGE}%"
+
+  cross-build:
+    name: Cross-platform Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        go-version: ['1.24', '1.25']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Build
+        run: |
+          CGO_ENABLED=0 go build -trimpath -o opsxcli-${{ runner.os }} .
+          ls -lh opsxcli-${{ runner.os }}
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+        continue-on-error: true

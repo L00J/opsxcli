@@ -1,13 +1,13 @@
 package kubernetes
 
 import (
+	"encoding/csv"
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/xuri/excelize/v2"
 )
 
 // 系统命名空间列表
@@ -333,49 +333,44 @@ func ExportResourceInventory(kubeconfigPath string) error {
 		return systemData[i].DeploymentName < systemData[j].DeploymentName
 	})
 
-	// 创建Excel文件
-	f := excelize.NewFile()
-	defer f.Close()
+	// 创建CSV文件
+	filename := "deployments_resources.csv"
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("创建CSV文件失败: %v", err)
+	}
+	defer file.Close()
 
-	sheetName := "Deployment资源信息"
-	index, _ := f.NewSheet(sheetName)
-	f.SetActiveSheet(index)
-	f.DeleteSheet("Sheet1")
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
 
 	// 写入表头
-	headers := []string{"Namespace", "Deployment Name", "Replicas", "Capacity Provisioned",
-		"CPU Request", "CPU Limit", "Memory Request", "Memory Limit"}
-
-	for i, header := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheetName, cell, header)
+	headers := []string{"Namespace", "Deployment Name", "Replicas", "Available Replicas",
+		"Capacity Provisioned", "CPU Request", "CPU Limit", "Memory Request", "Memory Limit"}
+	if err := writer.Write(headers); err != nil {
+		return fmt.Errorf("写入表头失败: %v", err)
 	}
 
 	// 写入数据
-	row := 2
 	allData := append(businessData, systemData...)
 	for _, data := range allData {
-		replicasStr := fmt.Sprintf("%d/%d", data.Replicas, data.AvailableReplicas)
-
-		f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), data.Namespace)
-		f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), data.DeploymentName)
-		f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), replicasStr)
-		f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), data.CapacityProvisioned)
-		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), formatCPUValue(data.CPURequest))
-		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), formatCPUValue(data.CPULimit))
-		f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), formatMemoryValue(data.MemoryRequest))
-		f.SetCellValue(sheetName, fmt.Sprintf("H%d", row), formatMemoryValue(data.MemoryLimit))
-
-		row++
+		row := []string{
+			data.Namespace,
+			data.DeploymentName,
+			fmt.Sprintf("%d", data.Replicas),
+			fmt.Sprintf("%d", data.AvailableReplicas),
+			data.CapacityProvisioned,
+			formatCPUValue(data.CPURequest),
+			formatCPUValue(data.CPULimit),
+			formatMemoryValue(data.MemoryRequest),
+			formatMemoryValue(data.MemoryLimit),
+		}
+		if err := writer.Write(row); err != nil {
+			return fmt.Errorf("写入数据行失败: %v", err)
+		}
 	}
 
-	// 保存文件
-	filename := "deployments_resources.xlsx"
-	if err := f.SaveAs(filename); err != nil {
-		return fmt.Errorf("保存Excel文件失败: %v", err)
-	}
-
-	fmt.Printf("\n✓ Excel文件已保存为 '%s'\n", filename)
+	fmt.Printf("\nCSV文件已保存为 '%s'\n", filename)
 	fmt.Printf("共导出 %d 个 Deployment 的资源信息\n", len(allData))
 
 	return nil

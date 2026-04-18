@@ -158,17 +158,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		MaxTokens:   4096,
 	}
 
-	// 4. Qwen 配置（国内稳定）
-	qwenConfig := &ProviderConfig{
-		Type:        "qwen",
-		BaseURL:     "https://dashscope.aliyuncs.com/compatible-mode/v1",
-		APIKey:      "YOUR_QWEN_API_KEY",
-		Model:       "qwen-plus",
-		Temperature: 0.7,
-		MaxTokens:   4096,
-	}
-
-	// 5. Kimi 配置（长文本专家）
+	// 4. Kimi 配置（长文本专家）
 	kimiConfig := &ProviderConfig{
 		Type:        "kimi",
 		BaseURL:     "https://api.moonshot.cn/v1",
@@ -178,7 +168,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		MaxTokens:   4096,
 	}
 
-	// 6. Gemini 配置（Google AI）
+	// 5. Gemini 配置（Google AI）
 	geminiConfig := &ProviderConfig{
 		Type:        "gemini",
 		BaseURL:     "https://generativelanguage.googleapis.com/v1beta",
@@ -188,7 +178,27 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		MaxTokens:   4096,
 	}
 
-	// 7. 本地模型服务（Ollama/vLLM等）
+	// 6. GLM (智谱) 配置
+	glmConfig := &ProviderConfig{
+		Type:        "glm",
+		BaseURL:     "https://open.bigmodel.cn/api/paas/v4",
+		APIKey:      "YOUR_GLM_API_KEY",
+		Model:       "glm-4-plus",
+		Temperature: 0.7,
+		MaxTokens:   4096,
+	}
+
+	// 7. MiniMax 配置
+	minimaxConfig := &ProviderConfig{
+		Type:        "minimax",
+		BaseURL:     "https://api.minimax.chat/v1",
+		APIKey:      "YOUR_MINIMAX_API_KEY",
+		Model:       "abab6.5-chat",
+		Temperature: 0.7,
+		MaxTokens:   4096,
+	}
+
+	// 8. 本地模型服务（Ollama/vLLM等）
 	ollamaConfig := &ProviderConfig{
 		Type:        "ollama",
 		BaseURL:     "http://localhost:11434/v1",
@@ -202,9 +212,10 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		"deepseek": deepseekConfig,
 		"claude":   claudeConfig,
 		"gpt":      gptConfig,
-		"qwen":     qwenConfig,
 		"kimi":     kimiConfig,
 		"gemini":   geminiConfig,
+		"glm":      glmConfig,
+		"minimax":  minimaxConfig,
 		"ollama":   ollamaConfig,
 	}
 

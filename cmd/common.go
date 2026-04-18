@@ -8,8 +8,18 @@ import (
 	"golang.org/x/term"
 )
 
-// 外部设置的原始密码（用于 -pPASSWORD 格式）
-var OriginalPassword string
+// 原始密码（用于 -pPASSWORD 格式），通过 SetDatabasePassword/GetDatabasePassword 访问
+var dbPassword string
+
+// SetDatabasePassword 设置数据库密码（供 main.go 预处理使用）
+func SetDatabasePassword(pwd string) {
+	dbPassword = pwd
+}
+
+// GetDatabasePassword 获取预处理时提取的密码
+func GetDatabasePassword() string {
+	return dbPassword
+}
 
 // DatabaseFlags 数据库连接通用参数
 type DatabaseFlags struct {
@@ -48,8 +58,8 @@ func GetDatabaseFlags(cmd *cobra.Command) DatabaseFlags {
 	execute, _ := cmd.Flags().GetString("execute")
 
 	// 如果密码是 "ASK" 且我们之前从 -pXXX 中提取过密码，则使用提取的密码
-	if password == "ASK" && OriginalPassword != "" {
-		password = OriginalPassword
+	if password == "ASK" && dbPassword != "" {
+		password = dbPassword
 	}
 
 	return DatabaseFlags{

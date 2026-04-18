@@ -55,14 +55,13 @@ func preprocessDatabasePasswordArgs() {
 
 		// 匹配 -pXXX 格式（密码紧跟在 -p 后面）
 		if strings.HasPrefix(arg, "-p") && len(arg) > 2 && arg[2] != '-' {
-			// 提取并保存密码到 cmd 包的全局变量
-			cmd.OriginalPassword = arg[2:]
+			pwd := arg[2:]
+			cmd.SetDatabasePassword(pwd)
 
 			// 将 -pPASSWORD 替换为 -p 和 PASSWORD 两个参数
 			os.Args[i] = "-p"
-			// 在后面插入密码参数
-			os.Args = append(os.Args[:i+1], append([]string{cmd.OriginalPassword}, os.Args[i+1:]...)...)
-			break // 只处理第一个匹配项
+			os.Args = append(os.Args[:i+1], append([]string{pwd}, os.Args[i+1:]...)...)
+			break
 		}
 	}
 }

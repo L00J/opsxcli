@@ -41,12 +41,14 @@ func (w *ConfigWizard) Run() error {
 		config, err = w.configureClaude()
 	case "gpt":
 		config, err = w.configureGPT()
-	case "qwen":
-		config, err = w.configureQwen()
 	case "kimi":
 		config, err = w.configureKimi()
 	case "gemini":
 		config, err = w.configureGemini()
+	case "glm":
+		config, err = w.configureGLM()
+	case "minimax":
+		config, err = w.configureMiniMax()
 	case "ollama":
 		config, err = w.configureOllama()
 	default:
@@ -87,15 +89,16 @@ func (w *ConfigWizard) printWelcome() {
 	fmt.Println("    \033[1;36m1. DeepSeek\033[0m          ⭐⭐⭐⭐⭐ 默认推荐 | 性价比之王 | 推理强悍")
 	fmt.Println("    \033[1;36m2. Claude\033[0m            ⭐⭐⭐⭐⭐ 代码之王 | Anthropic | 运维专家")
 	fmt.Println("    \033[1;36m3. ChatGPT\033[0m           ⭐⭐⭐⭐⭐ 行业标杆 | OpenAI | 全能型")
-	fmt.Println("    \033[1;36m4. Qwen\033[0m              ⭐⭐⭐⭐ 通义千问 | 阿里云 | 国内稳定")
-	fmt.Println("    \033[1;36m5. Kimi\033[0m              ⭐⭐⭐⭐ 月之暗面 | 长文本专家 | 日志分析")
-	fmt.Println("    \033[1;36m6. Gemini\033[0m            ⭐⭐⭐⭐ Google AI | 多模态 | 最新版本")
+	fmt.Println("    \033[1;36m4. Kimi\033[0m              ⭐⭐⭐⭐ 月之暗面 | 长文本专家 | 日志分析")
+	fmt.Println("    \033[1;36m5. Gemini\033[0m            ⭐⭐⭐⭐ Google AI | 多模态 | 最新版本")
+	fmt.Println("    \033[1;36m6. GLM (智谱)\033[0m        ⭐⭐⭐⭐ 国产之光 | GLM-4 | ChatGLM")
+	fmt.Println("    \033[1;36m7. MiniMax\033[0m           ⭐⭐⭐⭐ 字节跳动 | 海螺AI | 长文本")
 	fmt.Println()
 
 	// 本地模型
 	fmt.Println("  🏠 本地模型")
 	fmt.Println()
-	fmt.Println("    \033[1;32m7. 本地服务\033[0m          💯 Ollama | vLLM | LM Studio | 私有部署")
+	fmt.Println("    \033[1;32m8. 本地服务\033[0m          💯 Ollama | vLLM | LM Studio | 私有部署")
 	fmt.Println()
 	fmt.Println(strings.Repeat("-", 70))
 	fmt.Println()
@@ -126,7 +129,7 @@ func (w *ConfigWizard) printSuccess(providerType string) {
 // selectProvider 选择提供商
 func (w *ConfigWizard) selectProvider() (string, error) {
 	for {
-		fmt.Print("  👉 请选择 (1-7) [默认: \033[1;33m1\033[0m]: ")
+		fmt.Print("  👉 请选择 (1-8) [默认: \033[1;33m1\033[0m]: ")
 		input, err := w.reader.ReadString('\n')
 		if err != nil {
 			return "", err
@@ -149,19 +152,22 @@ func (w *ConfigWizard) selectProvider() (string, error) {
 			fmt.Println("\n  🤖 已选择: ChatGPT - 行业标杆 + 全能型")
 			return "gpt", nil
 		case "4":
-			fmt.Println("\n  🔥 已选择: Qwen - 通义千问 + 国内稳定")
-			return "qwen", nil
-		case "5":
 			fmt.Println("\n  🌙 已选择: Kimi - 长文本专家 + 日志分析")
 			return "kimi", nil
-		case "6":
+		case "5":
 			fmt.Println("\n  💎 已选择: Gemini - Google AI + 多模态")
 			return "gemini", nil
+		case "6":
+			fmt.Println("\n  🇨🇳 已选择: GLM - 国产之光 + ChatGLM")
+			return "glm", nil
 		case "7":
+			fmt.Println("\n  🚀 已选择: MiniMax - 字节跳动 + 海螺AI")
+			return "minimax", nil
+		case "8":
 			fmt.Println("\n  🏠 已选择: 本地服务 - Ollama/vLLM/私有部署")
 			return "ollama", nil
 		default:
-			fmt.Println("  ❌ 无效选择，请输入 1-7")
+			fmt.Println("  ❌ 无效选择，请输入 1-8")
 		}
 	}
 }

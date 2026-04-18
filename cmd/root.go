@@ -5,11 +5,17 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"opsxcli/internal/logger"
+	"opsxcli/internal/output"
 )
 
 // NewRootCmd 创建根命令
 func NewRootCmd(version string) *cobra.Command {
-	var upgradeFlag bool
+	var (
+		upgradeFlag bool
+		quietFlag  bool
+		outputFlag string
+	)
 
 	rootCmd := &cobra.Command{
 		Use:   "opsxcli",
@@ -24,20 +30,30 @@ func NewRootCmd(version string) *cobra.Command {
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: true, // 禁用 completion 命令
 		},
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if outputFlag == "json" {
+				output.SetFormat(output.FormatJSON)
+			}
+			if quietFlag {
+				output.SetQuiet(true)
+				logger.SetQuiet(true)
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// 如果使用了 --upgrade flag，执行升级
 			if upgradeFlag {
 				return NewUpgradeCmd().RunE(cmd, args)
 			}
-
-			// 没有参数，显示帮助
-			cmd.Help()
+			if !output.IsQuiet() {
+				cmd.Help()
+			}
 			return nil
 		},
 	}
 
-	// 添加升级 flag（不使用 shorthand，避免与 mysql -u 冲突）
 	rootCmd.Flags().BoolVar(&upgradeFlag, "upgrade", false, "升级到最新版本")
+	rootCmd.Flags().BoolVarP(&quietFlag, "quiet", "q", false, "静默模式，抑制非必要输出")
+	rootCmd.Flags().StringVar(&outputFlag, "output", "text", "输出格式 (text/json)")
 
 	// 添加所有子命令（按类型分组排序）
 	// 数据库工具
@@ -80,9 +96,14 @@ func NewRootCmd(version string) *cobra.Command {
 		NewUpgradeCmd(),
 		NewTestCmd(), // 测试命令
 	)
+	// AI 工具
+	rootCmd.AddCommand(
+		NewAgentCmd(),
+		NewSessionCmd(),
+	)
 
 	// === Busybox 兼容命令 ===
-	// 基本文件操作
+	// 基本文件操作（Go 原生实现，跨平台兼容）
 	rootCmd.AddCommand(
 		NewLsCmd(),
 		NewCpCmd(),
@@ -90,7 +111,7 @@ func NewRootCmd(version string) *cobra.Command {
 		NewRmCmd(),
 		NewMkdirCmd(),
 		NewRmdirCmd(),
-		NewTreeCmd(),
+		// NewTreeCmd(),     // 系统已有 tree，移除无价值转发
 		NewTouchCmd(),
 		NewChmodCmd(),
 		NewChownCmd(),
@@ -99,62 +120,54 @@ func NewRootCmd(version string) *cobra.Command {
 	// 文件查看/编辑
 	rootCmd.AddCommand(
 		NewCatCmd(),
-		NewMoreCmd(),
-		NewLessCmd(),
+		// NewMoreCmd(),    // 系统已有 more，移除无价值转发
+		// NewLessCmd(),    // 系统已有 less，移除无价值转发
 		NewHeadCmd(),
 		NewTailCmd(),
 		NewGrepCmd(),
-		NewAwkCmd(),
-		NewSedCmd(),
-		NewViCmd(),
-		NewVimCmd(),
+		// NewAwkCmd(),     // 系统已有 awk，移除无价值转发
+		// NewSedCmd(),     // 系统已有 sed，移除无价值转发
+		// NewViCmd(),      // 系统已有 vi，移除无价值转发
+		// NewVimCmd(),     // 系统已有 vim，移除无价值转发
 	)
-	// 归档压缩
-	rootCmd.AddCommand(
-		NewTarCmd(),
-		NewGzipCmd(),
-		NewUnzipCmd(),
-	)
-	// 进程管理
+	// 归档压缩（系统已有，移除无价值转发）
+	// rootCmd.AddCommand(
+	// 	NewTarCmd(),
+	// 	NewGzipCmd(),
+	// 	NewUnzipCmd(),
+	// )
+	// 进程管理（Go 原生 ps/top/kill，保留；pstree 转发移除）
 	rootCmd.AddCommand(
 		NewPsCmd(),
 		NewTopCmd(),
 		NewKillCmd(),
-		NewPstreeCmd(),
+		// NewPstreeCmd(),  // 系统已有 pstree，移除无价值转发
 	)
-	// 系统信息
-	rootCmd.AddCommand(
-		NewUnameCmd(),
-		NewHostnameCmd(),
-		NewWhoamiCmd(),
-		NewIdCmd(),
-		NewFreeCmd(),
-		NewDfCmd(),
-		NewDuCmd(),
-		NewMountCmd(),
-		NewUmountCmd(),
-	)
-	// 磁盘工具
+	// 系统信息（系统已有，移除无价值转发）
+	// rootCmd.AddCommand(
+	// 	NewUnameCmd(), NewHostnameCmd(), NewWhoamiCmd(),
+	// 	NewIdCmd(), NewFreeCmd(), NewDfCmd(), NewDuCmd(),
+	// 	NewMountCmd(), NewUmountCmd(),
+	// )
+	// 磁盘工具（dd 保留）
 	rootCmd.AddCommand(
 		NewDdCmd(),
 	)
-	// 时间日期
-	rootCmd.AddCommand(
-		NewDateCmd(),
-		NewSleepCmd(),
-		NewWatchCmd(),
-	)
-	// 网络配置
+	// 时间日期（系统已有，移除无价值转发）
+	// rootCmd.AddCommand(
+	// 	NewDateCmd(), NewSleepCmd(), NewWatchCmd(),
+	// )
+	// 网络配置（Go 原生跨平台实现，保留）
 	rootCmd.AddCommand(
 		NewIfconfigCmd(),
 		NewRouteCmd(),
 		NewIpCmd(),
 	)
-	// 网络传输
-	rootCmd.AddCommand(
-		NewFtpCmd(),
-		NewTftpCmd(),
-	)
+	// 网络传输（系统已有，移除无价值转发）
+	// rootCmd.AddCommand(
+	// 	NewFtpCmd(),
+	// 	NewTftpCmd(),
+	// )
 
 	// 自定义版本输出
 	rootCmd.SetVersionTemplate(fmt.Sprintf("%s: %s\n", color.CyanString("opsxcli"), version))
@@ -167,6 +180,10 @@ func NewRootCmd(version string) *cobra.Command {
 
 // customHelpFunc 自定义帮助函数，按类型分组显示命令
 func customHelpFunc(cmd *cobra.Command, args []string) {
+	// quiet 模式下不显示帮助
+	if output.IsQuiet() {
+		return
+	}
 	// 只对根命令使用自定义帮助,子命令使用默认帮助
 	if cmd.Parent() != nil {
 		// 对于子命令,打印默认帮助
@@ -206,6 +223,8 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 		{"", []string{}, ""}, // 空行分隔
 		// === Kubernetes 工具 ===
 		{"Kubernetes", []string{"kubectl", "consul", "kubernetes"}, "kubectl 命令行, 服务注册, 资源管理"},
+		// === AI 工具 ===
+		{"AI", []string{"agent", "session"}, "AI 运维助手, 会话管理"},
 		{"", []string{}, ""}, // 空行分隔
 		// === 监控工具 ===
 		{"监控", []string{"sys", "net"}, "系统监控, 网络监控 (2秒实时刷新)"},
@@ -246,6 +265,7 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 	// 底部提示
 	fmt.Printf("\n%s:\n", color.GreenString("使用提示"))
 	fmt.Printf("  • 查看命令帮助: %s\n", color.CyanString("opsxcli <command> --help"))
+	fmt.Printf("  • AI运维助手: %s\n", color.CyanString("opsxcli agent -i"))
 	fmt.Printf("  • 升级到最新版: %s 或 %s\n", color.CyanString("opsxcli --upgrade"), color.CyanString("opsxcli upgrade"))
 	fmt.Printf("  • 系统监控TUI: %s\n", color.CyanString("opsxcli sys"))
 	fmt.Printf("  • 网络监控TUI: %s\n", color.CyanString("opsxcli net"))

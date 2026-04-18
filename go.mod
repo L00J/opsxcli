@@ -1,6 +1,6 @@
 module opsxcli
 
-go 1.25.0
+go 1.24.0
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
@@ -16,7 +16,6 @@ require (
 	github.com/pkg/sftp v1.13.10
 	github.com/shirou/gopsutil/v3 v3.24.1
 	github.com/spf13/cobra v1.8.0
-	github.com/xuri/excelize/v2 v2.10.0
 	golang.org/x/crypto v0.46.0
 	golang.org/x/net v0.48.0
 	golang.org/x/term v0.38.0
@@ -68,18 +67,14 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/richardlehane/mscfb v1.0.4 // indirect
-	github.com/richardlehane/msoleps v1.0.4 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
-	github.com/tiendc/go-deepcopy v1.7.1 // indirect
+	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	github.com/xuri/efp v0.0.1 // indirect
-	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
