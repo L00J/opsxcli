@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -48,43 +49,143 @@ type GlobalConfig struct {
 	AutoSave bool   `json:"auto_save"`
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Manager — 配置管理器（支持依赖注入，替代全局变量）
+// ═══════════════════════════════════════════════════════════════
+
+// Manager 配置管理器，封装配置状态，支持独立实例
+type Manager struct {
+	config *Config
+	path   string
+}
+
+// NewManager 创建独立的配置管理器实例
+// configDir: 配置文件目录，空字符串使用默认值 ~/.opsxcli
+func NewManager(configDir string) (*Manager, error) {
+	if configDir == "" {
+		homeDir := os.Getenv("HOME")
+		configDir = filepath.Join(homeDir, ".opsxcli")
+	}
+
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建配置目录失败: %w", err)
+	}
+
+	m := &Manager{
+		path: filepath.Join(configDir, "config.json"),
+	}
+
+	// 尝试加载配置，不存在则使用默认
+	if err := m.Load(); err != nil {
+		m.config = DefaultConfig()
+	}
+
+	return m, nil
+}
+
+// Load 加载配置文件
+func (m *Manager) Load() error {
+	if _, err := os.Stat(m.path); os.IsNotExist(err) {
+		m.config = DefaultConfig()
+		return m.Save()
+	}
+
+	data, err := os.ReadFile(m.path)
+	if err != nil {
+		m.config = DefaultConfig()
+		return err
+	}
+
+	if err := json.Unmarshal(data, &m.config); err != nil {
+		m.config = DefaultConfig()
+		return err
+	}
+
+	return nil
+}
+
+// Save 保存配置文件
+func (m *Manager) Save() error {
+	if m.config == nil {
+		m.config = DefaultConfig()
+	}
+	data, err := json.MarshalIndent(m.config, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(m.path, data, 0644)
+}
+
+// Get 获取配置
+func (m *Manager) Get() *Config {
+	if m.config == nil {
+		m.config = DefaultConfig()
+	}
+	return m.config
+}
+
+// Set 设置配置
+func (m *Manager) Set(config *Config) {
+	m.config = config
+}
+
+// Path 返回配置文件路径
+func (m *Manager) Path() string {
+	return m.path
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 包级兼容层 — 保留原有 API，委托给默认 Manager 实例
+// ═══════════════════════════════════════════════════════════════
+
 var (
 	globalConfig *Config
 	configPath   string
+	defaultMgr   *Manager // 内部使用的默认管理器实例
 )
 
-// Init 初始化配置系统
+// Init 初始化配置系统（兼容层）
 func Init() error {
-	// 确定配置文件路径
 	homeDir := os.Getenv("HOME")
 	configDir := filepath.Join(homeDir, ".opsxcli")
 	configPath = filepath.Join(configDir, "config.json")
 
-	// 创建配置目录
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return err
 	}
 
-	// 加载配置
-	return Load()
+	// 同步初始化默认 Manager
+	var err error
+	defaultMgr, err = NewManager(configDir)
+	if err != nil {
+		return err
+	}
+	globalConfig = defaultMgr.Get()
+
+	return nil
 }
 
-// Load 加载配置文件
+// Load 加载配置文件（兼容层）
 func Load() error {
-	// 如果配置文件不存在，创建默认配置
+	if defaultMgr != nil {
+		err := defaultMgr.Load()
+		globalConfig = defaultMgr.Get()
+		configPath = defaultMgr.Path()
+		return err
+	}
+
+	// 回退到传统逻辑（避免 nil pointer）
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		globalConfig = DefaultConfig()
 		return Save()
 	}
 
-	// 读取配置文件
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		globalConfig = DefaultConfig()
 		return err
 	}
 
-	// 解析JSON
 	if err := json.Unmarshal(data, &globalConfig); err != nil {
 		globalConfig = DefaultConfig()
 		return err
@@ -93,13 +194,15 @@ func Load() error {
 	return nil
 }
 
-// Save 保存配置文件
+// Save 保存配置文件（兼容层）
 func Save() error {
+	if defaultMgr != nil {
+		return defaultMgr.Save()
+	}
 	data, err := json.MarshalIndent(globalConfig, "", "  ")
 	if err != nil {
 		return err
 	}
-
 	return os.WriteFile(configPath, data, 0644)
 }
 
@@ -132,15 +235,21 @@ func DefaultConfig() *Config {
 	}
 }
 
-// Get 获取全局配置
+// Get 获取全局配置（兼容层）
 func Get() *Config {
+	if defaultMgr != nil {
+		return defaultMgr.Get()
+	}
 	if globalConfig == nil {
 		globalConfig = DefaultConfig()
 	}
 	return globalConfig
 }
 
-// Set 设置全局配置
+// Set 设置全局配置（兼容层）
 func Set(config *Config) {
+	if defaultMgr != nil {
+		defaultMgr.Set(config)
+	}
 	globalConfig = config
 }
