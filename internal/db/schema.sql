@@ -127,6 +127,6 @@ INSERT OR IGNORE INTO configs (key, value, category, description) VALUES
 ('safety.auto_backup', 'true', 'safety', '自动备份危险操作涉及的文件'),
 ('safety.backup_retention_days', '7', 'safety', '备份文件保留天数'),
 ('llm.default_provider', 'ollama', 'llm', '默认 LLM 提供商'),
-('llm.default_model', 'qwen2.5:latest', 'llm', '默认模型'),
+	('llm.default_model', 'qwen3:14b', 'llm', '默认模型'),
 ('server.jwt_secret', '', 'server', 'JWT 密钥 (自动生成)'),
 ('server.session_duration', '24h', 'server', 'JWT Token 有效期');

@@ -133,7 +133,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		Type:        "deepseek",
 		BaseURL:     "https://api.deepseek.com/v1",
 		APIKey:      "YOUR_DEEPSEEK_API_KEY",
-		Model:       "deepseek-chat",
+		Model:       "deepseek-v3",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}
@@ -143,7 +143,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		Type:        "claude",
 		BaseURL:     "https://api.anthropic.com/v1",
 		APIKey:      "YOUR_CLAUDE_API_KEY",
-		Model:       "claude-3-5-sonnet-20241022",
+		Model:       "claude-opus-4-20250514",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}
@@ -153,7 +153,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		Type:        "gpt",
 		BaseURL:     "https://api.openai.com/v1",
 		APIKey:      "YOUR_OPENAI_API_KEY",
-		Model:       "gpt-4-turbo-preview",
+		Model:       "gpt-5.4",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}
@@ -163,7 +163,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		Type:        "kimi",
 		BaseURL:     "https://api.moonshot.cn/v1",
 		APIKey:      "YOUR_KIMI_API_KEY",
-		Model:       "moonshot-v1-8k",
+		Model:       "k2.5-code",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}
@@ -173,7 +173,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		Type:        "gemini",
 		BaseURL:     "https://generativelanguage.googleapis.com/v1beta",
 		APIKey:      "YOUR_GEMINI_API_KEY",
-		Model:       "gemini-2.0-flash-exp",
+		Model:       "gemini-3.1-pro",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}
@@ -183,7 +183,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		Type:        "glm",
 		BaseURL:     "https://open.bigmodel.cn/api/paas/v4",
 		APIKey:      "YOUR_GLM_API_KEY",
-		Model:       "glm-4-plus",
+		Model:       "glm-5.1",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}
@@ -193,7 +193,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		Type:        "minimax",
 		BaseURL:     "https://api.minimax.chat/v1",
 		APIKey:      "YOUR_MINIMAX_API_KEY",
-		Model:       "abab6.5-chat",
+		Model:       "MiniMax-M2.7-highspeed",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}
@@ -203,7 +203,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		Type:        "ollama",
 		BaseURL:     "http://localhost:11434/v1",
 		APIKey:      "",
-		Model:       "qwen2.5:latest",
+		Model:       "qwen3:14b",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}

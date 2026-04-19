@@ -87,12 +87,12 @@ func (w *ConfigWizard) printWelcome() {
 	fmt.Println("  ✨ 推荐模型")
 	fmt.Println()
 	fmt.Println("    \033[1;36m1. DeepSeek\033[0m          ⭐⭐⭐⭐⭐ 默认推荐 | 性价比之王 | 推理强悍")
-	fmt.Println("    \033[1;36m2. Claude\033[0m            ⭐⭐⭐⭐⭐ 代码之王 | Anthropic | 运维专家")
-	fmt.Println("    \033[1;36m3. ChatGPT\033[0m           ⭐⭐⭐⭐⭐ 行业标杆 | OpenAI | 全能型")
-	fmt.Println("    \033[1;36m4. Kimi\033[0m              ⭐⭐⭐⭐ 月之暗面 | 长文本专家 | 日志分析")
-	fmt.Println("    \033[1;36m5. Gemini\033[0m            ⭐⭐⭐⭐ Google AI | 多模态 | 最新版本")
-	fmt.Println("    \033[1;36m6. GLM (智谱)\033[0m        ⭐⭐⭐⭐ 国产之光 | GLM-4 | ChatGLM")
-	fmt.Println("    \033[1;36m7. MiniMax\033[0m           ⭐⭐⭐⭐ 字节跳动 | 海螺AI | 长文本")
+	fmt.Println("    \033[1;36m2. Claude\033[0m            ⭐⭐⭐⭐⭐ Opus 4.7 | Agentic Engineering 最强 | K8s部署/重构/代码审查")
+	fmt.Println("    \033[1;36m3. ChatGPT\033[0m           ⭐⭐⭐⭐⭐ GPT-5.4 | 工具调用强 | Computer Use | 全能均衡")
+	fmt.Println("    \033[1;36m4. Kimi\033[0m              ⭐⭐⭐⭐☆ K2.5-code | 超长上下文 | 日志分析/批量运维首选")
+	fmt.Println("    \033[1;36m5. Gemini\033[0m            ⭐⭐⭐⭐ Gemini 3.1 Pro | 多模态强 | 推理翻倍 | 监控图表/搜索")
+	fmt.Println("    \033[1;36m6. GLM (智谱)\033[0m        ⭐⭐⭐⭐ GLM-5.1 | 国产之光 | Agentic Coding | 百万级上下文")
+	fmt.Println("    \033[1;36m7. MiniMax\033[0m           ⭐⭐⭐☆ M2.7-highspeed | 速度优先 | Agent自我进化 | 快速命令执行")
 	fmt.Println()
 
 	// 本地模型
@@ -195,11 +195,11 @@ func (w *ConfigWizard) configureOllama() (*ProviderConfig, error) {
 	// 询问模型
 	fmt.Println()
 	fmt.Println("  📌 常用模型示例:")
-	fmt.Println("     Ollama:  qwen2.5:latest, llama3.3:latest, deepseek-r1:latest")
+	fmt.Println("     Ollama:  qwen3:14b, llama3.3:70b, deepseek-r1:14b")
 	fmt.Println("     vLLM:    meta-llama/Llama-3.3-70B-Instruct")
 	fmt.Println("     其他:    根据您的部署配置")
 	fmt.Println()
-	model := w.promptWithDefault("  🤖 模型名称", "qwen2.5:latest")
+	model := w.promptWithDefault("  🤖 模型名称", "qwen3:14b")
 
 	fmt.Println()
 	fmt.Println("  📦 Ollama 快速安装:")
@@ -278,11 +278,10 @@ func (w *ConfigWizard) configureClaude() (*ProviderConfig, error) {
 
 	fmt.Println()
 	fmt.Println("  📌 常用模型:")
-	fmt.Println("     • claude-3-5-sonnet-20241022 (推荐)")
-	fmt.Println("     • claude-3-5-haiku-20241022")
-	fmt.Println("     • claude-opus-4-20250514 (最新，如有)")
+	fmt.Println("     • claude-opus-4-20250514 (推荐，Agentic Engineering 最强)")
+	fmt.Println("     • claude-sonnet-4-20250514")
 	fmt.Println()
-	model := w.promptWithDefault("  🤖 模型名称", "claude-3-5-sonnet-20241022")
+	model := w.promptWithDefault("  🤖 模型名称", "claude-opus-4-20250514")
 
 	return &ProviderConfig{
 		Type:        "claude",
@@ -331,11 +330,10 @@ func (w *ConfigWizard) configureKimi() (*ProviderConfig, error) {
 
 	fmt.Println()
 	fmt.Println("  📌 常用模型:")
-	fmt.Println("     • moonshot-v1-8k (推荐)")
-	fmt.Println("     • moonshot-v1-32k (长文本)")
-	fmt.Println("     • moonshot-v1-128k (超长文本)")
+	fmt.Println("     • k2.5-code (推荐，代码+长文本)")
+	fmt.Println("     • k2.6-code (最新版，更强)")
 	fmt.Println()
-	model := w.promptWithDefault("  🤖 模型名称", "moonshot-v1-8k")
+	model := w.promptWithDefault("  🤖 模型名称", "k2.5-code")
 
 	return &ProviderConfig{
 		Type:        "kimi",
@@ -397,7 +395,7 @@ func (w *ConfigWizard) configureGLM() (*ProviderConfig, error) {
 		return nil, fmt.Errorf("API密钥不能为空")
 	}
 
-	model := w.promptWithDefault("  🤖 模型名称", "glm-4-plus")
+	model := w.promptWithDefault("  🤖 模型名称", "glm-5.1")
 
 	return &ProviderConfig{
 		Type:        "glm",
@@ -427,13 +425,10 @@ func (w *ConfigWizard) configureGPT() (*ProviderConfig, error) {
 
 	fmt.Println()
 	fmt.Println("  📌 常用模型:")
-	fmt.Println("     • gpt-4-turbo-preview (推荐)")
+	fmt.Println("     • gpt-5.4 (推荐，工具调用+Computer Use)")
 	fmt.Println("     • gpt-4o")
-	fmt.Println("     • gpt-4")
-	fmt.Println("     • gpt-3.5-turbo (经济型)")
-	fmt.Println("     • gpt-5 (未来版本)")
 	fmt.Println()
-	model := w.promptWithDefault("  🤖 模型名称", "gpt-4-turbo-preview")
+	model := w.promptWithDefault("  🤖 模型名称", "gpt-5.4")
 
 	return &ProviderConfig{
 		Type:        "gpt",
@@ -463,11 +458,10 @@ func (w *ConfigWizard) configureGemini() (*ProviderConfig, error) {
 
 	fmt.Println()
 	fmt.Println("  📌 常用模型:")
-	fmt.Println("     • gemini-2.0-flash-exp (推荐)")
-	fmt.Println("     • gemini-1.5-pro")
-	fmt.Println("     • gemini-1.5-flash")
+	fmt.Println("     • gemini-3.1-pro (推荐，多模态+推理)")
+	fmt.Println("     • gemini-2.5-flash (快速)")
 	fmt.Println()
-	model := w.promptWithDefault("  🤖 模型名称", "gemini-2.0-flash-exp")
+	model := w.promptWithDefault("  🤖 模型名称", "gemini-3.1-pro")
 
 	return &ProviderConfig{
 		Type:        "gemini",
@@ -551,7 +545,7 @@ func (w *ConfigWizard) configureMiniMax() (*ProviderConfig, error) {
 		return nil, fmt.Errorf("API密钥不能为空")
 	}
 
-	model := w.promptWithDefault("  🤖 模型名称", "abab6.5-chat")
+	model := w.promptWithDefault("  🤖 模型名称", "MiniMax-M2.7-highspeed")
 
 	return &ProviderConfig{
 		Type:        "minimax",
