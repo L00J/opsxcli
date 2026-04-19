@@ -197,7 +197,7 @@ func NewAgentCmd() *cobra.Command {
 	return agentCmd
 }
 
-// runInteractive 运行交互模式
+// runInteractive 运行交互模式（使用 Bubble Tea TUI）
 func runInteractive(ag *core.Agent, manager session.Manager, provider string, debug bool) error {
 	// 创建新会话
 	sess, err := manager.Create("交互会话", provider, "")
@@ -206,62 +206,8 @@ func runInteractive(ag *core.Agent, manager session.Manager, provider string, de
 	}
 	_ = sess
 
-	fmt.Println()
-	fmt.Println(color.CyanString("🤖 opsxcli Agent"))
-	fmt.Println(color.New(color.FgHiBlack).Sprint("   opsxcli 智能运维助手"))
-	fmt.Println()
-	fmt.Println("   命令:")
-	fmt.Println("     /exit, /quit  - 退出会话")
-	fmt.Println("     /help         - 查看帮助")
-	fmt.Println("     /tasks        - 查看任务列表（后台模式）")
-	fmt.Println()
-
-	reader := bufio.NewReader(os.Stdin)
 	ctx := context.Background()
-
-	for {
-		fmt.Print(color.GreenString("👤 您") + ": ")
-
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				fmt.Println()
-				fmt.Println(color.YellowString("👋 再见！"))
-				return nil
-			}
-			return fmt.Errorf("读取输入失败: %w", err)
-		}
-
-		input = strings.TrimSpace(input)
-
-		// 处理特殊命令
-		switch input {
-		case "/exit", "/quit":
-			fmt.Println(color.YellowString("👋 再见！"))
-			return nil
-		case "/help":
-			showAgentHelp(ag)
-			continue
-		case "":
-			continue
-		}
-
-		// 显示思考状态
-		fmt.Println(color.CyanString("🤖 Agent") + ": " + color.New(color.FgHiBlack).Sprint("思考中..."))
-		fmt.Println()
-
-		result, err := ag.Run(ctx, input)
-		if err != nil {
-			fmt.Println(color.RedString("❌ 错误: ") + err.Error())
-			fmt.Println()
-			continue
-		}
-
-		// 显示结果
-		fmt.Println(color.CyanString("🤖 Agent") + ":")
-		fmt.Println(result.Output)
-		fmt.Println()
-	}
+	return ag.RunInteractive(ctx)
 }
 
 // runInteractiveWithTasks 运行支持后台任务的交互模式
