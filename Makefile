@@ -69,7 +69,7 @@ clean:
 # 运行测试
 test:
 	@echo "🧪 运行测试..."
-	go test -v ./...
+	CGO_CFLAGS="-Wno-gnu-folding-constant" go test -v ./...
 
 # 安装到系统路径
 install: release
