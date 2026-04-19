@@ -3,6 +3,7 @@ package sys
 import (
 	"context"
 	"os/exec"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -49,30 +50,33 @@ func NewDataCollector(ctx context.Context, interval time.Duration) *DataCollecto
 
 // Start 启动数据收集循环
 func (dc *DataCollector) Start(callback func(*SystemData)) {
-	// 首次立即收集一次数据（使用 cpu.Percent 作为后备，立即显示）
-	go func() {
-		data := dc.collect()
-		callback(data)
-	}()
-
-	// 后台初始化 lastCPUTimes，用于后续基于时间差的计算
+	// 后台初始化 lastCPUTimes，确保首次收集时基于时间差的计算可用
 	go func() {
 		// 初始化 lastCPUTimes
 		currentTimes, _ := cpu.Times(true)
 		if len(currentTimes) > 0 {
 			dc.lastCPUTimes = currentTimes
 		}
-		// 等待一个更新间隔，确保有时间差来计算CPU使用率
-		time.Sleep(dc.updateInterval)
-		// 再次更新 lastCPUTimes，为后续计算做准备
+
+		// 等待一小段时间，确保有时间差来计算 CPU 使用率
+		time.Sleep(100 * time.Millisecond)
+
+		// 再次更新 lastCPUTimes
 		currentTimes, _ = cpu.Times(true)
 		if len(currentTimes) > 0 {
 			dc.lastCPUTimes = currentTimes
 		}
+
+		// 首次收集并回调
+		data := dc.collect()
+		callback(data)
 	}()
 
 	// 启动定时收集循环
 	go func() {
+		// 等待首次收集完成后再启动 ticker，避免与首次收集冲突
+		time.Sleep(200 * time.Millisecond)
+
 		ticker := time.NewTicker(dc.updateInterval)
 		defer ticker.Stop()
 
@@ -93,6 +97,11 @@ func (dc *DataCollector) collect() *SystemData {
 	data := &SystemData{
 		UpdateTime: time.Now(), // 记录更新时间
 	}
+
+	// 平台检测和降级提示
+	data.Platform = runtime.GOOS
+	data.ProcessIOUnsupported = runtime.GOOS == "darwin"
+	data.DiskIOLimited = runtime.GOOS == "darwin"
 
 	// 收集 CPU 详细时间统计（类似 mpstat）
 	data.CPUTimes = dc.collectCPUTimes()
@@ -220,12 +229,21 @@ func (dc *DataCollector) collectProcesses(isFirst bool) []*ProcessInfo {
 			}
 
 			// 获取磁盘 I/O
-			ioStat, _ := proc.IOCounters()
+			ioStat, ioErr := proc.IOCounters()
 			diskRead := uint64(0)
 			diskWrite := uint64(0)
 			diskReadRate := 0.0
 			diskWriteRate := 0.0
-			if ioStat != nil {
+
+			if ioErr != nil {
+				// macOS 上 process.IOCounters() 返回 "not implemented yet"
+				// 优雅降级：保持为 0，不计算速率
+				if runtime.GOOS == "darwin" {
+					// macOS 不支持进程级 I/O 统计
+					diskRead = 0
+					diskWrite = 0
+				}
+			} else if ioStat != nil {
 				diskRead = ioStat.ReadBytes
 				diskWrite = ioStat.WriteBytes
 
@@ -503,25 +521,67 @@ func (dc *DataCollector) collectDiskIO() []DiskIOStat {
 				stat.AvgRqSz = (totalBytes / deltaTime) / totalIOPS / 1024.0
 			}
 
-			// 平均队列长度
-			stat.AvgQuSz = float64(current.WeightedIO-last.WeightedIO) / deltaTime / 1000.0 // 转换为毫秒
+			// macOS 下部分字段可能为 0，需要判断
+			if runtime.GOOS == "darwin" {
+				// macOS 磁盘 I/O 统计受限，加权 I/O 和时间字段可能为 0
+				// 只使用基础字段，避免显示空值
+				if current.WeightedIO == 0 && last.WeightedIO == 0 {
+					stat.AvgQuSz = 0
+				} else {
+					stat.AvgQuSz = float64(current.WeightedIO-last.WeightedIO) / deltaTime / 1000.0
+				}
 
-			// 平均等待时间 (ms)
-			if stat.ReadIOPS+stat.WriteIOPS > 0 {
-				ioTime := float64(current.IoTime-last.IoTime) / deltaTime / 1000.0 // 转换为毫秒
-				stat.Await = ioTime / (stat.ReadIOPS + stat.WriteIOPS)
-			}
+				if current.IoTime == 0 && last.IoTime == 0 {
+					stat.Await = 0
+					stat.UtilPercent = 0
+				} else {
+					// 平均等待时间 (ms)
+					if stat.ReadIOPS+stat.WriteIOPS > 0 {
+						ioTime := float64(current.IoTime-last.IoTime) / deltaTime / 1000.0
+						stat.Await = ioTime / (stat.ReadIOPS + stat.WriteIOPS)
+					}
+					// 利用率 (%)
+					stat.UtilPercent = float64(current.IoTime-last.IoTime) / deltaTime / 10.0
+					if stat.UtilPercent > 100.0 {
+						stat.UtilPercent = 100.0
+					}
+				}
 
-			// 读取等待时间 (ms)
-			if stat.ReadIOPS > 0 {
-				readTime := float64(current.ReadTime-last.ReadTime) / deltaTime / 1000.0
-				stat.RAwait = readTime / stat.ReadIOPS
-			}
+				if current.ReadTime == 0 && last.ReadTime == 0 {
+					stat.RAwait = 0
+				} else if stat.ReadIOPS > 0 {
+					readTime := float64(current.ReadTime-last.ReadTime) / deltaTime / 1000.0
+					stat.RAwait = readTime / stat.ReadIOPS
+				}
 
-			// 写入等待时间 (ms)
-			if stat.WriteIOPS > 0 {
-				writeTime := float64(current.WriteTime-last.WriteTime) / deltaTime / 1000.0
-				stat.WAwait = writeTime / stat.WriteIOPS
+				if current.WriteTime == 0 && last.WriteTime == 0 {
+					stat.WAwait = 0
+				} else if stat.WriteIOPS > 0 {
+					writeTime := float64(current.WriteTime-last.WriteTime) / deltaTime / 1000.0
+					stat.WAwait = writeTime / stat.WriteIOPS
+				}
+			} else {
+				// Linux 下完整计算
+				// 平均队列长度
+				stat.AvgQuSz = float64(current.WeightedIO-last.WeightedIO) / deltaTime / 1000.0 // 转换为毫秒
+
+				// 平均等待时间 (ms)
+				if stat.ReadIOPS+stat.WriteIOPS > 0 {
+					ioTime := float64(current.IoTime-last.IoTime) / deltaTime / 1000.0 // 转换为毫秒
+					stat.Await = ioTime / (stat.ReadIOPS + stat.WriteIOPS)
+				}
+
+				// 读取等待时间 (ms)
+				if stat.ReadIOPS > 0 {
+					readTime := float64(current.ReadTime-last.ReadTime) / deltaTime / 1000.0
+					stat.RAwait = readTime / stat.ReadIOPS
+				}
+
+				// 写入等待时间 (ms)
+				if stat.WriteIOPS > 0 {
+					writeTime := float64(current.WriteTime-last.WriteTime) / deltaTime / 1000.0
+					stat.WAwait = writeTime / stat.WriteIOPS
+				}
 			}
 
 			// 服务时间 (ms) - 简化计算
@@ -529,10 +589,12 @@ func (dc *DataCollector) collectDiskIO() []DiskIOStat {
 				stat.Svctm = stat.Await * 0.8 // 估算值
 			}
 
-			// 利用率 (%)
-			stat.UtilPercent = (float64(current.IoTime-last.IoTime) / deltaTime / 10.0) // 转换为百分比
-			if stat.UtilPercent > 100.0 {
-				stat.UtilPercent = 100.0
+			// Linux 利用率 (%)
+			if runtime.GOOS != "darwin" {
+				stat.UtilPercent = float64(current.IoTime-last.IoTime) / deltaTime / 10.0
+				if stat.UtilPercent > 100.0 {
+					stat.UtilPercent = 100.0
+				}
 			}
 		}
 
@@ -575,6 +637,13 @@ func (dc *DataCollector) collectDiskUsage() []DiskUsageInfo {
 			continue
 		}
 
+		// macOS 下跳过不需要的文件系统
+		if runtime.GOOS == "darwin" {
+			if part.Fstype == "autofs" || part.Fstype == "devfs" {
+				continue
+			}
+		}
+
 		// 获取磁盘使用情况
 		usage, err := disk.Usage(part.Mountpoint)
 		if err != nil {
@@ -591,6 +660,18 @@ func (dc *DataCollector) collectDiskUsage() []DiskUsageInfo {
 			}
 		}
 
+		// macOS 设备名处理（如 disk0s1 -> disk0）
+		if runtime.GOOS == "darwin" && strings.HasPrefix(device, "disk") {
+			// 提取 diskN 部分
+			for i := 4; i < len(device); i++ {
+				if device[i] >= '0' && device[i] <= '9' {
+					continue
+				}
+				device = device[:i]
+				break
+			}
+		}
+
 		// 判断磁盘类型
 		diskType := "HDD"
 		if strings.Contains(part.Device, "nvme") {
@@ -599,6 +680,10 @@ func (dc *DataCollector) collectDiskUsage() []DiskUsageInfo {
 			diskType = "RAID"
 		} else if strings.Contains(part.Fstype, "ext") || strings.Contains(part.Fstype, "xfs") {
 			// 可以根据需要进一步判断
+		} else if runtime.GOOS == "darwin" {
+			if strings.Contains(part.Device, "disk") {
+				diskType = "APFS SSD"
+			}
 		}
 
 		// 获取 Inode 信息

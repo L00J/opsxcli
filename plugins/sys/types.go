@@ -92,20 +92,23 @@ type DiskUsageInfo struct {
 
 // SystemData 系统数据缓存
 type SystemData struct {
-	CPUPercent       []float64
-	CPUTimes         []CPUTimesStat // CPU 详细时间统计（类似 mpstat）
-	CPUCores         int            // CPU 核心数
-	MemInfo          *mem.VirtualMemoryStat
-	LoadAvg          *load.AvgStat
-	DiskInfo         *disk.UsageStat
-	DiskUsageList    []DiskUsageInfo // 所有挂载点的磁盘使用信息
-	DiskIOStats      []DiskIOStat    // 磁盘 I/O 详细统计（类似 iostat）
-	NetStats         []net.IOCountersStat
-	Processes        []*ProcessInfo
-	LastNetStats     map[string]*NetStatSnapshot // 用于计算网络速率
-	UpdateTime       time.Time                   // 数据更新时间
-	TotalProcesses   int                         // 当前系统总进程数
-	MaxUserProcesses int                         // 用户最大进程数限制（ulimit -u）
+	CPUPercent           []float64
+	CPUTimes             []CPUTimesStat // CPU 详细时间统计（类似 mpstat）
+	CPUCores             int            // CPU 核心数
+	MemInfo              *mem.VirtualMemoryStat
+	LoadAvg              *load.AvgStat
+	DiskInfo             *disk.UsageStat
+	DiskUsageList        []DiskUsageInfo // 所有挂载点的磁盘使用信息
+	DiskIOStats          []DiskIOStat    // 磁盘 I/O 详细统计（类似 iostat）
+	NetStats             []net.IOCountersStat
+	Processes            []*ProcessInfo
+	LastNetStats         map[string]*NetStatSnapshot // 用于计算网络速率
+	UpdateTime           time.Time                   // 数据更新时间
+	TotalProcesses       int                         // 当前系统总进程数
+	MaxUserProcesses     int                         // 用户最大进程数限制（ulimit -u）
+	Platform             string                      // 运行平台（darwin, linux等）
+	ProcessIOUnsupported bool                        // macOS 下进程 I/O 统计不可用
+	DiskIOLimited        bool                        // macOS 下磁盘 I/O 详细统计受限
 }
 
 // NetStatSnapshot 网络统计快照

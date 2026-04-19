@@ -48,4 +48,64 @@ var (
 
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#6E738D"))
+
+	// === 新增样式 ===
+
+	// 消息气泡
+	assistantBubbleStyle = lipgloss.NewStyle().
+				BorderStyle(lipgloss.Border{Left: "┃"}).
+				BorderForeground(lipgloss.Color("#585b70")).
+				PaddingLeft(1).
+				MarginLeft(1)
+
+	// 代码块
+	codeBlockStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#1e1e2e")).
+				Foreground(lipgloss.Color("#cdd6f4")).
+				Padding(1, 2).
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#585b70"))
+
+	codeBlockLangStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#585b70")).
+				Foreground(lipgloss.Color("#cdd6f4")).
+				Padding(0, 1).
+				Bold(true).
+				MarginBottom(1)
+
+	inlineCodeStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#313244")).
+				Foreground(lipgloss.Color("#f5c2e7"))
+
+	// Markdown
+	h1Style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#f38ba8"))
+	h2Style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#fab387"))
+	h3Style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#f9e2af"))
+	boldStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#cdd6f4"))
+	quoteStyle = lipgloss.NewStyle().
+			BorderStyle(lipgloss.Border{Left: "┃"}).
+			BorderForeground(lipgloss.Color("#6c7086")).
+			PaddingLeft(1).
+			Foreground(lipgloss.Color("#a6adc8"))
+	listStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#cdd6f4"))
+	dividerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6c7086")).
+			MarginTop(1).
+			MarginBottom(1)
+
+	// Bash 高亮
+	bashPromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#89b4fa"))
+	bashCommandStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#a6e3a1"))
+	bashCommentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#6c7086"))
+	bashStringStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#a6e3a1"))
+	bashKeywordStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#cba6f7"))
+	bashNumberStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#fab387"))
+
+	// 其他
+	placeholderStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#6E738D")).
+				Italic(true)
+
+	tokenStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6E738D"))
 )

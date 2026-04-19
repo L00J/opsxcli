@@ -28,18 +28,34 @@ func drawProcesses(screen tcell.Screen, data *SystemData, selected int, width, h
 	sortHint := ""
 	switch currentSort {
 	case SortByCPU:
-		sortHint = "按CPU排序 | [M]内存 [D]磁盘I/O [T]CPU时间"
+		if data != nil && data.ProcessIOUnsupported {
+			sortHint = "按CPU排序 | [M]内存 [T]CPU时间"
+		} else {
+			sortHint = "按CPU排序 | [M]内存 [D]磁盘I/O [T]CPU时间"
+		}
 	case SortByMemory:
-		sortHint = "按内存排序 | [C]CPU [D]磁盘I/O [T]CPU时间"
+		if data != nil && data.ProcessIOUnsupported {
+			sortHint = "按内存排序 | [C]CPU [T]CPU时间"
+		} else {
+			sortHint = "按内存排序 | [C]CPU [D]磁盘I/O [T]CPU时间"
+		}
 	case SortByDiskIO:
-		sortHint = "按磁盘I/O排序 | [C]CPU [M]内存 [T]CPU时间"
+		if data != nil && data.ProcessIOUnsupported {
+			sortHint = "按CPU时间排序 | [C]CPU [M]内存 [T]CPU时间"
+		} else {
+			sortHint = "按磁盘I/O排序 | [C]CPU [M]内存 [T]CPU时间"
+		}
 	case SortByCPUTime:
-		sortHint = "按CPU时间排序 | [C]CPU [M]内存 [D]磁盘I/O"
+		if data != nil && data.ProcessIOUnsupported {
+			sortHint = "按CPU时间排序 | [C]CPU [M]内存"
+		} else {
+			sortHint = "按CPU时间排序 | [C]CPU [M]内存 [D]磁盘I/O"
+		}
 	}
 
 	if data == nil || data.Processes == nil || len(data.Processes) == 0 {
 		ui.DrawBox(screen, 2, y, width-4, height-y-2, " 进程列表 ", ui.ColorPrimary)
-		drawText(screen, 4, y+2, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
+		drawText(screen, 4, y+2, "⏳ 正在收集进程数据，请稍候...", ui.ColorMuted)
 		return
 	}
 
@@ -87,8 +103,17 @@ func drawProcesses(screen tcell.Screen, data *SystemData, selected int, width, h
 		Foreground(ui.ColorAccent).
 		Bold(true)
 
-	header := fmt.Sprintf("  %-7s %-18s %7s %10s %5s %9s %9s %11s %9s %s",
-		"PID", "名称", "CPU%", "CPU时间", "线程", "内存", "虚拟", "磁盘I/O", "运行时", "状态")
+	// 根据平台决定表头和列显示
+	showIO := !(data != nil && data.ProcessIOUnsupported)
+
+	var header string
+	if showIO {
+		header = fmt.Sprintf("  %-7s %-18s %7s %10s %5s %9s %9s %11s %9s %s",
+			"PID", "名称", "CPU%", "CPU时间", "线程", "内存", "虚拟", "磁盘I/O", "运行时", "状态")
+	} else {
+		header = fmt.Sprintf("  %-7s %-18s %7s %10s %5s %9s %9s %9s %s",
+			"PID", "名称", "CPU%", "CPU时间", "线程", "内存", "虚拟", "运行时", "状态")
+	}
 	drawTextWithStyle(screen, 4, contentY, header, headerStyle)
 
 	// 分隔线
@@ -128,25 +153,46 @@ func drawProcesses(screen tcell.Screen, data *SystemData, selected int, width, h
 		cpuTimeStr := formatCPUTime(proc.CPUTime)
 		ramStr := formatBytes(float64(proc.MemRSS))
 		virtStr := formatBytes(float64(proc.MemVMS))
-		diskIOStr := formatDiskIO(proc.DiskReadRate, proc.DiskWriteRate)
 		runtimeStr := formatRuntime(proc.RunTime)
 		statusStr := truncate(proc.Status, 9)
 
-		line := fmt.Sprintf("  %-7d %-18s %6.1f%% %10s %5d %9s %9s %11s %9s %s",
-			proc.PID,
-			truncate(proc.Name, 18),
-			proc.CPU,
-			cpuTimeStr,
-			proc.Threads,
-			ramStr,
-			virtStr,
-			diskIOStr,
-			runtimeStr,
-			statusStr,
-		)
+		var line string
+		if showIO {
+			diskIOStr := formatDiskIO(proc.DiskReadRate, proc.DiskWriteRate)
+			line = fmt.Sprintf("  %-7d %-18s %6.1f%% %10s %5d %9s %9s %11s %9s %s",
+				proc.PID,
+				truncate(proc.Name, 18),
+				proc.CPU,
+				cpuTimeStr,
+				proc.Threads,
+				ramStr,
+				virtStr,
+				diskIOStr,
+				runtimeStr,
+				statusStr,
+			)
+		} else {
+			line = fmt.Sprintf("  %-7d %-18s %6.1f%% %10s %5d %9s %9s %9s %s",
+				proc.PID,
+				truncate(proc.Name, 18),
+				proc.CPU,
+				cpuTimeStr,
+				proc.Threads,
+				ramStr,
+				virtStr,
+				runtimeStr,
+				statusStr,
+			)
+		}
 
 		drawTextWithStyle(screen, 4, listY, line, style)
 		listY++
+	}
+
+	// macOS 下显示降级提示
+	if !showIO {
+		ioHint := " 💡 macOS 不支持进程级 I/O 统计"
+		drawText(screen, 4, listY, ioHint, ui.ColorMuted)
 	}
 
 	// 底部统计

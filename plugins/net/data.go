@@ -3,6 +3,7 @@ package net
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -43,7 +44,8 @@ func (dc *DataCollector) Start(callback func(*NetworkData)) {
 		dc.collect()
 
 		// 等待一小段时间后再收集一次，这样就能计算速率了
-		time.Sleep(500 * time.Millisecond)
+		// 优化为 100ms，加快首次显示速度
+		time.Sleep(100 * time.Millisecond)
 		data := dc.collect()
 		callback(data)
 
@@ -71,6 +73,7 @@ func (dc *DataCollector) collect() *NetworkData {
 		InterfaceTraffic: make(map[string]*InterfaceTraffic),
 		UpdateTime:       time.Now(),
 		StartTime:        dc.startTime,
+		Platform:         runtime.GOOS,
 	}
 
 	// 获取网络接口

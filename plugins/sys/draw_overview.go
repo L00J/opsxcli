@@ -51,7 +51,7 @@ func drawResourcePanel(screen tcell.Screen, data *SystemData, x, y, width, heigh
 	contentY++
 
 	if len(data.CPUPercent) == 0 {
-		drawText(screen, x+4, contentY, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
+		drawText(screen, x+4, contentY, "⏳ 等待第二次采样，约1秒后显示...", ui.ColorMuted)
 		contentY += 2
 	} else {
 		var overallCPU float64
@@ -210,7 +210,7 @@ func drawTopProcessesPanel(screen tcell.Screen, data *SystemData, x, y, width, h
 	ui.DrawBox(screen, x, y, width, height, " TOP 进程 (按CPU排序) ", ui.ColorPrimary)
 
 	if data == nil || data.Processes == nil || len(data.Processes) == 0 {
-		drawText(screen, x+2, y+2, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
+		drawText(screen, x+2, y+2, "⏳ 正在收集进程数据，请稍候...", ui.ColorMuted)
 		return
 	}
 

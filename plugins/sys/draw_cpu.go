@@ -22,7 +22,7 @@ func drawCPU(screen tcell.Screen, data *SystemData, width, height int) {
 	}
 
 	if len(data.CPUPercent) == 0 {
-		drawText(screen, 4, y+2, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
+		drawText(screen, 4, y+2, "⏳ 等待第二次采样，约1秒后显示...", ui.ColorMuted)
 		return
 	}
 

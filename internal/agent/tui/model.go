@@ -76,6 +76,10 @@ type Model struct {
 	sessionMgr       session.Manager
 	currentSessionID string
 	deleteConfirm    bool
+
+	// 显示信息
+	modelName   string
+	totalTokens int
 }
 
 // NewModel 创建 TUI Model
@@ -101,15 +105,17 @@ func NewModel(agent AgentRunner, ctx context.Context) Model {
 	}
 
 	return Model{
-		agent:      agent,
-		ctx:        ctx,
-		textarea:   ta,
-		viewport:   vp,
-		spinner:    s,
-		messages:   make([]ChatMessage, 0),
-		state:      stateIdle,
-		msgChan:    make(chan tea.Msg, 64),
-		sessionMgr: sessionMgr,
+		agent:       agent,
+		ctx:         ctx,
+		textarea:    ta,
+		viewport:    vp,
+		spinner:     s,
+		messages:    make([]ChatMessage, 0),
+		state:       stateIdle,
+		msgChan:     make(chan tea.Msg, 64),
+		sessionMgr:  sessionMgr,
+		modelName:   "deepseek-chat",
+		totalTokens: 0,
 	}
 }
 
@@ -132,7 +138,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 		// 为输入框、状态栏、标题预留空间后计算 viewport 高度
-		vpHeight := msg.Height - 14
+		vpHeight := msg.Height - 12
 		if vpHeight < 3 {
 			vpHeight = 3
 		}
@@ -227,6 +233,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			})
 		}
 		m.state = stateStreaming
+		m.totalTokens += estimateTokens(msg.content)
 		m.viewport.SetContent(m.renderMessages())
 		m.viewport.GotoBottom()
 		// 继续等待下一条消息
@@ -453,28 +460,26 @@ func (m Model) View() string {
 		return m.renderSessionList()
 	}
 
-	// 标题栏
-	title := titleStyle.Render("🤖 opsxcli Agent V2 — 交互模式")
-	subtitle := subtitleStyle.Render("opsxcli 智能运维助手")
+	// 标题栏 — 更紧凑，显示模型信息
+	titleBar := titleStyle.Render(fmt.Sprintf("🤖 opsxcli Agent — %s", m.modelName))
 
-	// 状态栏
+	// 状态栏 — 更丰富的信息
 	var status string
 	switch m.state {
 	case stateThinking:
 		status = fmt.Sprintf("%s 思考中...", m.spinner.View())
 	case stateStreaming:
-		status = fmt.Sprintf("%s 输出中...", m.spinner.View())
+		status = fmt.Sprintf("%s 输出中...  tokens: %d", m.spinner.View(), m.totalTokens)
 	case stateExecuting:
 		status = fmt.Sprintf("%s 执行工具...", m.spinner.View())
 	default:
-		status = "就绪 | Enter 发送 | ESC 退出 | Ctrl+O 会话列表"
+		status = fmt.Sprintf("就绪 | Enter 发送 | ESC 退出 | Ctrl+O 会话列表 | %s", time.Now().Format("15:04:05"))
 	}
 	statusBar := statusStyle.Width(m.width - 4).Render(status)
 
 	// 视图区域
 	return lipgloss.JoinVertical(lipgloss.Left,
-		title,
-		subtitle,
+		titleBar,
 		"",
 		viewportStyle.Width(m.width).Render(m.viewport.View()),
 		"",
@@ -486,21 +491,46 @@ func (m Model) View() string {
 // renderMessages 渲染消息历史为字符串
 func (m Model) renderMessages() string {
 	var b strings.Builder
+	contentWidth := m.viewport.Width - 8
+	if contentWidth < 20 {
+		contentWidth = 20
+	}
+
 	for _, msg := range m.messages {
 		switch msg.Role {
 		case "user":
-			b.WriteString(userStyle.Render("👤 您: "))
+			b.WriteString(userStyle.Render("👤 您"))
+			b.WriteString("\n")
 			b.WriteString(msg.Content)
 		case "assistant":
-			b.WriteString(assistantStyle.Render(msg.Content))
+			// 检测内容中是否已包含 stream.go 输出的 🎨 Agent 前缀
+			content := msg.Content
+			if !hasAgentPrefix(content) {
+				b.WriteString(assistantStyle.Render("🤖 Agent"))
+				b.WriteString("\n")
+			}
+			rendered := RenderMarkdown(content, contentWidth)
+			b.WriteString(assistantBubbleStyle.Render(rendered))
 		case "tool":
-			b.WriteString(toolStyle.Render(msg.Content))
+			b.WriteString(toolStyle.Render("🔧 " + msg.Content))
 		case "system":
-			b.WriteString(errorStyle.Render(msg.Content))
+			b.WriteString(errorStyle.Render("⚠️ " + msg.Content))
 		}
 		b.WriteString("\n\n")
 	}
 	return b.String()
+}
+
+// hasAgentPrefix 检测 assistant 内容是否已包含 stream.go 输出的前缀
+func hasAgentPrefix(content string) bool {
+	// stream.go 输出的前缀包含 "Agent" 和 "🤖"
+	// 简单检测：前 200 个字符内同时出现 "Agent" 和 "🤖"
+	checkLen := 200
+	if len(content) < checkLen {
+		checkLen = len(content)
+	}
+	prefix := content[:checkLen]
+	return strings.Contains(prefix, "Agent") && strings.Contains(prefix, "🤖")
 }
 
 // renderSessionList 渲染会话列表
@@ -608,4 +638,25 @@ func convertLLMMessagesToChatMessages(msgs []llm.Message) []ChatMessage {
 		})
 	}
 	return result
+}
+
+// estimateTokens 简单估算 token 数
+func estimateTokens(s string) int {
+	// 简单估算策略：中文/符号 1 字 ≈ 1 token，英文 4 字符 ≈ 1 token
+	// 这里采用更简化的方式：按 rune 计数，空白字符不计
+	runes := []rune(s)
+	count := 0
+	for _, r := range runes {
+		if r == ' ' || r == '\n' || r == '\t' || r == '\r' {
+			continue
+		}
+		if r <= 127 {
+			// ASCII 字符（主要是英文），4 字符约 1 token
+			count += 1
+		} else {
+			// 非 ASCII（主要是中文），1 字约 1 token
+			count += 4
+		}
+	}
+	return count / 4
 }

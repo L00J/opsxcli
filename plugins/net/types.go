@@ -105,4 +105,7 @@ type NetworkData struct {
 	// 质量指标
 	PacketLossRate float64 // 丢包率
 	ErrorRate      float64 // 错误率
+
+	// 平台信息
+	Platform string // 运行平台（darwin, linux等）
 }

@@ -21,6 +21,9 @@ func TestNewModel(t *testing.T) {
 	if m.msgChan == nil {
 		t.Error("消息通道应已初始化")
 	}
+	if m.modelName != "deepseek-chat" {
+		t.Errorf("默认模型名应为 deepseek-chat, 实际为 %s", m.modelName)
+	}
 }
 
 func TestModelUpdateWindowSize(t *testing.T) {
@@ -134,6 +137,10 @@ func TestStreamChunkMsg(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Error("流式输出应继续等待下一条消息")
+	}
+	// token 应被估算累加
+	if model.totalTokens <= 0 {
+		t.Error("收到流式片段后 totalTokens 应大于 0")
 	}
 }
 
@@ -306,5 +313,130 @@ func TestModelSessionListEscReturnsToChat(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Error("Esc 返回聊天视图不应有命令")
+	}
+}
+
+// === Markdown 渲染测试 ===
+
+func TestRenderMarkdownHeaders(t *testing.T) {
+	s := RenderMarkdown("# H1\n## H2\n### H3", 80)
+	if !strings.Contains(s, "H1") {
+		t.Error("H1 渲染应包含文本")
+	}
+	if !strings.Contains(s, "H2") {
+		t.Error("H2 渲染应包含文本")
+	}
+	if !strings.Contains(s, "H3") {
+		t.Error("H3 渲染应包含文本")
+	}
+}
+
+func TestRenderMarkdownBold(t *testing.T) {
+	s := RenderMarkdown("这是 **粗体** 文本", 80)
+	if !strings.Contains(s, "粗体") {
+		t.Error("粗体渲染应包含文本")
+	}
+}
+
+func TestRenderMarkdownInlineCode(t *testing.T) {
+	s := RenderMarkdown("使用 `kubectl get pods` 命令", 80)
+	if !strings.Contains(s, "kubectl get pods") {
+		t.Error("行内代码渲染应包含文本")
+	}
+}
+
+func TestRenderMarkdownCodeBlock(t *testing.T) {
+	input := "```bash\n$ uptime\n```"
+	s := RenderMarkdown(input, 80)
+	if !strings.Contains(s, "uptime") {
+		t.Error("代码块渲染应包含代码内容")
+	}
+	if !strings.Contains(s, "bash") {
+		t.Error("代码块渲染应包含语言标签")
+	}
+}
+
+func TestRenderMarkdownList(t *testing.T) {
+	input := "- item1\n- item2\n1. item3"
+	s := RenderMarkdown(input, 80)
+	if !strings.Contains(s, "item1") {
+		t.Error("列表渲染应包含 item1")
+	}
+	if !strings.Contains(s, "item2") {
+		t.Error("列表渲染应包含 item2")
+	}
+	if !strings.Contains(s, "item3") {
+		t.Error("列表渲染应包含 item3")
+	}
+}
+
+func TestRenderMarkdownQuote(t *testing.T) {
+	input := "> 这是一条引用\n> 第二行"
+	s := RenderMarkdown(input, 80)
+	if !strings.Contains(s, "引用") {
+		t.Error("引用渲染应包含文本")
+	}
+}
+
+func TestRenderMarkdownTable(t *testing.T) {
+	input := "| A | B |\n|---|---|\n| 1 | 2 |"
+	s := RenderMarkdown(input, 80)
+	if !strings.Contains(s, "A") {
+		t.Error("表格渲染应包含 A")
+	}
+	if !strings.Contains(s, "1") {
+		t.Error("表格渲染应包含 1")
+	}
+}
+
+func TestRenderMarkdownDivider(t *testing.T) {
+	s := RenderMarkdown("---", 80)
+	if s == "" {
+		t.Error("分隔线渲染不应为空")
+	}
+}
+
+func TestRenderMessagesWithMarkdown(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.messages = []ChatMessage{
+		{Role: "user", Content: "查看负载"},
+		{Role: "assistant", Content: "## 系统负载\n\n```bash\n$ uptime\n```"},
+	}
+	s := m.renderMessages()
+	if !strings.Contains(s, "查看负载") {
+		t.Error("用户消息应被渲染")
+	}
+	if !strings.Contains(s, "系统负载") {
+		t.Error("助手消息标题应被渲染")
+	}
+	if !strings.Contains(s, "uptime") {
+		t.Error("助手消息代码块应被渲染")
+	}
+}
+
+func TestHasAgentPrefix(t *testing.T) {
+	if !hasAgentPrefix("\x1b[36m🤖 Agent\x1b[0m hello") {
+		t.Error("应检测到 stream.go 输出的前缀")
+	}
+	if hasAgentPrefix("hello world") {
+		t.Error("普通内容不应被误判为包含前缀")
+	}
+}
+
+func TestEstimateTokens(t *testing.T) {
+	// ASCII 文本
+	asciiTokens := estimateTokens("hello world")
+	if asciiTokens <= 0 {
+		t.Error("ASCII 文本估算 token 应大于 0")
+	}
+	// 中文文本
+	zhTokens := estimateTokens("你好世界")
+	if zhTokens <= 0 {
+		t.Error("中文文本估算 token 应大于 0")
+	}
+	// 空文本
+	emptyTokens := estimateTokens("   \n\t  ")
+	if emptyTokens != 0 {
+		t.Error("空白文本估算 token 应为 0")
 	}
 }

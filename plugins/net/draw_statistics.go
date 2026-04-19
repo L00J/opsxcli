@@ -16,7 +16,7 @@ func drawStatistics(screen tcell.Screen, data *NetworkData, selectedIf int, widt
 
 	if len(data.Interfaces) == 0 {
 		ui.DrawBox(screen, 2, y, width-4, height-y-2, " 流量统计 ", ui.ColorSecondary)
-		drawText(screen, 4, y+2, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
+		drawText(screen, 4, y+2, "⏳ 正在收集网络数据，请稍候...", ui.ColorMuted)
 		return
 	}
 

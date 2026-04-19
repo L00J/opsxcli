@@ -40,7 +40,7 @@ func drawDisk(screen tcell.Screen, data *SystemData, width, height int) {
 
 	if len(diskList) == 0 {
 		ui.DrawBox(screen, 2, y, width-4, height-y-2, " 磁盘详情 ", ui.ColorPrimary)
-		drawText(screen, 4, y+2, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
+		drawText(screen, 4, y+2, "⏳ 正在收集磁盘数据，请稍候...", ui.ColorMuted)
 		return
 	}
 
@@ -183,6 +183,11 @@ func drawDisk(screen tcell.Screen, data *SystemData, width, height int) {
 		formatBytesShort(float64(totalUsed)),
 		formatBytesShort(float64(totalTotal)),
 		totalUsedPercent)
+
+	// macOS 下添加 I/O 受限提示
+	if data != nil && data.DiskIOLimited {
+		stats += " | macOS 磁盘 I/O 统计受限"
+	}
 
 	statColor := ui.ColorInfo
 	if totalUsedPercent > 80 {

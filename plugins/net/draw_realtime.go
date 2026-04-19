@@ -14,7 +14,8 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 	y := 4
 
 	if len(data.Interfaces) == 0 {
-		drawText(screen, 2, y, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
+		ui.DrawBox(screen, 2, y, width-4, height-y-2, " 实时流量 ", ui.ColorSecondary)
+		drawText(screen, 4, y+2, "⏳ 正在收集网络数据，请稍候...", ui.ColorMuted)
 		return
 	}
 
@@ -48,6 +49,14 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 	sort.Slice(ifaceList, func(i, j int) bool {
 		return ifaceList[i].total > ifaceList[j].total
 	})
+
+	// 如果没有活跃流量，显示提示
+	if len(ifaceList) == 0 {
+		ui.DrawBox(screen, 2, y, width-4, height-y-2, " 实时流量 ", ui.ColorSecondary)
+		drawText(screen, 4, y+2, "💡 无活跃流量接口", ui.ColorMuted)
+		drawText(screen, 4, y+3, "   所有接口当前无流量或已断开", ui.ColorMuted)
+		return
+	}
 
 	// 绘制接口列表
 	maxRows := (height - y - 6) / 5 // 每个接口占5行
@@ -176,4 +185,11 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 		data.PacketLossRate,
 		data.ErrorRate)
 	drawText(screen, 4, statsY, globalStats, ui.ColorAccent)
+
+	// 刷新状态提示
+	refreshY := statsY + 1
+	if !data.UpdateTime.IsZero() {
+		refreshStr := fmt.Sprintf(" 上次刷新: %s", data.UpdateTime.Format("15:04:05"))
+		drawText(screen, 4, refreshY, refreshStr, ui.ColorMuted)
+	}
 }
