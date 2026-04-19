@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // ProviderConfig 提供商配置
@@ -124,6 +125,65 @@ func (cm *ConfigManager) Save(name string, config *ProviderConfig) error {
 
 	cm.configs[name] = config
 	return nil
+}
+
+// placeholderPatterns 占位符 API key 模式（不区分大小写匹配）
+var placeholderPatterns = []string{
+	"YOUR_",
+	"_API_KEY",
+	"placeholder",
+	"changeme",
+	"example",
+	"xxx",
+	"test",
+	"demo",
+	"sk-test",
+	"sk-xxx",
+}
+
+// IsValid 检查配置是否有效（非占位符）
+func (c *ProviderConfig) IsValid() bool {
+	// 本地服务（Ollama/vLLM）不需要 API key
+	if c.Type == "ollama" || c.BaseURL != "" && (c.APIKey == "" || c.APIKey == "ollama") {
+		if c.Type == "ollama" {
+			return true
+		}
+	}
+
+	// 云服务必须有效 key
+	if c.APIKey == "" {
+		return false
+	}
+
+	key := strings.ToUpper(c.APIKey)
+	for _, pattern := range placeholderPatterns {
+		if strings.Contains(key, strings.ToUpper(pattern)) {
+			return false
+		}
+	}
+
+	// key 太短也不行（至少 10 字符）
+	if len(c.APIKey) < 10 {
+		return false
+	}
+
+	return true
+}
+
+// GetValidProviders 返回所有有效（非占位符）的 provider 名称
+func (cm *ConfigManager) GetValidProviders() []string {
+	var valid []string
+	for name, config := range cm.configs {
+		if config.IsValid() {
+			valid = append(valid, name)
+		}
+	}
+	return valid
+}
+
+// HasAnyValidProvider 检查是否有任何有效配置
+func (cm *ConfigManager) HasAnyValidProvider() bool {
+	return len(cm.GetValidProviders()) > 0
 }
 
 // CreateDefaultConfigs 创建默认配置示例

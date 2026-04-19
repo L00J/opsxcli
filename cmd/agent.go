@@ -70,10 +70,28 @@ func NewAgentCmd() *cobra.Command {
 				return fmt.Errorf("初始化配置管理器失败: %w", err)
 			}
 
-			// 检查是否有配置，如果没有则运行配置向导
+			// 检查是否有有效配置（排除占位符 key）
+			// 场景1: 完全没有配置 → 首次使用，启动配置向导
+			// 场景2: 有配置但都是占位符 key → 引导重新配置
+			// 场景3: 有有效配置 → 正常使用
 			providers := configManager.List()
+			validProviders := configManager.GetValidProviders()
+
+			needsWizard := false
 			if len(providers) == 0 {
-				fmt.Println("🔧 首次使用，启动配置向导...")
+				// 场景1: 完全新环境
+				needsWizard = true
+			} else if len(validProviders) == 0 {
+				// 场景2: 有配置但 key 全是占位符
+				fmt.Println()
+				fmt.Println(color.YellowString("⚠️  检测到 API 密钥未配置"))
+				fmt.Println(color.New(color.FgHiBlack).Sprint("   现有配置使用的是占位符密钥，需要配置真实密钥才能使用"))
+				fmt.Println()
+				needsWizard = true
+			}
+
+			if needsWizard {
+				fmt.Println(color.CyanString("🔧 启动配置向导..."))
 				fmt.Println()
 				wizard := llm.NewConfigWizard(configManager)
 				if err := wizard.Run(); err != nil {
@@ -85,16 +103,16 @@ func NewAgentCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("重新加载配置失败: %w", err)
 				}
-				providers = configManager.List()
+				validProviders = configManager.GetValidProviders()
 
-				if len(providers) == 0 {
+				if len(validProviders) == 0 {
 					return fmt.Errorf("配置失败，请重试")
 				}
 			}
 
-			// 如果未指定provider，使用第一个
+			// 如果未指定 provider，优先使用第一个有有效 key 的 provider
 			if provider == "" {
-				provider = providers[0]
+				provider = validProviders[0]
 			}
 
 			// 2. 创建 LLM 客户端
