@@ -9,7 +9,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
-	"opsxcli/internal/agentv2/session"
+	"opsxcli/internal/agent/session"
 )
 
 func init() {

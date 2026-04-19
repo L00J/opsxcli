@@ -14,10 +14,10 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
-	"opsxcli/internal/agentv2/core"
-	"opsxcli/internal/agentv2/safety"
-	"opsxcli/internal/agentv2/session"
-	"opsxcli/internal/agentv2/tools"
+	"opsxcli/internal/agent/core"
+	"opsxcli/internal/agent/safety"
+	"opsxcli/internal/agent/session"
+	"opsxcli/internal/agent/tools"
 	"opsxcli/internal/llm"
 )
 
