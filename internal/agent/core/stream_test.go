@@ -15,36 +15,32 @@ import (
 
 // mockStreamLLM 支持自定义 Stream 响应的 LLM mock
 type mockStreamLLM struct {
-	responses    []llm.CompletionResponse
-	callIndex    int
-	err          error
-	streamChunks []llm.StreamChunk
-	streamErr    error
+	streamChunks   []llm.StreamChunk
+	streamChunks2  []llm.StreamChunk // 第二轮响应（工具执行后）
+	streamErr      error
+	streamCallCount int
 }
 
 func (m *mockStreamLLM) Complete(ctx context.Context, req *llm.CompletionRequest) (*llm.CompletionResponse, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	if m.callIndex >= len(m.responses) {
-		return &llm.CompletionResponse{
-			ID:      "mock-fallback",
-			Model:   "mock",
-			Message: llm.Message{Role: "assistant", Content: "fallback"},
-			Usage:   llm.Usage{TotalTokens: 1},
-		}, nil
-	}
-	resp := &m.responses[m.callIndex]
-	m.callIndex++
-	return resp, nil
+	return &llm.CompletionResponse{
+		ID:      "mock",
+		Model:   "mock",
+		Message: llm.Message{Role: "assistant", Content: "mock"},
+		Usage:   llm.Usage{TotalTokens: 1},
+	}, nil
 }
 
 func (m *mockStreamLLM) Stream(ctx context.Context, req *llm.CompletionRequest) (<-chan llm.StreamChunk, error) {
 	if m.streamErr != nil {
 		return nil, m.streamErr
 	}
-	ch := make(chan llm.StreamChunk, len(m.streamChunks))
-	for _, chunk := range m.streamChunks {
+	m.streamCallCount++
+	chunks := m.streamChunks
+	if m.streamCallCount > 1 && m.streamChunks2 != nil {
+		chunks = m.streamChunks2
+	}
+	ch := make(chan llm.StreamChunk, len(chunks))
+	for _, chunk := range chunks {
 		ch <- chunk
 	}
 	close(ch)
@@ -55,19 +51,28 @@ func (m *mockStreamLLM) Name() string {
 	return "mock-stream-llm"
 }
 
+func newTestAgent(t *testing.T, llmClient llm.Client, registry *tools.Registry) *Agent {
+	if registry == nil {
+		registry = tools.NewRegistry()
+	}
+	config := &Config{
+		MaxIterations:     5,
+		Temperature:       0.3,
+		ToolTimeout:       10 * time.Second,
+		MaxTokens:         1024,
+		SafetyMode:        SafetyModeBalanced,
+		SessionDir:        t.TempDir(),
+		AutoApprove:       true,
+		OutputMaxLength:   10000,
+		MaxContextTokens:  6000,
+	}
+	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
+	safetyCtl.SetAutoApprove(true)
+	return NewAgent(llmClient, registry, config, safetyCtl)
+}
+
 func TestRunStreamDirectAnswer(t *testing.T) {
 	mockLLM := &mockStreamLLM{
-		responses: []llm.CompletionResponse{
-			{
-				ID:    "resp-1",
-				Model: "mock",
-				Message: llm.Message{
-					Role:    "assistant",
-					Content: "The answer is 42.",
-				},
-				Usage: llm.Usage{TotalTokens: 10},
-			},
-		},
 		streamChunks: []llm.StreamChunk{
 			{Delta: llm.Message{Role: "assistant", Content: "The "}},
 			{Delta: llm.Message{Role: "assistant", Content: "answer "}},
@@ -75,25 +80,7 @@ func TestRunStreamDirectAnswer(t *testing.T) {
 		},
 	}
 
-	registry := tools.NewRegistry()
-	sessionDir := t.TempDir()
-
-	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
-	}
-
-	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
-	safetyCtl.SetAutoApprove(true)
-
-	agent := NewAgent(mockLLM, registry, config, safetyCtl)
-
+	agent := newTestAgent(t, mockLLM, nil)
 	ctx := context.Background()
 	var out strings.Builder
 	result, err := agent.RunStream(ctx, "What is the meaning of life?", &out)
@@ -109,12 +96,6 @@ func TestRunStreamDirectAnswer(t *testing.T) {
 	}
 	if result.Output != "The answer is 42." {
 		t.Errorf("expected output 'The answer is 42.', got %q", result.Output)
-	}
-	if agent.totalTokens != 10 {
-		t.Errorf("expected totalTokens 10, got %d", agent.totalTokens)
-	}
-	if mockLLM.callIndex != 1 {
-		t.Errorf("expected 1 Complete call, got %d", mockLLM.callIndex)
 	}
 	// 输出中应包含流式内容
 	outputStr := out.String()
@@ -146,59 +127,19 @@ func TestRunStreamWithToolCall(t *testing.T) {
 	registry.Register(mockT)
 
 	mockLLM := &mockStreamLLM{
-		responses: []llm.CompletionResponse{
-			{
-				ID:    "resp-1",
-				Model: "mock",
-				Message: llm.Message{
-					Role: "assistant",
-					ToolCalls: []llm.ToolCall{
-						{
-							ID:   "call-1",
-							Type: "function",
-							Function: llm.FunctionCall{
-								Name:      "mock_tool",
-								Arguments: `{"arg1":"value1"}`,
-							},
-						},
-					},
-				},
-				Usage: llm.Usage{TotalTokens: 15},
-			},
-			{
-				ID:    "resp-2",
-				Model: "mock",
-				Message: llm.Message{
-					Role:    "assistant",
-					Content: "Based on the tool output, the answer is clear.",
-				},
-				Usage: llm.Usage{TotalTokens: 20},
-			},
-		},
 		streamChunks: []llm.StreamChunk{
+			{Delta: llm.Message{Role: "assistant", Content: "Let me check."}},
+			{Delta: llm.Message{Role: "assistant", ToolCalls: []llm.ToolCall{
+				{ID: "call-1", Type: "function", Function: llm.FunctionCall{Name: "mock_tool", Arguments: `{"arg1":"value1"}`}},
+			}}},
+		},
+		streamChunks2: []llm.StreamChunk{
 			{Delta: llm.Message{Role: "assistant", Content: "Based "}},
 			{Delta: llm.Message{Role: "assistant", Content: "on the tool output, the answer is clear."}, Finish: true},
 		},
 	}
 
-	sessionDir := t.TempDir()
-
-	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
-	}
-
-	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
-	safetyCtl.SetAutoApprove(true)
-
-	agent := NewAgent(mockLLM, registry, config, safetyCtl)
-
+	agent := newTestAgent(t, mockLLM, registry)
 	ctx := context.Background()
 	var out strings.Builder
 	result, err := agent.RunStream(ctx, "Please run the mock tool.", &out)
@@ -215,12 +156,6 @@ func TestRunStreamWithToolCall(t *testing.T) {
 	if result.Output != "Based on the tool output, the answer is clear." {
 		t.Errorf("expected output 'Based on the tool output, the answer is clear.', got %q", result.Output)
 	}
-	if agent.totalTokens != 35 {
-		t.Errorf("expected totalTokens 35, got %d", agent.totalTokens)
-	}
-	if mockLLM.callIndex != 2 {
-		t.Errorf("expected 2 Complete calls, got %d", mockLLM.callIndex)
-	}
 	// 输出中应包含进度提示和流式内容
 	outputStr := out.String()
 	if !strings.Contains(outputStr, "正在执行工具") {
@@ -228,100 +163,32 @@ func TestRunStreamWithToolCall(t *testing.T) {
 	}
 }
 
-func TestRunStreamFallbackOnStreamError(t *testing.T) {
+func TestRunStreamStreamError(t *testing.T) {
 	mockLLM := &mockStreamLLM{
-		responses: []llm.CompletionResponse{
-			{
-				ID:    "resp-1",
-				Model: "mock",
-				Message: llm.Message{
-					Role:    "assistant",
-					Content: "Fallback content from Complete.",
-				},
-				Usage: llm.Usage{TotalTokens: 10},
-			},
-		},
 		streamErr: errors.New("stream connection failed"),
 	}
 
-	registry := tools.NewRegistry()
-	sessionDir := t.TempDir()
-
-	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
-	}
-
-	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
-	safetyCtl.SetAutoApprove(true)
-
-	agent := NewAgent(mockLLM, registry, config, safetyCtl)
-
+	agent := newTestAgent(t, mockLLM, nil)
 	ctx := context.Background()
 	var out strings.Builder
-	result, err := agent.RunStream(ctx, "This will fallback.", &out)
+	_, err := agent.RunStream(ctx, "This will fail.", &out)
 
-	if err != nil {
-		t.Fatalf("expected no error after fallback, got %v", err)
+	if err == nil {
+		t.Fatal("expected error from stream failure")
 	}
-	if result == nil {
-		t.Fatal("expected result to be non-nil")
-	}
-	if !result.Success {
-		t.Error("expected result.Success to be true")
-	}
-	if result.Output != "Fallback content from Complete." {
-		t.Errorf("expected output 'Fallback content from Complete.', got %q", result.Output)
-	}
-	outputStr := out.String()
-	if !strings.Contains(outputStr, "Fallback content from Complete.") {
-		t.Errorf("expected output to contain fallback content, got %q", outputStr)
+	if !strings.Contains(err.Error(), "Stream 失败") {
+		t.Errorf("expected error to contain 'Stream 失败', got %v", err)
 	}
 }
 
 func TestRunStreamWithErrorChunk(t *testing.T) {
 	mockLLM := &mockStreamLLM{
-		responses: []llm.CompletionResponse{
-			{
-				ID:    "resp-1",
-				Model: "mock",
-				Message: llm.Message{
-					Role:    "assistant",
-					Content: "Some content.",
-				},
-				Usage: llm.Usage{TotalTokens: 10},
-			},
-		},
 		streamChunks: []llm.StreamChunk{
 			{Delta: llm.Message{Role: "error", Content: "something went wrong"}, Finish: true},
 		},
 	}
 
-	registry := tools.NewRegistry()
-	sessionDir := t.TempDir()
-
-	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
-	}
-
-	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
-	safetyCtl.SetAutoApprove(true)
-
-	agent := NewAgent(mockLLM, registry, config, safetyCtl)
-
+	agent := newTestAgent(t, mockLLM, nil)
 	ctx := context.Background()
 	var out strings.Builder
 	_, err := agent.RunStream(ctx, "Trigger stream error.", &out)
@@ -351,50 +218,29 @@ func TestRunStreamMaxIterations(t *testing.T) {
 	registry := tools.NewRegistry()
 	registry.Register(mockT)
 
-	// Always return a tool call so the agent never gets a direct answer.
-	responses := make([]llm.CompletionResponse, 0, 5)
+	// 构造 5 轮 tool_call 的 stream chunks（每轮 2 个 chunk：思考 + tool_call）
+	chunks := make([]llm.StreamChunk, 0, 10)
 	for i := 0; i < 5; i++ {
-		responses = append(responses, llm.CompletionResponse{
-			ID:    "resp-" + strconv.Itoa(i),
-			Model: "mock",
-			Message: llm.Message{
-				Role: "assistant",
-				ToolCalls: []llm.ToolCall{
-					{
-						ID:   "call-" + strconv.Itoa(i),
-						Type: "function",
-						Function: llm.FunctionCall{
-							Name:      "mock_tool",
-							Arguments: `{"unique":` + strconv.Itoa(i) + `}`,
-						},
-					},
-				},
-			},
-			Usage: llm.Usage{TotalTokens: 5},
+		chunks = append(chunks, llm.StreamChunk{
+			Delta: llm.Message{Role: "assistant", Content: "Thinking..."},
+		})
+		chunks = append(chunks, llm.StreamChunk{
+			Delta: llm.Message{Role: "assistant", ToolCalls: []llm.ToolCall{
+				{ID: "call-" + strconv.Itoa(i), Type: "function", Function: llm.FunctionCall{
+					Name:      "mock_tool",
+					Arguments: `{"unique":` + strconv.Itoa(i) + `}`,
+				}},
+			}},
 		})
 	}
+	// 最后一个标记结束
+	chunks[len(chunks)-1].Finish = true
 
-	mockLLM := &mockStreamLLM{
-		responses: responses,
-	}
+	mockLLM := &mockStreamLLM{streamChunks: chunks}
 
-	sessionDir := t.TempDir()
-
-	config := &Config{
-		MaxIterations:     3,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
-	}
-
-	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
-	safetyCtl.SetAutoApprove(true)
-
-	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+	agent := newTestAgent(t, mockLLM, registry)
+	// 限制最大迭代次数为 3
+	agent.config.MaxIterations = 3
 
 	ctx := context.Background()
 	var out strings.Builder
@@ -405,9 +251,6 @@ func TestRunStreamMaxIterations(t *testing.T) {
 	}
 	if result != nil {
 		t.Error("expected result to be nil when max iterations reached")
-	}
-	if mockLLM.callIndex != 3 {
-		t.Errorf("expected 3 LLM calls, got %d", mockLLM.callIndex)
 	}
 	// 输出中应包含多次进度提示
 	outputStr := out.String()
