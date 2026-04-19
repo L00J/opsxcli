@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -21,34 +22,75 @@ const (
 	SafetyModePermissive SafetyMode = "permissive" // 宽松模式：只有 critical 需要确认
 )
 
-// Controller 安全控制器
-type Controller struct {
-	mode        SafetyMode      // 当前安全模式
-	autoApprove bool            // 自动批准（仅测试使用）
-	reader      *bufio.Reader   // 标准输入读取器
-	history     []ExecutionRecord // 执行历史记录
-}
-
 // maxHistorySize 执行历史记录最大条数，防止长时间运行导致内存无限增长
 const maxHistorySize = 1000
 
-// ExecutionRecord 单次工具执行记录
-type ExecutionRecord struct {
-	ToolName  string                 // 工具名称
-	Args      map[string]interface{} // 调用参数
-	RiskLevel tools.RiskLevel        // 风险等级
-	Approved  bool                   // 是否已批准
-	Timestamp time.Time              // 记录时间
+// defaultAuditLogPath 返回默认审计日志路径
+func defaultAuditLogPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".opsxcli", "audit", "audit.log")
 }
 
-// NewController 创建安全控制器
+// Controller 安全控制器
+type Controller struct {
+	mode        SafetyMode        // 当前安全模式
+	autoApprove bool              // 自动批准（仅测试使用）
+	reader      *bufio.Reader     // 标准输入读取器
+	history     []ExecutionRecord // 执行历史记录
+	auditLog    *AuditLogWriter   // 审计日志写入器
+}
+
+// ExecutionRecord 单次工具执行记录
+type ExecutionRecord struct {
+	ToolName  string                 `json:"tool_name"`
+	Args      map[string]interface{} `json:"args"`
+	RiskLevel tools.RiskLevel        `json:"risk_level"`
+	Approved  bool                   `json:"approved"`
+	Executed  bool                   `json:"executed"`              // 是否已执行
+	Success   bool                   `json:"success"`               // 执行结果
+	Error     string                 `json:"error,omitempty"`       // 错误信息
+	Timestamp time.Time              `json:"timestamp"`
+	SessionID string                 `json:"session_id,omitempty"`  // 会话 ID
+	EventType string                 `json:"event_type,omitempty"`  // 事件类型：check / execute
+}
+
+// NewController 创建安全控制器（保持签名兼容）
+// 自动使用默认审计日志路径，若初始化失败则降级为内存模式
 func NewController(mode SafetyMode) *Controller {
-	return &Controller{
+	c, err := NewControllerWithAudit(mode, defaultAuditLogPath())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[警告] opsxcli 智能运维助手: 初始化审计日志失败: %v，将以内存模式运行\n", err)
+		c = &Controller{
+			mode:        mode,
+			autoApprove: false,
+			reader:      bufio.NewReader(os.Stdin),
+			history:     make([]ExecutionRecord, 0),
+		}
+	}
+	return c
+}
+
+// NewControllerWithAudit 创建带审计日志的安全控制器
+func NewControllerWithAudit(mode SafetyMode, auditLogPath string) (*Controller, error) {
+	c := &Controller{
 		mode:        mode,
 		autoApprove: false,
 		reader:      bufio.NewReader(os.Stdin),
 		history:     make([]ExecutionRecord, 0),
 	}
+
+	if auditLogPath != "" {
+		auditLog, err := NewAuditLogWriter(auditLogPath)
+		if err != nil {
+			return nil, err
+		}
+		c.auditLog = auditLog
+	}
+
+	return c, nil
 }
 
 // SetAutoApprove 设置自动批准（危险，仅用于自动化测试）
@@ -73,6 +115,7 @@ func (c *Controller) Check(tool tools.Tool, args map[string]interface{}) (bool, 
 		Args:      args,
 		RiskLevel: riskLevel,
 		Timestamp: time.Now(),
+		EventType: "check",
 	}
 
 	// 判断是否需要用户确认
@@ -82,6 +125,7 @@ func (c *Controller) Check(tool tools.Tool, args map[string]interface{}) (bool, 
 	if !needsConfirm || c.autoApprove {
 		record.Approved = true
 		c.addRecord(record)
+		c.writeAudit(record)
 		return true, nil
 	}
 
@@ -89,6 +133,7 @@ func (c *Controller) Check(tool tools.Tool, args map[string]interface{}) (bool, 
 	approved := c.requestConfirmation(tool, args, riskLevel)
 	record.Approved = approved
 	c.addRecord(record)
+	c.writeAudit(record)
 	return approved, nil
 }
 
@@ -101,12 +146,33 @@ func (c *Controller) addRecord(record ExecutionRecord) {
 	c.history = append(c.history, record)
 }
 
+// writeAudit 将记录写入审计日志，失败时仅打印警告不中断流程
+func (c *Controller) writeAudit(record ExecutionRecord) {
+	if c.auditLog != nil {
+		if err := c.auditLog.Write(record); err != nil {
+			fmt.Fprintf(os.Stderr, "[警告] opsxcli 智能运维助手: 写入审计日志失败: %v\n", err)
+		}
+	}
+}
+
 // MarkExecuted 标记工具已执行完成
 func (c *Controller) MarkExecuted(toolName string, args map[string]interface{}, result *tools.Result) {
 	// 更新最后一条匹配的执行记录
 	for i := len(c.history) - 1; i >= 0; i-- {
 		if c.history[i].ToolName == toolName {
-			c.history[i].Approved = result.Success
+			c.history[i].Executed = true
+			if result != nil {
+				c.history[i].Success = result.Success
+				c.history[i].Error = result.Error
+			}
+			if c.auditLog != nil {
+				record := c.history[i]
+				record.EventType = "execute"
+				record.Timestamp = time.Now()
+				if err := c.auditLog.Write(record); err != nil {
+					fmt.Fprintf(os.Stderr, "[警告] opsxcli 智能运维助手: 写入审计日志失败: %v\n", err)
+				}
+			}
 			return
 		}
 	}
@@ -117,6 +183,14 @@ func (c *Controller) GetHistory() []ExecutionRecord {
 	result := make([]ExecutionRecord, len(c.history))
 	copy(result, c.history)
 	return result
+}
+
+// Close 关闭安全控制器，释放审计日志资源
+func (c *Controller) Close() error {
+	if c.auditLog != nil {
+		return c.auditLog.Close()
+	}
+	return nil
 }
 
 // needsConfirmation 根据安全模式判断是否需要确认

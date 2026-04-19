@@ -2,8 +2,12 @@ package safety
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"opsxcli/internal/agentv2/tools"
@@ -11,8 +15,8 @@ import (
 
 // mockTool 用于测试的 mock 工具
 type mockTool struct {
-	name       string
-	riskLevel  tools.RiskLevel
+	name      string
+	riskLevel tools.RiskLevel
 }
 
 func (m *mockTool) Name() string        { return m.name }
@@ -28,9 +32,9 @@ func (m *mockTool) Execute(_ context.Context, _ map[string]interface{}) (*tools.
 // TestController_needsConfirmation 测试确认需求判断
 func TestController_needsConfirmation(t *testing.T) {
 	tests := []struct {
-		mode     SafetyMode
-		risk     tools.RiskLevel
-		want     bool
+		mode SafetyMode
+		risk tools.RiskLevel
+		want bool
 	}{
 		{SafetyModeStrict, tools.RiskSafe, false},
 		{SafetyModeStrict, tools.RiskLow, false},
@@ -54,6 +58,7 @@ func TestController_needsConfirmation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.mode)+"_"+tt.risk.String(), func(t *testing.T) {
 			c := NewController(tt.mode)
+			defer c.Close()
 			got := c.needsConfirmation(tt.risk)
 			if got != tt.want {
 				t.Errorf("needsConfirmation(%v) with mode %v = %v, want %v",
@@ -66,6 +71,7 @@ func TestController_needsConfirmation(t *testing.T) {
 // TestController_GetMode 测试获取安全模式
 func TestController_GetMode(t *testing.T) {
 	c := NewController(SafetyModeStrict)
+	defer c.Close()
 	if got := c.GetMode(); got != SafetyModeStrict {
 		t.Errorf("GetMode() = %v, want %v", got, SafetyModeStrict)
 	}
@@ -74,6 +80,7 @@ func TestController_GetMode(t *testing.T) {
 // TestController_SetAutoApprove 测试自动批准设置
 func TestController_SetAutoApprove(t *testing.T) {
 	c := NewController(SafetyModeBalanced)
+	defer c.Close()
 	if c.autoApprove {
 		t.Error("autoApprove should be false by default")
 	}
@@ -87,6 +94,7 @@ func TestController_SetAutoApprove(t *testing.T) {
 // TestController_Check_autoApprove 测试自动批准模式
 func TestController_Check_autoApprove(t *testing.T) {
 	c := NewController(SafetyModeStrict)
+	defer c.Close()
 	c.SetAutoApprove(true)
 
 	tool := &mockTool{name: "dangerous", riskLevel: tools.RiskCritical}
@@ -111,6 +119,7 @@ func TestController_Check_autoApprove(t *testing.T) {
 // TestController_MarkExecuted 测试执行标记
 func TestController_MarkExecuted(t *testing.T) {
 	c := NewController(SafetyModeBalanced)
+	defer c.Close()
 	c.SetAutoApprove(true)
 
 	tool := &mockTool{name: "test_tool", riskLevel: tools.RiskSafe}
@@ -126,11 +135,18 @@ func TestController_MarkExecuted(t *testing.T) {
 	if !history[0].Approved {
 		t.Error("history[0].Approved should be true after MarkExecuted with success")
 	}
+	if !history[0].Executed {
+		t.Error("history[0].Executed should be true after MarkExecuted")
+	}
+	if !history[0].Success {
+		t.Error("history[0].Success should be true after MarkExecuted with success")
+	}
 }
 
 // TestController_GetHistory_immutable 测试历史记录副本不可变
 func TestController_GetHistory_immutable(t *testing.T) {
 	c := NewController(SafetyModeBalanced)
+	defer c.Close()
 	c.SetAutoApprove(true)
 
 	tool := &mockTool{name: "test", riskLevel: tools.RiskSafe}
@@ -153,6 +169,7 @@ func TestController_GetHistory_immutable(t *testing.T) {
 // TestController_addRecord_historyLimit 测试历史记录上限
 func TestController_addRecord_historyLimit(t *testing.T) {
 	c := NewController(SafetyModeBalanced)
+	defer c.Close()
 	c.SetAutoApprove(true)
 
 	// 添加超过上限的记录
@@ -192,5 +209,210 @@ func TestFormatRiskDisplay(t *testing.T) {
 				t.Errorf("formatRiskDisplay(%v) = %q, should contain %q", tt.risk, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestNewController_defaultAuditLog 测试默认审计日志自动创建
+func TestNewController_defaultAuditLog(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	c := NewController(SafetyModeBalanced)
+	if c == nil {
+		t.Fatal("NewController should not return nil")
+	}
+	defer c.Close()
+
+	if c.auditLog == nil {
+		t.Error("NewController should create default audit log")
+	}
+
+	expectedPath := filepath.Join(tmpDir, ".opsxcli", "audit", "audit.log")
+	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
+		t.Errorf("default audit log file should exist at %s", expectedPath)
+	}
+}
+
+// TestNewControllerWithAudit_customPath 测试自定义审计日志路径
+func TestNewControllerWithAudit_customPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "custom_audit.log")
+
+	c, err := NewControllerWithAudit(SafetyModeStrict, logPath)
+	if err != nil {
+		t.Fatalf("NewControllerWithAudit failed: %v", err)
+	}
+	defer c.Close()
+
+	if c.auditLog == nil {
+		t.Error("auditLog should not be nil")
+	}
+
+	if _, err := os.Stat(logPath); os.IsNotExist(err) {
+		t.Errorf("custom audit log file should exist at %s", logPath)
+	}
+}
+
+// TestAuditLogWrite_content 测试审计日志内容正确性
+func TestAuditLogWrite_content(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "audit.log")
+
+	c, err := NewControllerWithAudit(SafetyModeBalanced, logPath)
+	if err != nil {
+		t.Fatalf("NewControllerWithAudit failed: %v", err)
+	}
+
+	c.SetAutoApprove(true)
+	tool := &mockTool{name: "test_tool", riskLevel: tools.RiskSafe}
+	c.Check(tool, map[string]interface{}{"key": "value"})
+
+	if err := c.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read audit log failed: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 audit line, got %d", len(lines))
+	}
+
+	var record ExecutionRecord
+	if err := json.Unmarshal([]byte(lines[0]), &record); err != nil {
+		t.Fatalf("unmarshal audit record failed: %v", err)
+	}
+
+	if record.ToolName != "test_tool" {
+		t.Errorf("tool_name = %q, want %q", record.ToolName, "test_tool")
+	}
+	if record.EventType != "check" {
+		t.Errorf("event_type = %q, want %q", record.EventType, "check")
+	}
+	if !record.Approved {
+		t.Error("approved should be true")
+	}
+	if record.Args["key"] != "value" {
+		t.Errorf("args[key] = %v, want %v", record.Args["key"], "value")
+	}
+}
+
+// TestAuditLogWrite_markExecuted 测试 MarkExecuted 追加执行记录
+func TestAuditLogWrite_markExecuted(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "audit.log")
+
+	c, err := NewControllerWithAudit(SafetyModeBalanced, logPath)
+	if err != nil {
+		t.Fatalf("NewControllerWithAudit failed: %v", err)
+	}
+
+	c.SetAutoApprove(true)
+	tool := &mockTool{name: "test_tool", riskLevel: tools.RiskSafe}
+	c.Check(tool, map[string]interface{}{})
+	c.MarkExecuted("test_tool", map[string]interface{}{}, &tools.Result{Success: true, Error: ""})
+
+	if err := c.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read audit log failed: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 audit lines, got %d", len(lines))
+	}
+
+	var checkRecord ExecutionRecord
+	if err := json.Unmarshal([]byte(lines[0]), &checkRecord); err != nil {
+		t.Fatalf("unmarshal check record failed: %v", err)
+	}
+	if checkRecord.EventType != "check" {
+		t.Errorf("first record event_type = %q, want %q", checkRecord.EventType, "check")
+	}
+
+	var execRecord ExecutionRecord
+	if err := json.Unmarshal([]byte(lines[1]), &execRecord); err != nil {
+		t.Fatalf("unmarshal execute record failed: %v", err)
+	}
+	if execRecord.EventType != "execute" {
+		t.Errorf("second record event_type = %q, want %q", execRecord.EventType, "execute")
+	}
+	if !execRecord.Executed {
+		t.Error("executed should be true")
+	}
+	if !execRecord.Success {
+		t.Error("success should be true")
+	}
+}
+
+// TestAuditLog_concurrentWrite 测试并发写入安全
+func TestAuditLog_concurrentWrite(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "audit.log")
+
+	c, err := NewControllerWithAudit(SafetyModeBalanced, logPath)
+	if err != nil {
+		t.Fatalf("NewControllerWithAudit failed: %v", err)
+	}
+	defer c.Close()
+
+	c.SetAutoApprove(true)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			tool := &mockTool{name: fmt.Sprintf("tool_%d", idx), riskLevel: tools.RiskSafe}
+			c.Check(tool, map[string]interface{}{"idx": idx})
+		}(i)
+	}
+	wg.Wait()
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read audit log failed: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 100 {
+		t.Errorf("expected 100 audit lines, got %d", len(lines))
+	}
+
+	// 验证每行都是合法 JSON
+	for i, line := range lines {
+		var record ExecutionRecord
+		if err := json.Unmarshal([]byte(line), &record); err != nil {
+			t.Errorf("line %d is not valid JSON: %v", i, err)
+		}
+	}
+}
+
+// TestController_Close_idempotent 测试关闭后无 panic
+func TestController_Close_idempotent(t *testing.T) {
+	c := NewController(SafetyModeBalanced)
+	if err := c.Close(); err != nil {
+		t.Fatalf("first Close failed: %v", err)
+	}
+	// 再次关闭不应 panic（虽然底层文件已关闭会报错，但这里不重复测试）
+}
+
+// TestNewControllerWithAudit_emptyPath 测试空路径时不创建审计日志
+func TestNewControllerWithAudit_emptyPath(t *testing.T) {
+	c, err := NewControllerWithAudit(SafetyModeBalanced, "")
+	if err != nil {
+		t.Fatalf("NewControllerWithAudit failed: %v", err)
+	}
+	defer c.Close()
+
+	if c.auditLog != nil {
+		t.Error("auditLog should be nil when path is empty")
 	}
 }

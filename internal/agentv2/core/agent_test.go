@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -530,71 +531,128 @@ func TestAgentRunMaxIterations(t *testing.T) {
 }
 
 func TestTrimMessages(t *testing.T) {
-	agent := &Agent{}
+	t.Run("未初始化 tokenizer 的兜底策略", func(t *testing.T) {
+		agent := &Agent{}
 
-	tests := []struct {
-		name     string
-		msgs     []llm.Message
-		expected int
-	}{
-		{
-			name:     "empty",
-			msgs:     []llm.Message{},
-			expected: 0,
-		},
-		{
-			name:     "single system message",
-			msgs:     []llm.Message{{Role: "system", Content: "sys"}},
-			expected: 1,
-		},
-		{
-			name:     "system + user within limit",
-			msgs:     []llm.Message{{Role: "system", Content: "sys"}, {Role: "user", Content: "hi"}},
-			expected: 2,
-		},
-		{
-			name:     "exactly 21 messages",
-			msgs:     generateMessages(21),
-			expected: 21,
-		},
-		{
-			name:     "22 messages should trim to 21",
-			msgs:     generateMessages(22),
-			expected: 21,
-		},
-		{
-			name:     "30 messages should trim to 21",
-			msgs:     generateMessages(30),
-			expected: 21,
-		},
-		{
-			name:     "100 messages should trim to 21",
-			msgs:     generateMessages(100),
-			expected: 21,
-		},
-	}
+		tests := []struct {
+			name     string
+			msgs     []llm.Message
+			expected int
+		}{
+			{
+				name:     "empty",
+				msgs:     []llm.Message{},
+				expected: 0,
+			},
+			{
+				name:     "single system message",
+				msgs:     []llm.Message{{Role: "system", Content: "sys"}},
+				expected: 1,
+			},
+			{
+				name:     "system + user within limit",
+				msgs:     []llm.Message{{Role: "system", Content: "sys"}, {Role: "user", Content: "hi"}},
+				expected: 2,
+			},
+			{
+				name:     "exactly 21 messages",
+				msgs:     generateMessages(21),
+				expected: 21,
+			},
+			{
+				name:     "22 messages should trim to 21",
+				msgs:     generateMessages(22),
+				expected: 21,
+			},
+			{
+				name:     "30 messages should trim to 21",
+				msgs:     generateMessages(30),
+				expected: 21,
+			},
+			{
+				name:     "100 messages should trim to 21",
+				msgs:     generateMessages(100),
+				expected: 21,
+			},
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := agent.trimMessages(tt.msgs)
-			if len(result) != tt.expected {
-				t.Errorf("expected %d messages, got %d", tt.expected, len(result))
-			}
-			if len(result) > 0 && result[0].Role != "system" {
-				t.Errorf("expected first message to be system, got %s", result[0].Role)
-			}
-			if len(tt.msgs) > 21 {
-				expectedFirstContent := tt.msgs[0].Content
-				if result[0].Content != expectedFirstContent {
-					t.Errorf("expected first content %q, got %q", expectedFirstContent, result[0].Content)
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := agent.trimMessages(tt.msgs)
+				if len(result) != tt.expected {
+					t.Errorf("expected %d messages, got %d", tt.expected, len(result))
 				}
-				expectedLastContent := tt.msgs[len(tt.msgs)-1].Content
-				if result[len(result)-1].Content != expectedLastContent {
-					t.Errorf("expected last content %q, got %q", expectedLastContent, result[len(result)-1].Content)
+				if len(result) > 0 && result[0].Role != "system" {
+					t.Errorf("expected first message to be system, got %s", result[0].Role)
 				}
+				if len(tt.msgs) > 21 {
+					expectedFirstContent := tt.msgs[0].Content
+					if result[0].Content != expectedFirstContent {
+						t.Errorf("expected first content %q, got %q", expectedFirstContent, result[0].Content)
+					}
+					expectedLastContent := tt.msgs[len(tt.msgs)-1].Content
+					if result[len(result)-1].Content != expectedLastContent {
+						t.Errorf("expected last content %q, got %q", expectedLastContent, result[len(result)-1].Content)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("基于 token 的智能裁剪", func(t *testing.T) {
+		// 使用较小的上限以便精确控制
+		config := &Config{MaxContextTokens: 200}
+		agent := NewAgent(nil, nil, config, nil)
+
+		// 生成少量短消息，token 数很少，应保留全部
+		t.Run("不超限时保留全部", func(t *testing.T) {
+			msgs := generateMessages(10)
+			result := agent.trimMessages(msgs)
+			if len(result) != 10 {
+				t.Errorf("expected 10 messages, got %d", len(result))
+			}
+			if result[0].Role != "system" {
+				t.Errorf("expected first message role system, got %s", result[0].Role)
 			}
 		})
-	}
+
+		// 生成大量长消息，超出 token 上限时应裁剪
+		t.Run("超限时裁剪", func(t *testing.T) {
+			longContent := strings.Repeat("abcdefghijklmnopqrstuvwxyz", 10) // 260 字母 ≈ 65 tokens
+			msgs := generateLongMessages(10, longContent)
+			result := agent.trimMessages(msgs)
+			// system(3) + 2*65 = 133 < 180; system(3) + 3*65 = 198 > 180
+			// 应保留 system + 最近 2 条 = 3 条
+			if len(result) != 3 {
+				t.Errorf("expected 3 messages, got %d", len(result))
+			}
+			if result[0].Role != "system" {
+				t.Errorf("expected first message role system, got %s", result[0].Role)
+			}
+			if result[len(result)-1].Content != msgs[len(msgs)-1].Content {
+				t.Errorf("expected last content to be the latest message")
+			}
+		})
+
+		// 单条超长消息超过限制时应截断
+		t.Run("超长单条截断", func(t *testing.T) {
+			veryLongContent := strings.Repeat("abcdefghij", 80) // 800 字母 ≈ 200 tokens
+			msgs := []llm.Message{
+				{Role: "system", Content: "system-prompt"},
+				{Role: "user", Content: veryLongContent},
+			}
+			result := agent.trimMessages(msgs)
+			if len(result) != 2 {
+				t.Fatalf("expected 2 messages, got %d", len(result))
+			}
+			originalRunes := []rune(veryLongContent)
+			expectedRunes := int(float64(len(originalRunes)) * 0.8)
+			resultRunes := []rune(result[1].Content)
+			if len(resultRunes) != expectedRunes {
+				t.Errorf("expected truncated content length %d runes, got %d", expectedRunes, len(resultRunes))
+			}
+		})
+	})
 }
 
 func generateMessages(count int) []llm.Message {
@@ -617,6 +675,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 		"OPSXCLI_AGENT_AUTO_APPROVE",
 		"OPSXCLI_AGENT_SSH_TIMEOUT",
 		"OPSXCLI_AGENT_OUTPUT_MAX_LENGTH",
+		"OPSXCLI_AGENT_MAX_CONTEXT_TOKENS",
 	}
 	original := make(map[string]string)
 	for _, v := range envVars {
@@ -643,6 +702,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 		os.Setenv("OPSXCLI_AGENT_AUTO_APPROVE", "true")
 		os.Setenv("OPSXCLI_AGENT_SSH_TIMEOUT", "30")
 		os.Setenv("OPSXCLI_AGENT_OUTPUT_MAX_LENGTH", "5000")
+		os.Setenv("OPSXCLI_AGENT_MAX_CONTEXT_TOKENS", "8192")
 
 		config := LoadConfig()
 
@@ -672,6 +732,9 @@ func TestLoadConfigFromEnv(t *testing.T) {
 		}
 		if config.OutputMaxLength != 5000 {
 			t.Errorf("expected OutputMaxLength 5000, got %d", config.OutputMaxLength)
+		}
+		if config.MaxContextTokens != 8192 {
+			t.Errorf("expected MaxContextTokens 8192, got %d", config.MaxContextTokens)
 		}
 	})
 
@@ -706,6 +769,9 @@ func TestLoadConfigFromEnv(t *testing.T) {
 		}
 		if config.OutputMaxLength != defaultConfig.OutputMaxLength {
 			t.Errorf("expected default OutputMaxLength %d, got %d", defaultConfig.OutputMaxLength, config.OutputMaxLength)
+		}
+		if config.MaxContextTokens != defaultConfig.MaxContextTokens {
+			t.Errorf("expected default MaxContextTokens %d, got %d", defaultConfig.MaxContextTokens, config.MaxContextTokens)
 		}
 	})
 

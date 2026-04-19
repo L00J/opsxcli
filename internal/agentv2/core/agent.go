@@ -27,6 +27,7 @@ type Agent struct {
 	evolver     *evolver.EvolverEngine // Evolver 自我进化引擎
 	messages    []llm.Message
 	totalTokens int
+	tokenizer   *TokenEstimator       // Token 估算器
 }
 
 // NewAgent 创建 Agent
@@ -52,6 +53,11 @@ func NewAgent(llmClient llm.Client, registry *tools.Registry, config *Config, sa
 		evolverEngine = nil
 	}
 
+	// 防御性处理：确保 MaxContextTokens 有有效值
+	if config.MaxContextTokens <= 0 {
+		config.MaxContextTokens = 6000
+	}
+
 	return &Agent{
 		llmClient: llmClient,
 		registry:  registry,
@@ -59,6 +65,7 @@ func NewAgent(llmClient llm.Client, registry *tools.Registry, config *Config, sa
 		safetyCtl: safetyCtl,
 		evolver:   evolverEngine,
 		messages:  make([]llm.Message, 0),
+		tokenizer: NewTokenEstimator(config.MaxContextTokens),
 	}
 }
 
@@ -316,21 +323,74 @@ func (a *Agent) RunInteractive(ctx context.Context) error {
 }
 
 // trimMessages 裁剪历史消息
-// 保留 system 消息 + 最近 20 条消息（约 10 轮对话）
+// 策略：
+// 1. 保留 system prompt（msgs[0]）
+// 2. 如果总消息数很少，直接返回
+// 3. 从最新消息开始往前累加估算 token 数
+// 4. 当累加 token + system prompt token > MaxContextTokens * 0.9 时停止
+// 5. 返回 system + 被保留的最近消息
+// 6. 如果单条消息就超过限制，截断消息内容（保留前 80%）
 func (a *Agent) trimMessages(msgs []llm.Message) []llm.Message {
 	if len(msgs) <= 1 {
 		return msgs
 	}
 
-	const keepMessages = 20 // system(1) + 最近 20 条 = 约 10 轮对话
-	if len(msgs) <= keepMessages+1 {
-		return msgs
+	// 未初始化 tokenizer 时的兜底策略：保留最近 20 条
+	if a.tokenizer == nil || a.config == nil || a.config.MaxContextTokens <= 0 {
+		const keepMessages = 20
+		if len(msgs) <= keepMessages+1 {
+			return msgs
+		}
+		result := make([]llm.Message, 0, keepMessages+1)
+		result = append(result, msgs[0])
+		result = append(result, msgs[len(msgs)-keepMessages:]...)
+		return result
 	}
 
-	result := make([]llm.Message, 0, keepMessages+1)
-	result = append(result, msgs[0])               // system prompt
-	result = append(result, msgs[len(msgs)-keepMessages:]...) // 最近的消息
+	systemMsg := msgs[0]
+	systemTokens := a.tokenizer.Estimate(systemMsg.Content)
+	maxTokens := int(float64(a.tokenizer.MaxContextTokens()) * 0.9)
+
+	// 从最新消息开始往前累加
+	kept := make([]llm.Message, 0, len(msgs))
+	keptTokens := 0
+
+	for i := len(msgs) - 1; i >= 1; i-- {
+		msgTokens := a.tokenizer.Estimate(msgs[i].Content)
+
+		// 如果单条消息就超过剩余限制，截断内容保留前 80%
+		if msgTokens > maxTokens-systemTokens {
+			truncated := truncateMessageContent(msgs[i], 0.8)
+			kept = append([]llm.Message{truncated}, kept...)
+			break
+		}
+
+		if systemTokens+keptTokens+msgTokens > maxTokens {
+			break
+		}
+
+		keptTokens += msgTokens
+		kept = append([]llm.Message{msgs[i]}, kept...)
+	}
+
+	result := make([]llm.Message, 0, 1+len(kept))
+	result = append(result, systemMsg)
+	result = append(result, kept...)
 	return result
+}
+
+// truncateMessageContent 按 rune 比例截断消息内容
+func truncateMessageContent(msg llm.Message, ratio float64) llm.Message {
+	if msg.Content == "" {
+		return msg
+	}
+	runes := []rune(msg.Content)
+	keep := int(float64(len(runes)) * ratio)
+	if keep < 1 {
+		keep = 1
+	}
+	msg.Content = string(runes[:keep])
+	return msg
 }
 
 // triggerEvolve 触发 Evolver 10 步进化循环（异步，不阻塞）
