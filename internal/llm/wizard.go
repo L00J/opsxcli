@@ -87,12 +87,12 @@ func (w *ConfigWizard) printWelcome() {
 	fmt.Println("  ✨ 推荐模型")
 	fmt.Println()
 	fmt.Println("    \033[1;36m1. DeepSeek\033[0m          ⭐⭐⭐⭐⭐ 默认推荐 | 性价比之王 | 推理强悍")
-	fmt.Println("    \033[1;36m2. Claude\033[0m            ⭐⭐⭐⭐⭐ Opus 4.7 | Agentic Engineering 最强 | K8s部署/重构/代码审查")
+	fmt.Println("    \033[1;36m2. Claude\033[0m            ⭐⭐⭐⭐⭐ Opus 4.7 | Agentic Engineering 最强 | 代码与推理卓越")
 	fmt.Println("    \033[1;36m3. ChatGPT\033[0m           ⭐⭐⭐⭐⭐ GPT-5.4 | 工具调用强 | Computer Use | 全能均衡")
-	fmt.Println("    \033[1;36m4. Kimi\033[0m              ⭐⭐⭐⭐☆ K2.5-code | 超长上下文 | 日志分析/批量运维首选")
-	fmt.Println("    \033[1;36m5. Gemini\033[0m            ⭐⭐⭐⭐ Gemini 3.1 Pro | 多模态强 | 推理翻倍 | 监控图表/搜索")
+	fmt.Println("    \033[1;36m4. Kimi\033[0m              ⭐⭐⭐⭐☆ K2.5-code | 超长上下文 | 代码与文档处理")
+	fmt.Println("    \033[1;36m5. Gemini\033[0m            ⭐⭐⭐⭐ Gemini 3.1 Pro | 多模态强 | 推理翻倍")
 	fmt.Println("    \033[1;36m6. GLM (智谱)\033[0m        ⭐⭐⭐⭐ GLM-5.1 | 国产之光 | Agentic Coding | 百万级上下文")
-	fmt.Println("    \033[1;36m7. MiniMax\033[0m           ⭐⭐⭐☆ M2.7-highspeed | 速度优先 | Agent自我进化 | 快速命令执行")
+	fmt.Println("    \033[1;36m7. MiniMax\033[0m           ⭐⭐⭐☆ M2.7-highspeed | 速度优先 | Agent自我进化")
 	fmt.Println()
 
 	// 本地模型
