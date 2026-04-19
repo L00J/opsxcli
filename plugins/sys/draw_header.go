@@ -5,13 +5,15 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
+	"opsxcli/internal/ui"
 )
 
 // drawHeader 绘制标题栏（增强版，显示实时时间）
 func drawHeader(screen tcell.Screen, width int) {
 	style := tcell.StyleDefault.
-		Foreground(tcell.ColorWhite).
-		Background(tcell.ColorDarkBlue).
+		Foreground(ui.ColorText).
+		Background(ui.ColorPrimary).
 		Bold(true)
 
 	// 绘制整行背景
@@ -21,27 +23,21 @@ func drawHeader(screen tcell.Screen, width int) {
 
 	// 左侧标题
 	title := " ⚡ OpsX 系统监控 "
-	for i, ch := range title {
-		screen.SetContent(i, 0, ch, nil, style)
-	}
+	drawTextWithStyle(screen, 0, 0, title, style)
 
 	// 中间显示当前时间
 	now := time.Now().Format("2006-01-02 15:04:05")
 	timeStr := fmt.Sprintf("📅 %s", now)
-	timeX := (width - len(timeStr)) / 2
-	if timeX > len(title) {
-		for i, ch := range timeStr {
-			screen.SetContent(timeX+i, 0, ch, nil, style)
-		}
+	timeX := (width - runeWidth(timeStr)) / 2
+	if timeX > runeWidth(title) {
+		drawTextWithStyle(screen, timeX, 0, timeStr, style)
 	}
 
 	// 右侧帮助
 	help := " [Tab]切换 [Q]退出 "
-	helpX := width - len(help)
+	helpX := width - runeWidth(help)
 	if helpX > 0 {
-		for i, ch := range help {
-			screen.SetContent(helpX+i, 0, ch, nil, style)
-		}
+		drawTextWithStyle(screen, helpX, 0, help, style)
 	}
 }
 
@@ -63,9 +59,9 @@ func drawTabs(screen tcell.Screen, currentTab TabType, width int) {
 	for _, tab := range tabs {
 		// 使用完整的标签名称
 		name := tab.name
-		style := tcell.StyleDefault.Foreground(tcell.ColorGray)
+		style := tcell.StyleDefault.Foreground(ui.ColorMuted)
 		if currentTab == tab.tab {
-			style = style.Foreground(tcell.ColorYellow).Background(tcell.ColorDarkBlue).Bold(true)
+			style = style.Foreground(ui.ColorAccent).Background(ui.ColorPrimary).Bold(true)
 			name = fmt.Sprintf("[ %s ]", name)
 		} else {
 			name = fmt.Sprintf("  %s  ", name)
@@ -84,12 +80,7 @@ func drawTabs(screen tcell.Screen, currentTab TabType, width int) {
 				break
 			}
 			screen.SetContent(col, y, ch, nil, style)
-			// 中文字符占2个宽度
-			if ch >= 0x4E00 && ch <= 0x9FFF {
-				col += 2
-			} else {
-				col++
-			}
+			col += runewidth.RuneWidth(ch)
 		}
 		x = col + 1 // 标签之间的间距
 	}
@@ -99,5 +90,5 @@ func drawTabs(screen tcell.Screen, currentTab TabType, width int) {
 func drawFooter(screen tcell.Screen, width, height int) {
 	y := height - 1
 	help := " [←→]切换标签  [↑↓]选择  [Q/ESC/Ctrl+C]退出  [R]刷新 "
-	drawText(screen, (width-len(help))/2, y, help, tcell.ColorGray)
+	drawText(screen, (width-runeWidth(help))/2, y, help, ui.ColorMuted)
 }

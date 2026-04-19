@@ -16,7 +16,7 @@ func drawStatistics(screen tcell.Screen, data *NetworkData, selectedIf int, widt
 
 	if len(data.Interfaces) == 0 {
 		ui.DrawBox(screen, 2, y, width-4, height-y-2, " 流量统计 ", ui.ColorSecondary)
-		drawText(screen, 4, y+2, "正在收集统计数据...", ui.ColorMuted)
+		drawText(screen, 4, y+2, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
 		return
 	}
 
@@ -42,12 +42,12 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	contentY := y + 2
 
 	// === 实时监控 ===
-	drawText(screen, x+2, contentY, "实时监控:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "实时监控:", ui.ColorAccent)
 	contentY++
 
 	// 更新时间
 	updateTimeStr := data.UpdateTime.Format("15:04:05")
-	drawText(screen, x+2, contentY, "更新时间:", tcell.ColorGray)
+	drawText(screen, x+2, contentY, "更新时间:", ui.ColorMuted)
 	drawText(screen, x+14, contentY, updateTimeStr, ui.ColorInfo)
 	contentY += 2
 
@@ -66,9 +66,9 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	}
 
 	// 当前速率
-	drawText(screen, x+2, contentY, "当前速率:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "当前速率:", ui.ColorAccent)
 	rateStr := fmt.Sprintf("↑%s/s ↓%s/s", formatBytes(totalSendRate), formatBytes(totalRecvRate))
-	rateColor := tcell.ColorWhite
+	rateColor := ui.ColorText
 	if totalSendRate+totalRecvRate > 1024*1024 { // > 1MB/s
 		rateColor = ui.ColorWarning
 	}
@@ -79,9 +79,9 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	contentY++
 
 	// 峰值速率
-	drawText(screen, x+2, contentY, "峰值速率:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "峰值速率:", ui.ColorAccent)
 	peakStr := fmt.Sprintf("↑%s/s ↓%s/s", formatBytes(peakSendRate), formatBytes(peakRecvRate))
-	drawText(screen, x+14, contentY, peakStr, tcell.ColorYellow)
+	drawText(screen, x+14, contentY, peakStr, ui.ColorAccent)
 	contentY++
 
 	// 平均速率
@@ -91,7 +91,7 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	}
 	avgSendRate := float64(data.TotalBytesSent) / uptimeSec
 	avgRecvRate := float64(data.TotalBytesRecv) / uptimeSec
-	drawText(screen, x+2, contentY, "平均速率:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "平均速率:", ui.ColorAccent)
 	avgStr := fmt.Sprintf("↑%s/s ↓%s/s", formatBytes(avgSendRate), formatBytes(avgRecvRate))
 	drawText(screen, x+14, contentY, avgStr, ui.ColorMuted)
 	contentY += 2
@@ -101,15 +101,15 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	contentY++
 
 	// === 连接统计 (实时) ===
-	drawText(screen, x+2, contentY, "连接统计:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "连接统计:", ui.ColorAccent)
 	contentY++
 
 	// 获取实时连接数
 	connections := getConnectionStats()
 
-	drawText(screen, x+2, contentY, "活跃连接:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "活跃连接:", ui.ColorAccent)
 	establishedCount := connections["ESTABLISHED"]
-	connColor := tcell.ColorWhite
+	connColor := ui.ColorText
 	if establishedCount > 1000 {
 		connColor = ui.ColorDanger
 	} else if establishedCount > 500 {
@@ -118,9 +118,9 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	drawText(screen, x+14, contentY, formatNumber(uint64(establishedCount)), connColor)
 	contentY++
 
-	drawText(screen, x+2, contentY, "TIME_WAIT:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "TIME_WAIT:", ui.ColorAccent)
 	timewaitCount := connections["TIME_WAIT"]
-	twColor := tcell.ColorWhite
+	twColor := ui.ColorText
 	if timewaitCount > 5000 {
 		twColor = ui.ColorDanger
 	} else if timewaitCount > 1000 {
@@ -129,8 +129,8 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	drawText(screen, x+14, contentY, formatNumber(uint64(timewaitCount)), twColor)
 	contentY++
 
-	drawText(screen, x+2, contentY, "监听端口:", tcell.ColorYellow)
-	drawText(screen, x+14, contentY, formatNumber(uint64(connections["LISTEN"])), tcell.ColorWhite)
+	drawText(screen, x+2, contentY, "监听端口:", ui.ColorAccent)
+	drawText(screen, x+14, contentY, formatNumber(uint64(connections["LISTEN"])), ui.ColorText)
 	contentY += 2
 
 	// 分隔线
@@ -138,23 +138,23 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	contentY++
 
 	// === 累计数据 ===
-	drawText(screen, x+2, contentY, "累计数据:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "累计数据:", ui.ColorAccent)
 	contentY++
 
-	drawText(screen, x+2, contentY, "运行时间:", tcell.ColorGray)
+	drawText(screen, x+2, contentY, "运行时间:", ui.ColorMuted)
 	drawText(screen, x+14, contentY, uptime, ui.ColorInfo)
 	contentY++
 
 	// 总流量（简化显示）
 	totalBytes := data.TotalBytesSent + data.TotalBytesRecv
-	drawText(screen, x+2, contentY, "总流量:", tcell.ColorGray)
-	drawText(screen, x+14, contentY, formatBytes(float64(totalBytes)), tcell.ColorWhite)
+	drawText(screen, x+2, contentY, "总流量:", ui.ColorMuted)
+	drawText(screen, x+14, contentY, formatBytes(float64(totalBytes)), ui.ColorText)
 	contentY++
 
 	// 总包数（简化显示）
 	totalPackets := data.TotalPacketsSent + data.TotalPacketsRecv
-	drawText(screen, x+2, contentY, "总包数:", tcell.ColorGray)
-	drawText(screen, x+14, contentY, formatNumber(totalPackets), tcell.ColorWhite)
+	drawText(screen, x+2, contentY, "总包数:", ui.ColorMuted)
+	drawText(screen, x+14, contentY, formatNumber(totalPackets), ui.ColorText)
 	contentY += 2
 
 	// 分隔线
@@ -162,7 +162,7 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	contentY++
 
 	// === 质量指标 ===
-	drawText(screen, x+2, contentY, "质量指标:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "质量指标:", ui.ColorAccent)
 	contentY += 2
 
 	// 丢包率
@@ -172,7 +172,7 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	} else if data.PacketLossRate > 0.1 {
 		lossColor = ui.ColorWarning
 	}
-	drawText(screen, x+2, contentY, "丢包率:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "丢包率:", ui.ColorAccent)
 	lossStr := fmt.Sprintf("%.4f%%", data.PacketLossRate)
 	drawText(screen, x+14, contentY, lossStr, lossColor)
 	contentY++
@@ -184,7 +184,7 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	} else if data.ErrorRate > 0.1 {
 		errorColor = ui.ColorWarning
 	}
-	drawText(screen, x+2, contentY, "错误率:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "错误率:", ui.ColorAccent)
 	errorStr := fmt.Sprintf("%.4f%%", data.ErrorRate)
 	drawText(screen, x+14, contentY, errorStr, errorColor)
 	contentY += 2
@@ -194,11 +194,11 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	contentY++
 
 	// 总错误和丢包数（简化）
-	drawText(screen, x+2, contentY, "总错误:", tcell.ColorGray)
+	drawText(screen, x+2, contentY, "总错误:", ui.ColorMuted)
 	drawText(screen, x+14, contentY, formatNumber(data.TotalErrors), ui.ColorDanger)
 	contentY++
 
-	drawText(screen, x+2, contentY, "总丢包:", tcell.ColorGray)
+	drawText(screen, x+2, contentY, "总丢包:", ui.ColorMuted)
 	drawText(screen, x+14, contentY, formatNumber(data.TotalDrops), ui.ColorWarning)
 }
 
@@ -265,7 +265,7 @@ func drawRightPanel(screen tcell.Screen, data *NetworkData, x, y, width, height 
 
 		// 总流量
 		totalStr := fmt.Sprintf("  总流量: %s", formatBytes(float64(rank.totalBytes)))
-		drawText(screen, x+2, contentY, totalStr, tcell.ColorWhite)
+		drawText(screen, x+2, contentY, totalStr, ui.ColorText)
 		contentY++
 
 		// 当前速率
@@ -314,15 +314,15 @@ func formatNumber(n uint64) string {
 // getConnectionStats 获取实时连接统计
 func getConnectionStats() map[string]int {
 	stats := make(map[string]int)
-	
+
 	// 使用netstat包获取连接信息
 	connections := []netstat.SsConnection{}
 	connections = append(connections, netstat.ReadTCPConnectionsWithPrograms(false, true, false)...)
-	
+
 	// 统计各状态的连接数
 	for _, conn := range connections {
 		stats[conn.State]++
 	}
-	
+
 	return stats
 }

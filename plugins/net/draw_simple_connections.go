@@ -29,7 +29,7 @@ func drawSimpleConnections(screen tcell.Screen, tracker *SimpleConnectionTracker
 
 	// 表头
 	headerStyle := tcell.StyleDefault.
-		Foreground(tcell.ColorYellow).
+		Foreground(ui.ColorAccent).
 		Bold(true)
 
 	header := fmt.Sprintf("  %-6s %-35s %-35s %-12s %-8s %-8s",
@@ -63,7 +63,7 @@ func drawSimpleConnections(screen tcell.Screen, tracker *SimpleConnectionTracker
 		}
 
 		// 根据状态选择颜色
-		color := tcell.ColorWhite
+		color := ui.ColorText
 		if conn.State == "ESTABLISHED" {
 			color = ui.ColorSuccess
 		} else if conn.State == "TIME_WAIT" || conn.State == "CLOSE_WAIT" {
@@ -91,7 +91,7 @@ func drawSimpleConnections(screen tcell.Screen, tracker *SimpleConnectionTracker
 
 	stats := fmt.Sprintf(" 活跃连接: %d | 提示: 使用ss模块高性能读取 /proc/net (无需root权限)",
 		len(connections))
-	drawText(screen, 4, statsY, stats, tcell.ColorAqua)
+	drawText(screen, 4, statsY, stats, ui.ColorInfo)
 }
 
 // getActiveConnectionsFromSS 使用ss模块获取活跃连接

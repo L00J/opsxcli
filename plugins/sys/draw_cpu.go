@@ -22,7 +22,7 @@ func drawCPU(screen tcell.Screen, data *SystemData, width, height int) {
 	}
 
 	if len(data.CPUPercent) == 0 {
-		drawText(screen, 4, y+2, "正在收集CPU数据...", ui.ColorMuted)
+		drawText(screen, 4, y+2, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
 		return
 	}
 
@@ -37,7 +37,7 @@ func drawCPU(screen tcell.Screen, data *SystemData, width, height int) {
 	overallCPU = sum / float64(len(data.CPUPercent))
 
 	// 总体 CPU 使用率
-	drawText(screen, 4, contentY, "总体使用率:", tcell.ColorYellow)
+	drawText(screen, 4, contentY, "总体使用率:", ui.ColorAccent)
 	contentY++
 
 	cpuColor := ui.ColorSuccess
@@ -51,7 +51,7 @@ func drawCPU(screen tcell.Screen, data *SystemData, width, height int) {
 	if barWidth > 0 && barWidth < width-12 {
 		drawProgressBar(screen, 6, contentY, barWidth, overallCPU, cpuColor)
 		percentStr := fmt.Sprintf("%.1f%%", overallCPU)
-		drawText(screen, 6+barWidth+2, contentY, percentStr, tcell.ColorWhite)
+		drawText(screen, 6+barWidth+2, contentY, percentStr, ui.ColorText)
 	}
 	contentY += 2
 
@@ -60,7 +60,7 @@ func drawCPU(screen tcell.Screen, data *SystemData, width, height int) {
 	contentY++
 
 	// 每个核心的使用率
-	drawText(screen, 4, contentY, "各核心使用率:", tcell.ColorYellow)
+	drawText(screen, 4, contentY, "各核心使用率:", ui.ColorAccent)
 	contentY++
 
 	// 计算可显示的行数
@@ -85,7 +85,7 @@ func drawCPU(screen tcell.Screen, data *SystemData, width, height int) {
 			} else if cpuVal > 70 {
 				color = ui.ColorWarning
 			} else if cpuVal > 50 {
-				color = tcell.ColorYellow
+				color = ui.ColorAccent
 			}
 
 			coreLabel := fmt.Sprintf("CPU%-3d", coreIdx)
@@ -96,7 +96,7 @@ func drawCPU(screen tcell.Screen, data *SystemData, width, height int) {
 			if leftBarWidth > 20 && leftBarWidth < width/2 {
 				drawProgressBar(screen, 12, contentY, leftBarWidth, cpuVal, color)
 				percentStr := fmt.Sprintf("%5.1f%%", cpuVal)
-				drawText(screen, 12+leftBarWidth+2, contentY, percentStr, tcell.ColorWhite)
+				drawText(screen, 12+leftBarWidth+2, contentY, percentStr, ui.ColorText)
 			}
 
 			coreIdx++
@@ -112,7 +112,7 @@ func drawCPU(screen tcell.Screen, data *SystemData, width, height int) {
 			} else if cpuVal > 70 {
 				color = ui.ColorWarning
 			} else if cpuVal > 50 {
-				color = tcell.ColorYellow
+				color = ui.ColorAccent
 			}
 
 			rightX := width/2 + 2
@@ -124,7 +124,7 @@ func drawCPU(screen tcell.Screen, data *SystemData, width, height int) {
 			if rightBarWidth > 20 {
 				drawProgressBar(screen, rightX+8, contentY, rightBarWidth, cpuVal, color)
 				percentStr := fmt.Sprintf("%5.1f%%", cpuVal)
-				drawText(screen, rightX+8+rightBarWidth+2, contentY, percentStr, tcell.ColorWhite)
+				drawText(screen, rightX+8+rightBarWidth+2, contentY, percentStr, ui.ColorText)
 			}
 
 			coreIdx++

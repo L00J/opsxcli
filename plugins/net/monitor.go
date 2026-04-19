@@ -67,6 +67,11 @@ func NewNetMonitor() *NetMonitor {
 
 // Run 运行网络监控
 func Run() error {
+	fmt.Println("opsxcli 智能运维助手")
+	fmt.Println("正在初始化网络监控，预计 2-3 秒...")
+	fmt.Println("按 Q 或 ESC 退出")
+	fmt.Println()
+
 	monitor := NewNetMonitor()
 	defer monitor.cancel()
 

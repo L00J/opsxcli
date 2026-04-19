@@ -13,7 +13,7 @@ func drawMemory(screen tcell.Screen, data *SystemData, width, height int) {
 
 	if data.MemInfo == nil {
 		ui.DrawBox(screen, 2, y, width-4, height-y-2, " 内存详情 ", ui.ColorPrimary)
-		drawText(screen, 4, y+2, "正在收集内存数据...", ui.ColorMuted)
+		drawText(screen, 4, y+2, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
 		return
 	}
 
@@ -50,7 +50,7 @@ func drawMemory(screen tcell.Screen, data *SystemData, width, height int) {
 	appUsedPercent := (appUsedGB / totalGB) * 100.0
 
 	// 内存使用率
-	drawText(screen, 4, contentY, "内存使用率:", tcell.ColorYellow)
+	drawText(screen, 4, contentY, "内存使用率:", ui.ColorAccent)
 	contentY++
 
 	usedColor := ui.ColorSuccess
@@ -64,12 +64,12 @@ func drawMemory(screen tcell.Screen, data *SystemData, width, height int) {
 	if barWidth > 0 && barWidth < width-12 {
 		drawProgressBar(screen, 6, contentY, barWidth, realUsedPercent, usedColor)
 		memStr := fmt.Sprintf("%.1f%% (%.1fG/%.1fG)", realUsedPercent, realUsedGB, totalGB)
-		drawText(screen, 6+barWidth+2, contentY, memStr, tcell.ColorWhite)
+		drawText(screen, 6+barWidth+2, contentY, memStr, ui.ColorText)
 	}
 	contentY += 2
 
 	// 可用内存
-	drawText(screen, 4, contentY, "可用内存:", tcell.ColorYellow)
+	drawText(screen, 4, contentY, "可用内存:", ui.ColorAccent)
 	contentY++
 
 	availablePercent := 100.0 - realUsedPercent
@@ -83,7 +83,7 @@ func drawMemory(screen tcell.Screen, data *SystemData, width, height int) {
 	if barWidth > 0 && barWidth < width-12 {
 		drawProgressBar(screen, 6, contentY, barWidth, availablePercent, freeColor)
 		availStr := fmt.Sprintf("%.1f%% (%.1fG)", availablePercent, availableGB)
-		drawText(screen, 6+barWidth+2, contentY, availStr, tcell.ColorWhite)
+		drawText(screen, 6+barWidth+2, contentY, availStr, ui.ColorText)
 	}
 	contentY += 2
 
@@ -92,7 +92,7 @@ func drawMemory(screen tcell.Screen, data *SystemData, width, height int) {
 	contentY++
 
 	// 详细分布
-	drawText(screen, 4, contentY, "内存分布:", tcell.ColorYellow)
+	drawText(screen, 4, contentY, "内存分布:", ui.ColorAccent)
 	contentY += 2
 
 	// 使用两列布局
@@ -101,12 +101,12 @@ func drawMemory(screen tcell.Screen, data *SystemData, width, height int) {
 	lineHeight := 1
 
 	// 左列
-	drawText(screen, leftX, contentY, fmt.Sprintf("应用程序:  %.2f GB (%.1f%%)", appUsedGB, appUsedPercent), tcell.ColorWhite)
-	drawText(screen, leftX, contentY+lineHeight, fmt.Sprintf("缓存:      %.2f GB (%.1f%%)", cachedGB, (cachedGB/totalGB)*100.0), tcell.ColorWhite)
-	drawText(screen, leftX, contentY+lineHeight*2, fmt.Sprintf("缓冲:      %.0f MB (%.1f%%)", buffersGB*1024, (buffersGB/totalGB)*100.0), tcell.ColorWhite)
+	drawText(screen, leftX, contentY, fmt.Sprintf("应用程序:  %.2f GB (%.1f%%)", appUsedGB, appUsedPercent), ui.ColorText)
+	drawText(screen, leftX, contentY+lineHeight, fmt.Sprintf("缓存:      %.2f GB (%.1f%%)", cachedGB, (cachedGB/totalGB)*100.0), ui.ColorText)
+	drawText(screen, leftX, contentY+lineHeight*2, fmt.Sprintf("缓冲:      %.0f MB (%.1f%%)", buffersGB*1024, (buffersGB/totalGB)*100.0), ui.ColorText)
 
 	// 右列
-	drawText(screen, rightX, contentY, fmt.Sprintf("空闲内存:  %.2f GB (%.1f%%)", freeGB, (freeGB/totalGB)*100.0), tcell.ColorWhite)
+	drawText(screen, rightX, contentY, fmt.Sprintf("空闲内存:  %.2f GB (%.1f%%)", freeGB, (freeGB/totalGB)*100.0), ui.ColorText)
 	drawText(screen, rightX, contentY+lineHeight, fmt.Sprintf("总容量:    %.2f GB", totalGB), ui.ColorInfo)
 	drawText(screen, rightX, contentY+lineHeight*2, fmt.Sprintf("已使用:    %.2f GB", realUsedGB), ui.ColorInfo)
 
@@ -117,7 +117,7 @@ func drawMemory(screen tcell.Screen, data *SystemData, width, height int) {
 	contentY++
 
 	// 交换空间
-	drawText(screen, 4, contentY, "交换空间:", tcell.ColorYellow)
+	drawText(screen, 4, contentY, "交换空间:", ui.ColorAccent)
 	contentY++
 
 	if swapTotalGB > 0 {
@@ -134,7 +134,7 @@ func drawMemory(screen tcell.Screen, data *SystemData, width, height int) {
 		if barWidth > 0 && barWidth < width-12 {
 			drawProgressBar(screen, 6, contentY, barWidth, swapPercent, swapColor)
 			swapStr := fmt.Sprintf("%.1f%% (%.1fG/%.1fG)", swapPercent, swapUsedGB, swapTotalGB)
-			drawText(screen, 6+barWidth+2, contentY, swapStr, tcell.ColorWhite)
+			drawText(screen, 6+barWidth+2, contentY, swapStr, ui.ColorText)
 		}
 	} else {
 		drawText(screen, 6, contentY, "未配置交换分区", ui.ColorMuted)

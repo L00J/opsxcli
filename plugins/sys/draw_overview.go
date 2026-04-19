@@ -47,11 +47,11 @@ func drawResourcePanel(screen tcell.Screen, data *SystemData, x, y, width, heigh
 	barWidth := width - 20
 
 	// CPU 使用率
-	drawText(screen, x+2, contentY, "CPU 使用率:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "CPU 使用率:", ui.ColorAccent)
 	contentY++
 
 	if len(data.CPUPercent) == 0 {
-		drawText(screen, x+4, contentY, "正在收集数据...", ui.ColorMuted)
+		drawText(screen, x+4, contentY, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
 		contentY += 2
 	} else {
 		var overallCPU float64
@@ -71,7 +71,7 @@ func drawResourcePanel(screen tcell.Screen, data *SystemData, x, y, width, heigh
 		if barWidth > 0 {
 			drawProgressBar(screen, x+4, contentY, barWidth, overallCPU, cpuColor)
 			percentStr := fmt.Sprintf("%.1f%%", overallCPU)
-			drawText(screen, x+barWidth+6, contentY, percentStr, tcell.ColorWhite)
+			drawText(screen, x+barWidth+6, contentY, percentStr, ui.ColorText)
 		}
 		contentY++
 
@@ -97,7 +97,7 @@ func drawResourcePanel(screen tcell.Screen, data *SystemData, x, y, width, heigh
 		memTotal := float64(data.MemInfo.Total) / 1024 / 1024 / 1024
 		realUsedPercent := (float64(data.MemInfo.Total-data.MemInfo.Available) / float64(data.MemInfo.Total)) * 100.0
 
-		drawText(screen, x+2, contentY, "内存使用率:", tcell.ColorYellow)
+		drawText(screen, x+2, contentY, "内存使用率:", ui.ColorAccent)
 		contentY++
 
 		memColor := ui.ColorSuccess
@@ -110,7 +110,7 @@ func drawResourcePanel(screen tcell.Screen, data *SystemData, x, y, width, heigh
 		if barWidth > 0 {
 			drawProgressBar(screen, x+4, contentY, barWidth, realUsedPercent, memColor)
 			memStr := fmt.Sprintf("%.1fG/%.1fG", memUsed, memTotal)
-			drawText(screen, x+barWidth+6, contentY, memStr, tcell.ColorWhite)
+			drawText(screen, x+barWidth+6, contentY, memStr, ui.ColorText)
 		}
 		contentY += 2
 
@@ -118,7 +118,7 @@ func drawResourcePanel(screen tcell.Screen, data *SystemData, x, y, width, heigh
 		swapUsed := float64(data.MemInfo.SwapTotal-data.MemInfo.SwapFree) / 1024 / 1024 / 1024
 		swapTotal := float64(data.MemInfo.SwapTotal) / 1024 / 1024 / 1024
 
-		drawText(screen, x+2, contentY, "交换分区:", tcell.ColorYellow)
+		drawText(screen, x+2, contentY, "交换分区:", ui.ColorAccent)
 		contentY++
 
 		if swapTotal > 0 {
@@ -130,7 +130,7 @@ func drawResourcePanel(screen tcell.Screen, data *SystemData, x, y, width, heigh
 			if barWidth > 0 {
 				drawProgressBar(screen, x+4, contentY, barWidth, swapPercent, swapColor)
 				swapStr := fmt.Sprintf("%.1fG/%.1fG", swapUsed, swapTotal)
-				drawText(screen, x+barWidth+6, contentY, swapStr, tcell.ColorWhite)
+				drawText(screen, x+barWidth+6, contentY, swapStr, ui.ColorText)
 			}
 		} else {
 			drawText(screen, x+4, contentY, "未配置交换分区", ui.ColorMuted)
@@ -147,7 +147,7 @@ func drawSystemInfoPanel(screen tcell.Screen, data *SystemData, x, y, width, hei
 
 	// 系统负载
 	if data.LoadAvg != nil {
-		drawText(screen, x+2, contentY, "系统负载:", tcell.ColorYellow)
+		drawText(screen, x+2, contentY, "系统负载:", ui.ColorAccent)
 		contentY++
 
 		load1Color := ui.ColorSuccess
@@ -162,25 +162,25 @@ func drawSystemInfoPanel(screen tcell.Screen, data *SystemData, x, y, width, hei
 		contentY++
 
 		loadStr = fmt.Sprintf("  5分钟:  %.2f", data.LoadAvg.Load5)
-		drawText(screen, x+2, contentY, loadStr, tcell.ColorWhite)
+		drawText(screen, x+2, contentY, loadStr, ui.ColorText)
 		contentY++
 
 		loadStr = fmt.Sprintf("  15分钟: %.2f", data.LoadAvg.Load15)
-		drawText(screen, x+2, contentY, loadStr, tcell.ColorWhite)
+		drawText(screen, x+2, contentY, loadStr, ui.ColorText)
 		contentY += 2
 	}
 
 	// 进程统计
-	drawText(screen, x+2, contentY, "进程统计:", tcell.ColorYellow)
+	drawText(screen, x+2, contentY, "进程统计:", ui.ColorAccent)
 	contentY++
 
 	// 显示总进程数
 	if data.TotalProcesses > 0 {
-		drawText(screen, x+2, contentY, fmt.Sprintf("  总数: %d", data.TotalProcesses), tcell.ColorWhite)
+		drawText(screen, x+2, contentY, fmt.Sprintf("  总数: %d", data.TotalProcesses), ui.ColorText)
 	} else if len(data.Processes) > 0 {
-		drawText(screen, x+2, contentY, fmt.Sprintf("  总数: %d", len(data.Processes)), tcell.ColorWhite)
+		drawText(screen, x+2, contentY, fmt.Sprintf("  总数: %d", len(data.Processes)), ui.ColorText)
 	} else {
-		drawText(screen, x+2, contentY, "  总数: -", tcell.ColorWhite)
+		drawText(screen, x+2, contentY, "  总数: -", ui.ColorText)
 	}
 	contentY++
 
@@ -197,7 +197,7 @@ func drawSystemInfoPanel(screen tcell.Screen, data *SystemData, x, y, width, hei
 			}
 			drawText(screen, x+2, contentY, fmt.Sprintf("  限制: %d (%.1f%%)", data.MaxUserProcesses, usagePercent), limitColor)
 		} else {
-			drawText(screen, x+2, contentY, fmt.Sprintf("  限制: %d", data.MaxUserProcesses), tcell.ColorWhite)
+			drawText(screen, x+2, contentY, fmt.Sprintf("  限制: %d", data.MaxUserProcesses), ui.ColorText)
 		}
 	} else {
 		drawText(screen, x+2, contentY, "  限制: unlimited", ui.ColorMuted)
@@ -210,7 +210,7 @@ func drawTopProcessesPanel(screen tcell.Screen, data *SystemData, x, y, width, h
 	ui.DrawBox(screen, x, y, width, height, " TOP 进程 (按CPU排序) ", ui.ColorPrimary)
 
 	if data == nil || data.Processes == nil || len(data.Processes) == 0 {
-		drawText(screen, x+2, y+2, "正在收集进程数据...", ui.ColorMuted)
+		drawText(screen, x+2, y+2, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
 		return
 	}
 
@@ -227,7 +227,7 @@ func drawTopProcessesPanel(screen tcell.Screen, data *SystemData, x, y, width, h
 	// 表头
 	headerY := y + 2
 	headerStyle := tcell.StyleDefault.
-		Foreground(tcell.ColorYellow).
+		Foreground(ui.ColorAccent).
 		Bold(true)
 
 	header := fmt.Sprintf("  %-7s %-18s %7s %9s %9s %s",
@@ -255,13 +255,13 @@ func drawTopProcessesPanel(screen tcell.Screen, data *SystemData, x, y, width, h
 		}
 
 		// 根据CPU使用率设置颜色
-		color := tcell.ColorWhite
+		color := ui.ColorText
 		if proc.CPU > 100 {
 			color = ui.ColorDanger
 		} else if proc.CPU > 50 {
 			color = ui.ColorWarning
 		} else if proc.CPU > 20 {
-			color = tcell.ColorYellow
+			color = ui.ColorAccent
 		}
 
 		memStr := formatBytes(float64(proc.MemRSS))
@@ -283,4 +283,3 @@ func drawTopProcessesPanel(screen tcell.Screen, data *SystemData, x, y, width, h
 		listY++
 	}
 }
-

@@ -57,8 +57,8 @@ func (m *UIManager) Run() error {
 
 	// 设置默认样式
 	defStyle := tcell.StyleDefault.
-		Background(tcell.ColorBlack).
-		Foreground(tcell.ColorWhite)
+		Background(ColorBackground).
+		Foreground(ColorText)
 	m.screen.SetStyle(defStyle)
 	m.screen.Clear()
 

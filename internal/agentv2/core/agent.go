@@ -2,19 +2,18 @@
 package core
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/fatih/color"
+	"github.com/charmbracelet/bubbletea"
 	"opsxcli/internal/agentv2/evolver"
 	"opsxcli/internal/agentv2/prompt"
 	"opsxcli/internal/agentv2/safety"
 	"opsxcli/internal/agentv2/tools"
+	"opsxcli/internal/agentv2/tui"
 	"opsxcli/internal/llm"
 )
 
@@ -268,55 +267,12 @@ func (a *Agent) processToolCalls(ctx context.Context, toolCalls []llm.ToolCall, 
 }
 
 // RunInteractive 运行交互式会话
-// 支持多轮对话，用户可连续提问
+// 支持多轮对话，用户可连续提问（使用 Bubble Tea TUI）
 func (a *Agent) RunInteractive(ctx context.Context) error {
-	fmt.Println()
-	fmt.Println("🤖 opsxcli Agent V2 — 交互模式")
-	fmt.Println("   opsxcli 智能运维助手")
-	fmt.Println()
-	fmt.Println("   命令:")
-	fmt.Println("     /exit  - 退出会话")
-	fmt.Println("     /help  - 查看帮助")
-	fmt.Println()
-
-	// 初始化对话历史
-	a.messages = []llm.Message{
-		{Role: "system", Content: prompt.SystemPrompt},
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-
-	for {
-		// 显示用户提示
-		fmt.Print(color.GreenString("👤 您"))
-		fmt.Print(": ")
-
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("读取输入失败: %w", err)
-		}
-		input = strings.TrimSpace(input)
-
-		// 处理特殊命令
-		switch input {
-		case "/exit", "/quit":
-			fmt.Println("👋 再见！")
-			return nil
-		case "/help":
-			a.showHelp()
-			continue
-		case "":
-			continue
-		}
-
-		// 使用流式执行查询
-		fmt.Println()
-		_, err = a.RunStream(ctx, input, os.Stdout)
-		if err != nil {
-			fmt.Println(color.RedString("❌ 错误: ") + err.Error())
-		}
-		fmt.Println()
-	}
+	m := tui.NewModel(a, ctx)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	_, err := p.Run()
+	return err
 }
 
 // trimMessages 裁剪历史消息

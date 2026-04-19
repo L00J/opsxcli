@@ -150,7 +150,7 @@ func drawTimeWaitTopBox(screen tcell.Screen, x, y, width, height int, stats []st
 	contentY := y + 2
 
 	// 表头
-	headerStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Bold(true)
+	headerStyle := tcell.StyleDefault.Foreground(ui.ColorAccent).Bold(true)
 	header := fmt.Sprintf("  %-4s %-25s %s", "排名", "目标地址", "连接数")
 	drawTextWithStyle(screen, x+2, contentY, header, headerStyle)
 	contentY++
@@ -177,7 +177,7 @@ func drawTimeWaitTopBox(screen tcell.Screen, x, y, width, height int, stats []st
 			stat := stats[i]
 
 			// 根据排名选择颜色
-			color := tcell.ColorWhite
+			color := ui.ColorText
 			if i < 3 {
 				color = ui.ColorDanger
 			} else if i < 5 {
@@ -203,7 +203,7 @@ func drawConcurrentIPTopBox(screen tcell.Screen, x, y, width, height int, stats 
 	contentY := y + 2
 
 	// 表头
-	headerStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Bold(true)
+	headerStyle := tcell.StyleDefault.Foreground(ui.ColorAccent).Bold(true)
 	header := fmt.Sprintf("  %-4s %-25s %s", "排名", "目标地址", "连接数")
 	drawTextWithStyle(screen, x+2, contentY, header, headerStyle)
 	contentY++
@@ -230,7 +230,7 @@ func drawConcurrentIPTopBox(screen tcell.Screen, x, y, width, height int, stats 
 			stat := stats[i]
 
 			// 根据排名选择颜色
-			color := tcell.ColorWhite
+			color := ui.ColorText
 			if i < 3 {
 				color = ui.ColorDanger
 			} else if i < 5 {
@@ -256,7 +256,7 @@ func drawTrafficTopBox(screen tcell.Screen, x, y, width, height int, stats []Tra
 	contentY := y + 2
 
 	// 表头
-	headerStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Bold(true)
+	headerStyle := tcell.StyleDefault.Foreground(ui.ColorAccent).Bold(true)
 	header := fmt.Sprintf("  %-4s %-28s %-28s %-8s %-8s %-8s",
 		"排名", "源地址:端口", "目标地址:端口", "接收KB", "发送KB", "总流量")
 	drawTextWithStyle(screen, x+2, contentY, header, headerStyle)
@@ -284,13 +284,13 @@ func drawTrafficTopBox(screen tcell.Screen, x, y, width, height int, stats []Tra
 			stat := stats[i]
 
 			// 根据流量大小选择颜色
-			color := tcell.ColorWhite
+			color := ui.ColorText
 			if stat.totalKB > 100 {
 				color = ui.ColorDanger
 			} else if stat.totalKB > 10 {
 				color = ui.ColorWarning
 			} else if stat.totalKB > 1 {
-				color = tcell.ColorYellow
+				color = ui.ColorAccent
 			}
 
 			// 格式化地址

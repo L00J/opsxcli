@@ -14,7 +14,7 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 	y := 4
 
 	if len(data.Interfaces) == 0 {
-		drawText(screen, 2, y, "正在收集网络数据...", ui.ColorMuted)
+		drawText(screen, 2, y, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
 		return
 	}
 
@@ -63,7 +63,7 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 		if i == selectedIf {
 			for x := 4; x < width-6; x++ {
 				for dy := 0; dy < 4; dy++ {
-					screen.SetContent(x, contentY+dy, ' ', nil, tcell.StyleDefault.Background(tcell.ColorDarkBlue))
+					screen.SetContent(x, contentY+dy, ' ', nil, tcell.StyleDefault.Background(ui.ColorPrimary))
 				}
 			}
 		}
@@ -76,7 +76,7 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 
 		nameStyle := tcell.StyleDefault.Foreground(ui.ColorInfo).Bold(true)
 		if i == selectedIf {
-			nameStyle = nameStyle.Background(tcell.ColorDarkBlue)
+			nameStyle = nameStyle.Background(ui.ColorPrimary)
 		}
 
 		ipStr := ""
@@ -95,7 +95,7 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 		txLabel := fmt.Sprintf("  TX ► %-14s", formatBytes(traffic.SendRate)+"/s")
 		txStyle := tcell.StyleDefault.Foreground(ui.ColorSuccess)
 		if i == selectedIf {
-			txStyle = txStyle.Background(tcell.ColorDarkBlue)
+			txStyle = txStyle.Background(ui.ColorPrimary)
 		}
 		drawTextWithStyle(screen, 4, contentY, txLabel, txStyle)
 
@@ -112,9 +112,9 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 
 			// 显示峰值
 			peakStr := fmt.Sprintf("峰值:%s/s", formatBytes(traffic.PeakSendRate))
-			peakStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow)
+			peakStyle := tcell.StyleDefault.Foreground(ui.ColorAccent)
 			if i == selectedIf {
-				peakStyle = peakStyle.Background(tcell.ColorDarkBlue)
+				peakStyle = peakStyle.Background(ui.ColorPrimary)
 			}
 			drawTextWithStyle(screen, barX+barWidth+2, contentY, peakStr, peakStyle)
 		}
@@ -124,7 +124,7 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 		rxLabel := fmt.Sprintf("  RX ◄ %-14s", formatBytes(traffic.RecvRate)+"/s")
 		rxStyle := tcell.StyleDefault.Foreground(ui.ColorInfo)
 		if i == selectedIf {
-			rxStyle = rxStyle.Background(tcell.ColorDarkBlue)
+			rxStyle = rxStyle.Background(ui.ColorPrimary)
 		}
 		drawTextWithStyle(screen, 4, contentY, rxLabel, rxStyle)
 
@@ -139,9 +139,9 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 
 			// 显示峰值
 			peakStr := fmt.Sprintf("峰值:%s/s", formatBytes(traffic.PeakRecvRate))
-			peakStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow)
+			peakStyle := tcell.StyleDefault.Foreground(ui.ColorAccent)
 			if i == selectedIf {
-				peakStyle = peakStyle.Background(tcell.ColorDarkBlue)
+				peakStyle = peakStyle.Background(ui.ColorPrimary)
 			}
 			drawTextWithStyle(screen, barX+barWidth+2, contentY, peakStr, peakStyle)
 		}
@@ -153,7 +153,7 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 			formatBytes(float64(traffic.TotalRecv)))
 		totalStyle := tcell.StyleDefault.Foreground(ui.ColorMuted)
 		if i == selectedIf {
-			totalStyle = totalStyle.Background(tcell.ColorDarkBlue)
+			totalStyle = totalStyle.Background(ui.ColorPrimary)
 		}
 		drawTextWithStyle(screen, 4, contentY, totalStr, totalStyle)
 		contentY++
@@ -175,5 +175,5 @@ func drawRealtime(screen tcell.Screen, data *NetworkData, selectedIf int, width,
 		formatBytes(float64(data.TotalBytesRecv)),
 		data.PacketLossRate,
 		data.ErrorRate)
-	drawText(screen, 4, statsY, globalStats, tcell.ColorYellow)
+	drawText(screen, 4, statsY, globalStats, ui.ColorAccent)
 }

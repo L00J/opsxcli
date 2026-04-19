@@ -39,7 +39,7 @@ func drawProcesses(screen tcell.Screen, data *SystemData, selected int, width, h
 
 	if data == nil || data.Processes == nil || len(data.Processes) == 0 {
 		ui.DrawBox(screen, 2, y, width-4, height-y-2, " 进程列表 ", ui.ColorPrimary)
-		drawText(screen, 4, y+2, "正在收集进程数据...", ui.ColorMuted)
+		drawText(screen, 4, y+2, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
 		return
 	}
 
@@ -84,7 +84,7 @@ func drawProcesses(screen tcell.Screen, data *SystemData, selected int, width, h
 
 	// 表头
 	headerStyle := tcell.StyleDefault.
-		Foreground(tcell.ColorYellow).
+		Foreground(ui.ColorAccent).
 		Bold(true)
 
 	header := fmt.Sprintf("  %-7s %-18s %7s %10s %5s %9s %9s %11s %9s %s",
@@ -109,19 +109,19 @@ func drawProcesses(screen tcell.Screen, data *SystemData, selected int, width, h
 		}
 
 		// 根据 CPU 使用率设置颜色
-		color := tcell.ColorWhite
+		color := ui.ColorText
 		if proc.CPU > 100 {
 			color = ui.ColorDanger
 		} else if proc.CPU > 50 {
 			color = ui.ColorWarning
 		} else if proc.CPU > 20 {
-			color = tcell.ColorYellow
+			color = ui.ColorAccent
 		}
 
 		// 选中高亮
 		style := tcell.StyleDefault.Foreground(color)
 		if i == selected {
-			style = style.Background(tcell.ColorDarkBlue)
+			style = style.Background(ui.ColorPrimary)
 		}
 
 		// 格式化数据
@@ -169,7 +169,7 @@ func drawProcesses(screen tcell.Screen, data *SystemData, selected int, width, h
 		}
 	}
 
-	drawText(screen, 4, statsY, stats, tcell.ColorAqua)
+	drawText(screen, 4, statsY, stats, ui.ColorInfo)
 }
 
 // SetSortType 设置排序类型（从 event.go 调用）

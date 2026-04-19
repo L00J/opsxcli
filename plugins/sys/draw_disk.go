@@ -40,7 +40,7 @@ func drawDisk(screen tcell.Screen, data *SystemData, width, height int) {
 
 	if len(diskList) == 0 {
 		ui.DrawBox(screen, 2, y, width-4, height-y-2, " 磁盘详情 ", ui.ColorPrimary)
-		drawText(screen, 4, y+2, "正在收集磁盘数据...", ui.ColorMuted)
+		drawText(screen, 4, y+2, "⏳ 首次加载中，请稍候 (约2秒)...", ui.ColorMuted)
 		return
 	}
 
@@ -83,7 +83,7 @@ func drawDisk(screen tcell.Screen, data *SystemData, width, height int) {
 	}
 
 	// 总体磁盘使用情况
-	drawText(screen, 4, contentY, "总体使用率:", tcell.ColorYellow)
+	drawText(screen, 4, contentY, "总体使用率:", ui.ColorAccent)
 	contentY++
 
 	diskColor := ui.ColorSuccess
@@ -99,7 +99,7 @@ func drawDisk(screen tcell.Screen, data *SystemData, width, height int) {
 		diskStr := fmt.Sprintf("%.1f%% (%s/%s)", totalUsedPercent,
 			formatBytesShort(float64(totalUsed)),
 			formatBytesShort(float64(totalTotal)))
-		drawText(screen, 6+barWidth+2, contentY, diskStr, tcell.ColorWhite)
+		drawText(screen, 6+barWidth+2, contentY, diskStr, ui.ColorText)
 	}
 	contentY += 2
 
@@ -109,7 +109,7 @@ func drawDisk(screen tcell.Screen, data *SystemData, width, height int) {
 
 	// 表头
 	headerStyle := tcell.StyleDefault.
-		Foreground(tcell.ColorYellow).
+		Foreground(ui.ColorAccent).
 		Bold(true)
 
 	header := fmt.Sprintf("  %-12s %-10s %-12s %-10s %-10s %-10s %s",
@@ -149,7 +149,7 @@ func drawDisk(screen tcell.Screen, data *SystemData, width, height int) {
 		ioPercentStr := fmt.Sprintf("%.0f%%", ioUtilPercent)
 
 		// 根据警告状态选择颜色
-		color := tcell.ColorWhite
+		color := ui.ColorText
 		if disk.UsedPercent > 80 || disk.InodesPercent > 10 {
 			color = ui.ColorDanger
 		} else if disk.UsedPercent > 60 || ioUtilPercent > 50 {

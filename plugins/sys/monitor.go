@@ -2,6 +2,7 @@ package sys
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -54,6 +55,11 @@ func NewSysMonitor() *SysMonitor {
 
 // Run 运行系统监控
 func Run() error {
+	fmt.Println("opsxcli 智能运维助手")
+	fmt.Println("正在初始化系统监控，预计 2-3 秒...")
+	fmt.Println("按 Q 或 ESC 退出")
+	fmt.Println()
+
 	monitor := NewSysMonitor()
 	defer monitor.cancel() // 确保清理资源
 
