@@ -246,6 +246,130 @@ func TestJSONLStore_ExportMarkdown(t *testing.T) {
 	}
 }
 
+// TestJSONLStore_ExportJSON 测试导出 JSON
+func TestJSONLStore_ExportJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewJSONLStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewJSONLStore() error: %v", err)
+	}
+
+	session, err := store.Create("JSON导出测试", "deepseek", "deepseek-chat")
+	if err != nil {
+		t.Fatalf("Create() error: %v", err)
+	}
+
+	// 写入消息
+	store.WriteMessage(session.ID, llm.Message{Role: "system", Content: "系统指令"})
+	store.WriteMessage(session.ID, llm.Message{Role: "user", Content: "查看磁盘"})
+	store.WriteMessage(session.ID, llm.Message{
+		Role:      "assistant",
+		Content:   "我来查看磁盘使用情况",
+		ToolCalls: []llm.ToolCall{{ID: "call_1", Type: "function", Function: llm.FunctionCall{Name: "local_bash", Arguments: "{\"cmd\":\"df -h\"}"}}},
+	})
+	store.WriteMessage(session.ID, llm.Message{Role: "tool", Content: "磁盘使用结果", ToolCallID: "call_1", Name: "local_bash"})
+	store.WriteToolResult(session.ID, "call_1", "local_bash", true, "磁盘正常", "")
+
+	jsonStr, err := store.ExportJSON(session.ID)
+	if err != nil {
+		t.Fatalf("ExportJSON() error: %v", err)
+	}
+	if jsonStr == "" {
+		t.Fatal("ExportJSON() returned empty string")
+	}
+
+	// 验证包含关键内容
+	if !contains(jsonStr, "JSON导出测试") {
+		t.Error("ExportJSON() should contain session title")
+	}
+	if !contains(jsonStr, "sess_") {
+		t.Error("ExportJSON() should contain session id")
+	}
+	if !contains(jsonStr, "deepseek") {
+		t.Error("ExportJSON() should contain provider")
+	}
+	if !contains(jsonStr, "查看磁盘") {
+		t.Error("ExportJSON() should contain user message")
+	}
+	if !contains(jsonStr, "local_bash") {
+		t.Error("ExportJSON() should contain tool name")
+	}
+	if !contains(jsonStr, "磁盘正常") {
+		t.Error("ExportJSON() should contain tool output")
+	}
+	if !contains(jsonStr, "total_messages") {
+		t.Error("ExportJSON() should contain statistics")
+	}
+}
+
+// TestJSONLStore_ExportToFile 测试导出到文件
+func TestJSONLStore_ExportToFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewJSONLStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewJSONLStore() error: %v", err)
+	}
+
+	session, err := store.Create("文件导出测试", "openai", "gpt-4")
+	if err != nil {
+		t.Fatalf("Create() error: %v", err)
+	}
+
+	store.WriteMessage(session.ID, llm.Message{Role: "user", Content: "hello"})
+
+	// 测试 Markdown 导出到指定文件
+	mdPath := filepath.Join(tmpDir, "test_export.md")
+	path, err := store.ExportToFile(session.ID, "markdown", mdPath)
+	if err != nil {
+		t.Fatalf("ExportToFile(markdown) error: %v", err)
+	}
+	if path != mdPath {
+		t.Errorf("ExportToFile() path = %q, want %q", path, mdPath)
+	}
+	content, err := os.ReadFile(mdPath)
+	if err != nil {
+		t.Fatalf("ReadFile() error: %v", err)
+	}
+	if !contains(string(content), "hello") {
+		t.Error("Markdown file should contain user message")
+	}
+
+	// 测试 JSON 导出到指定文件
+	jsonPath := filepath.Join(tmpDir, "test_export.json")
+	path, err = store.ExportToFile(session.ID, "json", jsonPath)
+	if err != nil {
+		t.Fatalf("ExportToFile(json) error: %v", err)
+	}
+	if path != jsonPath {
+		t.Errorf("ExportToFile() path = %q, want %q", path, jsonPath)
+	}
+	content, err = os.ReadFile(jsonPath)
+	if err != nil {
+		t.Fatalf("ReadFile() error: %v", err)
+	}
+	if !contains(string(content), "hello") {
+		t.Error("JSON file should contain user message")
+	}
+
+	// 测试自动生成文件名
+	path, err = store.ExportToFile(session.ID, "json", "")
+	if err != nil {
+		t.Fatalf("ExportToFile(auto) error: %v", err)
+	}
+	if path == "" {
+		t.Error("ExportToFile(auto) should return generated filename")
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Errorf("ExportToFile(auto) file not created: %s", path)
+	}
+
+	// 测试不支持的格式
+	_, err = store.ExportToFile(session.ID, "xml", "")
+	if err == nil {
+		t.Error("ExportToFile(xml) expected error, got nil")
+	}
+}
+
 // TestJSONLStore_UpdateTitle 测试更新标题
 func TestJSONLStore_UpdateTitle(t *testing.T) {
 	tmpDir := t.TempDir()

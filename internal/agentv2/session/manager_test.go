@@ -1,6 +1,8 @@
 package session
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -403,4 +405,111 @@ func TestManagerExportMarkdown(t *testing.T) {
 	if !strings.Contains(md, "tool output") {
 		t.Error("expected markdown to contain tool output")
 	}
+}
+
+func TestManagerExportJSON(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewJSONLStore(dir)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	m := NewManager(store)
+
+	sess, err := m.Create("json export test", "deepseek", "deepseek-chat")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	if err := m.SaveMessage(sess.ID, llm.Message{Role: "user", Content: "user question"}); err != nil {
+		t.Fatalf("save user message: %v", err)
+	}
+	if err := m.SaveMessage(sess.ID, llm.Message{Role: "assistant", Content: "assistant answer"}); err != nil {
+		t.Fatalf("save assistant message: %v", err)
+	}
+	if err := m.SaveToolResult(sess.ID, "call_1", "test_tool", true, "tool output", ""); err != nil {
+		t.Fatalf("save tool result: %v", err)
+	}
+
+	jsonStr, err := m.ExportJSON(sess.ID)
+	if err != nil {
+		t.Fatalf("export json: %v", err)
+	}
+
+	if !strings.Contains(jsonStr, "json export test") {
+		t.Error("expected json to contain session title")
+	}
+	if !strings.Contains(jsonStr, sess.ID) {
+		t.Error("expected json to contain session ID")
+	}
+	if !strings.Contains(jsonStr, "deepseek") {
+		t.Error("expected json to contain provider")
+	}
+	if !strings.Contains(jsonStr, "user question") {
+		t.Error("expected json to contain user question")
+	}
+	if !strings.Contains(jsonStr, "assistant answer") {
+		t.Error("expected json to contain assistant answer")
+	}
+	if !strings.Contains(jsonStr, "test_tool") {
+		t.Error("expected json to contain tool name")
+	}
+	if !strings.Contains(jsonStr, "tool output") {
+		t.Error("expected json to contain tool output")
+	}
+	if !strings.Contains(jsonStr, "total_messages") {
+		t.Error("expected json to contain statistics")
+	}
+}
+
+func TestManagerExportToFile(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewJSONLStore(dir)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	m := NewManager(store)
+
+	sess, err := m.Create("file export test", "openai", "gpt-4")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	if err := m.SaveMessage(sess.ID, llm.Message{Role: "user", Content: "hello"}); err != nil {
+		t.Fatalf("save user message: %v", err)
+	}
+
+	// 测试导出 Markdown 到指定文件
+	mdPath := filepath.Join(dir, "test.md")
+	path, err := m.ExportToFile(sess.ID, "markdown", mdPath)
+	if err != nil {
+		t.Fatalf("export to markdown file: %v", err)
+	}
+	if path != mdPath {
+		t.Errorf("expected path %q, got %q", mdPath, path)
+	}
+
+	// 测试导出 JSON 到指定文件
+	jsonPath := filepath.Join(dir, "test.json")
+	path, err = m.ExportToFile(sess.ID, "json", jsonPath)
+	if err != nil {
+		t.Fatalf("export to json file: %v", err)
+	}
+	if path != jsonPath {
+		t.Errorf("expected path %q, got %q", jsonPath, path)
+	}
+
+	// 测试自动生成文件名
+	path, err = m.ExportToFile(sess.ID, "json", "")
+	if err != nil {
+		t.Fatalf("export to auto file: %v", err)
+	}
+	if path == "" {
+		t.Error("expected auto-generated filename")
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Errorf("expected file to exist: %s", path)
+	}
+
+	// 清理自动生成的文件
+	os.Remove(path)
 }

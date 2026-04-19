@@ -27,6 +27,12 @@ type Manager interface {
 	// ExportMarkdown 导出会话为 Markdown
 	ExportMarkdown(sessionID string) (string, error)
 
+	// ExportJSON 导出会话为 JSON
+	ExportJSON(sessionID string) (string, error)
+
+	// ExportToFile 导出会话到文件，返回实际写入的文件路径
+	ExportToFile(sessionID, format, filePath string) (string, error)
+
 	// UpdateTitle 更新会话标题
 	UpdateTitle(sessionID, title string) error
 }
@@ -93,6 +99,16 @@ func (m *DefaultManager) Delete(sessionID string) error {
 // ExportMarkdown 导出会话为 Markdown
 func (m *DefaultManager) ExportMarkdown(sessionID string) (string, error) {
 	return m.store.ExportMarkdown(sessionID)
+}
+
+// ExportJSON 导出会话为 JSON
+func (m *DefaultManager) ExportJSON(sessionID string) (string, error) {
+	return m.store.ExportJSON(sessionID)
+}
+
+// ExportToFile 导出会话到文件，返回实际写入的文件路径
+func (m *DefaultManager) ExportToFile(sessionID, format, filePath string) (string, error) {
+	return m.store.ExportToFile(sessionID, format, filePath)
 }
 
 // UpdateTitle 更新会话标题

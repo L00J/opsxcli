@@ -4,8 +4,10 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"opsxcli/internal/agentv2/session"
 )
 
 func TestNewModel(t *testing.T) {
@@ -163,5 +165,146 @@ func TestErrorMsg(t *testing.T) {
 	}
 	if !strings.Contains(model.messages[0].Content, "context canceled") {
 		t.Error("错误消息内容应包含错误信息")
+	}
+}
+
+func TestModelSessionListSwitch(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+
+	// 按 Ctrl+O 切换到会话列表
+	newM, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlO})
+	model := newM.(Model)
+
+	if model.viewState != viewSessionList {
+		t.Error("Ctrl+O 应切换到会话列表视图")
+	}
+	if cmd == nil {
+		t.Error("切换到会话列表应返回加载命令")
+	}
+
+	// 再按 Ctrl+O 返回聊天视图
+	newM2, cmd2 := model.Update(tea.KeyMsg{Type: tea.KeyCtrlO})
+	model2 := newM2.(Model)
+
+	if model2.viewState != viewChat {
+		t.Error("再次按 Ctrl+O 应返回聊天视图")
+	}
+	if cmd2 != nil {
+		t.Error("返回聊天视图不应返回命令")
+	}
+}
+
+func TestModelCreateNewSession(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+
+	// 输入 /new 并发送
+	m.textarea.SetValue("/new")
+	newM, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := newM.(Model)
+
+	if model.textarea.Value() != "" {
+		t.Error("/new 命令应清空输入框")
+	}
+	if cmd == nil {
+		t.Error("/new 应返回创建会话命令")
+	}
+}
+
+func TestRenderSessionList(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+	m.viewState = viewSessionList
+	m.sessions = []*session.Session{
+		{ID: "1", Title: "测试会话", MessageCount: 3, UpdatedAt: time.Now()},
+	}
+
+	s := m.renderSessionList()
+	if !strings.Contains(s, "测试会话") {
+		t.Error("会话列表渲染应包含会话标题")
+	}
+	if !strings.Contains(s, "3条消息") {
+		t.Error("会话列表渲染应包含消息数量")
+	}
+}
+
+func TestModelSessionsCommand(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+
+	m.textarea.SetValue("/sessions")
+	newM, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := newM.(Model)
+
+	if model.textarea.Value() != "" {
+		t.Error("/sessions 命令应清空输入框")
+	}
+	if model.viewState != viewSessionList {
+		t.Error("/sessions 应切换到会话列表视图")
+	}
+	if cmd == nil {
+		t.Error("/sessions 应返回加载命令")
+	}
+}
+
+func TestModelSessionListNavigation(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+	m.viewState = viewSessionList
+	m.sessions = []*session.Session{
+		{ID: "1", Title: "会话1", MessageCount: 1, UpdatedAt: time.Now()},
+		{ID: "2", Title: "会话2", MessageCount: 2, UpdatedAt: time.Now()},
+		{ID: "3", Title: "会话3", MessageCount: 3, UpdatedAt: time.Now()},
+	}
+
+	// 向下移动
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model := newM.(Model)
+	if model.listCursor != 1 {
+		t.Errorf("按 Down 后光标应为 1, 实际为 %d", model.listCursor)
+	}
+
+	// 再向下移动
+	newM2, _ := model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model2 := newM2.(Model)
+	if model2.listCursor != 2 {
+		t.Errorf("按 Down 后光标应为 2, 实际为 %d", model2.listCursor)
+	}
+
+	// 到底后不能再向下
+	newM3, _ := model2.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model3 := newM3.(Model)
+	if model3.listCursor != 2 {
+		t.Errorf("到底后光标应保持 2, 实际为 %d", model3.listCursor)
+	}
+
+	// 向上移动
+	newM4, _ := model3.Update(tea.KeyMsg{Type: tea.KeyUp})
+	model4 := newM4.(Model)
+	if model4.listCursor != 1 {
+		t.Errorf("按 Up 后光标应为 1, 实际为 %d", model4.listCursor)
+	}
+}
+
+func TestModelSessionListEscReturnsToChat(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+	m.viewState = viewSessionList
+
+	newM, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model := newM.(Model)
+
+	if model.viewState != viewChat {
+		t.Error("Esc 应从会话列表返回聊天视图")
+	}
+	if cmd != nil {
+		t.Error("Esc 返回聊天视图不应有命令")
 	}
 }

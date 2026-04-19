@@ -268,6 +268,169 @@ func (s *JSONLStore) Delete(sessionID string) error {
 	return nil
 }
 
+// ExportJSON 导出会话为 JSON 格式
+func (s *JSONLStore) ExportJSON(sessionID string) (string, error) {
+	session, err := s.LoadSession(sessionID)
+	if err != nil {
+		return "", err
+	}
+
+	records, err := s.loadAllRecords(sessionID)
+	if err != nil {
+		return "", err
+	}
+
+	type exportJSONSession struct {
+		ID        string    `json:"id"`
+		Title     string    `json:"title"`
+		Provider  string    `json:"provider"`
+		Model     string    `json:"model"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+	}
+
+	type exportJSONMessage struct {
+		Role       string     `json:"role"`
+		Content    string     `json:"content"`
+		Name       string     `json:"name,omitempty"`
+		ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+		ToolCallID string     `json:"tool_call_id,omitempty"`
+	}
+
+	type exportJSONToolResult struct {
+		ToolCallID string `json:"tool_call_id"`
+		Name       string `json:"name"`
+		Success    bool   `json:"success"`
+		Output     string `json:"output,omitempty"`
+		Error      string `json:"error,omitempty"`
+	}
+
+	type exportJSONStatistics struct {
+		TotalMessages     int `json:"total_messages"`
+		UserMessages      int `json:"user_messages"`
+		AssistantMessages int `json:"assistant_messages"`
+		ToolCalls         int `json:"tool_calls"`
+	}
+
+	type exportJSONData struct {
+		Session     exportJSONSession      `json:"session"`
+		Messages    []exportJSONMessage    `json:"messages"`
+		ToolResults []exportJSONToolResult `json:"tool_results"`
+		Statistics  exportJSONStatistics   `json:"statistics"`
+	}
+
+	data := exportJSONData{
+		Session: exportJSONSession{
+			ID:        session.ID,
+			Title:     session.Title,
+			Provider:  session.Provider,
+			Model:     session.Model,
+			CreatedAt: session.CreatedAt,
+			UpdatedAt: session.UpdatedAt,
+		},
+	}
+
+	stats := exportJSONStatistics{}
+
+	for _, record := range records {
+		switch record.Type {
+		case "message":
+			msg := exportJSONMessage{
+				Role:       record.Role,
+				Content:    record.Content,
+				Name:       record.Name,
+				ToolCallID: record.ToolCallID,
+			}
+			if len(record.ToolCalls) > 0 {
+				msg.ToolCalls = record.ToolCalls
+				stats.ToolCalls += len(record.ToolCalls)
+			}
+			data.Messages = append(data.Messages, msg)
+			stats.TotalMessages++
+			switch record.Role {
+			case "user":
+				stats.UserMessages++
+			case "assistant":
+				stats.AssistantMessages++
+			}
+		case "tool_result":
+			data.ToolResults = append(data.ToolResults, exportJSONToolResult{
+				ToolCallID: record.ToolCallID_,
+				Name:       record.Name_,
+				Success:    record.Success,
+				Output:     record.Output,
+				Error:      record.Error,
+			})
+		}
+	}
+
+	data.Statistics = stats
+
+	bytes, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("序列化 JSON 失败: %w", err)
+	}
+
+	return string(bytes), nil
+}
+
+// ExportToFile 导出会话到文件
+// 返回实际写入的文件路径
+func (s *JSONLStore) ExportToFile(sessionID, format, filePath string) (string, error) {
+	var content string
+	var ext string
+	var err error
+
+	switch format {
+	case "markdown", "md":
+		content, err = s.ExportMarkdown(sessionID)
+		ext = "md"
+	case "json":
+		content, err = s.ExportJSON(sessionID)
+		ext = "json"
+	default:
+		return "", fmt.Errorf("不支持的导出格式: %s", format)
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	// 如果文件路径为空，自动生成
+	if filePath == "" {
+		session, err := s.LoadSession(sessionID)
+		if err != nil {
+			return "", err
+		}
+		safeTitle := sanitizeFilename(session.Title)
+		timestamp := time.Now().Format("20060102_150405")
+		filePath = fmt.Sprintf("%s_%s.%s", safeTitle, timestamp, ext)
+	}
+
+	if err := os.WriteFile(filePath, []byte(content), 0640); err != nil {
+		return "", fmt.Errorf("写入文件失败: %w", err)
+	}
+
+	return filePath, nil
+}
+
+// sanitizeFilename 清理文件名中的特殊字符
+func sanitizeFilename(name string) string {
+	replacer := strings.NewReplacer(
+		"/", "_",
+		"\\", "_",
+		":", "_",
+		"*", "_",
+		"?", "_",
+		"\"", "_",
+		"<", "_",
+		">", "_",
+		"|", "_",
+		" ", "_",
+	)
+	return replacer.Replace(name)
+}
+
 // ExportMarkdown 导出会话为 Markdown 格式
 func (s *JSONLStore) ExportMarkdown(sessionID string) (string, error) {
 	records, err := s.loadAllRecords(sessionID)

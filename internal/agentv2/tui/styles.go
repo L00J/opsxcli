@@ -37,4 +37,15 @@ var (
 
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#ED8796"))
+
+	selectedStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#EED49F")).
+			Background(lipgloss.Color("#363A4F"))
+
+	itemStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#CAD3F5"))
+
+	helpStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6E738D"))
 )

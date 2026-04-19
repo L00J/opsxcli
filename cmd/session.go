@@ -26,11 +26,14 @@ func NewSessionCmd() *cobra.Command {
 管理 AI Agent 的对话会话，支持列表、恢复、导出等操作。
 
 示例：
-  opsxcli session list                # 列出所有会话
-  opsxcli session resume <id>         # 恢复会话
-  opsxcli session export <id>         # 导出为 Markdown
-  opsxcli session delete <id>         # 删除会话
-  opsxcli session rename <id> <title> # 重命名会话`,
+  opsxcli session list                        # 列出所有会话
+  opsxcli session resume <id>                 # 恢复会话
+  opsxcli session export <id>                 # 导出为 Markdown（默认）
+  opsxcli session export <id> -f json         # 导出为 JSON
+  opsxcli session export <id> -o report.md    # 导出到指定文件
+  opsxcli session export <id> -o -            # 导出到标准输出
+  opsxcli session delete <id>                 # 删除会话
+  opsxcli session rename <id> <title>         # 重命名会话`,
 	}
 
 	sessionCmd.AddCommand(newSessionListCmd())
@@ -183,12 +186,16 @@ func newSessionResumeCmd() *cobra.Command {
 
 // newSessionExportCmd 导出会话
 func newSessionExportCmd() *cobra.Command {
-	var output string
+	var format, output string
 
 	cmd := &cobra.Command{
 		Use:   "export <session-id>",
-		Short: "导出会话为 Markdown 文件",
-		Args:  cobra.ExactArgs(1),
+		Short: "导出会话为 Markdown 或 JSON 文件",
+		Long: `导出会话为 Markdown 或 JSON 格式。
+
+支持通过 --format 指定导出格式，通过 --output 指定输出文件路径。
+使用 --output - 可将内容输出到标准输出。`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := args[0]
 
@@ -197,31 +204,48 @@ func newSessionExportCmd() *cobra.Command {
 				return err
 			}
 
-			markdown, err := mgr.ExportMarkdown(sessionID)
+			// 标准化格式
+			switch format {
+			case "markdown", "md":
+				format = "markdown"
+			case "json":
+				format = "json"
+			default:
+				return fmt.Errorf("不支持的格式: %s，支持 markdown 或 json", format)
+			}
+
+			// 输出到 stdout
+			if output == "-" {
+				var content string
+				if format == "markdown" {
+					content, err = mgr.ExportMarkdown(sessionID)
+				} else {
+					content, err = mgr.ExportJSON(sessionID)
+				}
+				if err != nil {
+					return fmt.Errorf("导出会话失败: %w", err)
+				}
+				fmt.Print(content)
+				return nil
+			}
+
+			// 输出到文件
+			filePath, err := mgr.ExportToFile(sessionID, format, output)
 			if err != nil {
 				return fmt.Errorf("导出会话失败: %w", err)
 			}
 
-			// 保存到文件
-			if output == "" {
-				output = fmt.Sprintf("session_%s.md", sessionID)
-			}
-
-			err = os.WriteFile(output, []byte(markdown), 0644)
-			if err != nil {
-				return fmt.Errorf("保存文件失败: %w", err)
-			}
-
 			fmt.Printf("%s 会话已导出到: %s\n",
 				color.GreenString("✓"),
-				color.CyanString(output),
+				color.CyanString(filePath),
 			)
 
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&output, "output", "o", "", "输出文件路径 (默认: session_<id>.md)")
+	cmd.Flags().StringVarP(&format, "format", "f", "markdown", "导出格式: markdown 或 json")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "输出文件路径 (默认: 自动生成文件名，使用 - 输出到 stdout)")
 
 	return cmd
 }
