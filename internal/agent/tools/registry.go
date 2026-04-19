@@ -56,6 +56,12 @@ type Tool interface {
 	Execute(ctx context.Context, args map[string]interface{}) (*Result, error)
 }
 
+// Closer 可关闭的工具接口
+// 支持资源释放的工具可实现此接口，Registry.Close() 会自动调用
+type Closer interface {
+	Close() error
+}
+
 // Registry 工具注册中心
 type Registry struct {
 	tools map[string]Tool
@@ -124,6 +130,20 @@ func (r *Registry) RegisterDefaults() {
 	r.Register(NewSSHExecuteTool())
 	r.Register(NewSCPTransferTool())
 	r.Register(NewAnalyzeOutputTool())
+}
+
+// Close 关闭注册表中所有支持关闭的工具
+// 遍历所有已注册工具，如果实现了 Closer 接口则调用其 Close 方法
+// 用于 Agent 退出时释放连接池等资源
+func (r *Registry) Close() {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, tool := range r.tools {
+		if closer, ok := tool.(Closer); ok {
+			closer.Close()
+		}
+	}
 }
 
 // parseStringParam 解析字符串参数

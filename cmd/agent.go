@@ -152,6 +152,7 @@ func NewAgentCmd() *cobra.Command {
 
 			// 7. 创建 Agent
 			ag := core.NewAgent(llmClient, registry, agentConfig, safetyCtl)
+			defer ag.Close()
 
 			// 8. 处理不同运行模式
 

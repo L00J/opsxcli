@@ -20,7 +20,7 @@ var (
 var knownCommands = map[string]bool{
 	"agent": true, "session": true,
 	"mysql": true, "psql": true, "redis": true,
-	"ssh": true, "telnet": true, "nc": true, "ping": true,
+	"ssh": true, "ssh-config": true, "telnet": true, "nc": true, "ping": true,
 	"traceroute": true, "netstat": true, "ss": true, "nmap": true,
 	"sys": true, "net": true,
 	"server": true,

@@ -14,11 +14,24 @@ import (
 )
 
 // SSHExecuteTool SSH 远程执行工具
-type SSHExecuteTool struct{}
+type SSHExecuteTool struct {
+	pool *SSHPool
+}
 
 // NewSSHExecuteTool 创建 SSH 执行工具
 func NewSSHExecuteTool() *SSHExecuteTool {
-	return &SSHExecuteTool{}
+	return &SSHExecuteTool{
+		pool: NewSSHPool(),
+	}
+}
+
+// Close 关闭 SSH 执行工具，释放连接池资源
+// 实现 Closer 接口，供 Registry 统一调用
+func (t *SSHExecuteTool) Close() error {
+	if t.pool != nil {
+		t.pool.Close()
+	}
+	return nil
 }
 
 // Name 返回工具名称
@@ -226,12 +239,11 @@ func (t *SSHExecuteTool) executeSSH(ctx context.Context, user, host string, port
 		return "", ctx.Err()
 	}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
-	client, err := ssh.Dial("tcp", addr, sshConfig)
+	// 从连接池获取连接（自动复用或新建）
+	client, err := t.pool.Get(host, port, user, sshConfig)
 	if err != nil {
-		return "", fmt.Errorf("SSH 连接失败: %v", err)
+		return "", err
 	}
-	defer client.Close()
 
 	// 创建会话
 	session, err := client.NewSession()

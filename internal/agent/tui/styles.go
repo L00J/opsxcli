@@ -108,4 +108,75 @@ var (
 
 	tokenStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#6E738D"))
+
+	// Footer Powerline 样式
+	footerModelStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#5B6078")).
+				Foreground(lipgloss.Color("#CAD3F5")).
+				Padding(0, 1)
+
+	footerTokenStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#363A4F")).
+				Foreground(lipgloss.Color("#A6DA95")).
+				Padding(0, 1)
+
+	footerTokenWarnStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#363A4F")).
+				Foreground(lipgloss.Color("#F5A97F")).
+				Padding(0, 1)
+
+	footerTokenDangerStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#363A4F")).
+				Foreground(lipgloss.Color("#ED8796")).
+				Padding(0, 1)
+
+	footerStatusStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#1E2030")).
+				Foreground(lipgloss.Color("#8BD5CA")).
+				Padding(0, 1)
+
+	// === 弹窗样式 ===
+
+	modalOverlayStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#000000"))
+
+	modalBoxStyle = lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#F5BDE6")).
+			Background(lipgloss.Color("#1e1e2e")).
+			Padding(2, 3).
+			Width(60)
+
+	modalTitleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#ED8796")).
+			MarginBottom(1)
+
+	modalContentStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#CAD3F5")).
+			MarginBottom(1)
+
+	modalButtonStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#A6DA95"))
+
+	modalRiskSafeStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#A6DA95"))
+
+	modalRiskLowStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#EED49F"))
+
+	modalRiskMediumStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#F5BDE6"))
+
+	modalRiskHighStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#ED8796"))
+
+	modalRiskCriticalStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#FF0000"))
 )

@@ -385,12 +385,28 @@ func (a *Agent) triggerEvolve(ctx context.Context, query, finalAnswer string, to
 	}()
 }
 
+// SetConfirmFn 设置自定义审批函数（TUI 弹窗审批使用）
+func (a *Agent) SetConfirmFn(fn func(toolName string, args map[string]interface{}, risk tools.RiskLevel) (bool, error)) {
+	if a.safetyCtl != nil {
+		a.safetyCtl.SetConfirmFn(fn)
+	}
+}
+
 // GetEvolveStats 获取进化统计（供 CLI 使用）
 func (a *Agent) GetEvolveStats() map[string]interface{} {
 	if a.evolver == nil {
 		return map[string]interface{}{"enabled": false}
 	}
 	return a.evolver.GetStats()
+}
+
+// Close 关闭 Agent，释放相关资源
+// 调用注册表的 Close 方法，关闭工具连接池等
+func (a *Agent) Close() error {
+	if a.registry != nil {
+		a.registry.Close()
+	}
+	return nil
 }
 
 // showHelp 显示帮助信息

@@ -53,3 +53,10 @@ type sessionCreatedMsg struct {
 	session *session.Session
 	err     error
 }
+
+// confirmModalMsg 审批弹窗消息
+type confirmModalMsg struct {
+	toolName string
+	args     map[string]interface{}
+	resultCh chan bool
+}

@@ -41,6 +41,7 @@ type Controller struct {
 	reader      *bufio.Reader     // 标准输入读取器
 	history     []ExecutionRecord // 执行历史记录
 	auditLog    *AuditLogWriter   // 审计日志写入器
+	confirmFn   func(toolName string, args map[string]interface{}, risk tools.RiskLevel) (bool, error) // 可选的自定义审批函数
 }
 
 // ExecutionRecord 单次工具执行记录
@@ -98,6 +99,12 @@ func (c *Controller) SetAutoApprove(auto bool) {
 	c.autoApprove = auto
 }
 
+// SetConfirmFn 设置自定义审批函数（TUI 模式使用）
+// 当设置后，Check 方法将使用该函数代替 stdin 交互式确认
+func (c *Controller) SetConfirmFn(fn func(toolName string, args map[string]interface{}, risk tools.RiskLevel) (bool, error)) {
+	c.confirmFn = fn
+}
+
 // GetMode 获取当前安全模式
 func (c *Controller) GetMode() SafetyMode {
 	return c.mode
@@ -130,7 +137,16 @@ func (c *Controller) Check(tool tools.Tool, args map[string]interface{}) (bool, 
 	}
 
 	// 请求用户交互式确认
-	approved := c.requestConfirmation(tool, args, riskLevel)
+	var approved bool
+	var confirmErr error
+	if c.confirmFn != nil {
+		approved, confirmErr = c.confirmFn(tool.Name(), args, riskLevel)
+		if confirmErr != nil {
+			return false, confirmErr
+		}
+	} else {
+		approved = c.requestConfirmation(tool, args, riskLevel)
+	}
 	record.Approved = approved
 	c.addRecord(record)
 	c.writeAudit(record)

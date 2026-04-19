@@ -91,6 +91,33 @@ func TestController_SetAutoApprove(t *testing.T) {
 	}
 }
 
+// TestController_SetConfirmFn 测试自定义审批函数
+func TestController_SetConfirmFn(t *testing.T) {
+	c := NewController(SafetyModeStrict)
+	defer c.Close()
+
+	called := false
+	c.SetConfirmFn(func(toolName string, args map[string]interface{}, risk tools.RiskLevel) (bool, error) {
+		called = true
+		if toolName != "dangerous" {
+			t.Errorf("toolName = %q, want %q", toolName, "dangerous")
+		}
+		return true, nil
+	})
+
+	tool := &mockTool{name: "dangerous", riskLevel: tools.RiskCritical}
+	approved, err := c.Check(tool, map[string]interface{}{"command": "rm -rf /"})
+	if err != nil {
+		t.Fatalf("Check() unexpected error: %v", err)
+	}
+	if !approved {
+		t.Error("Check() should approve when confirmFn returns true")
+	}
+	if !called {
+		t.Error("confirmFn should have been called")
+	}
+}
+
 // TestController_Check_autoApprove 测试自动批准模式
 func TestController_Check_autoApprove(t *testing.T) {
 	c := NewController(SafetyModeStrict)

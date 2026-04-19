@@ -30,10 +30,16 @@ type ChatMessage struct {
 type sessionState int
 
 const (
-	stateIdle sessionState = iota
-	stateThinking  // LLM 思考中
-	stateStreaming // 流式输出中
-	stateExecuting // 工具执行中
+	stateIdle       sessionState = iota // 就绪
+	statePlanning                       // 规划任务（/plan 模式）
+	stateThinking                       // LLM 思考中
+	stateExecuting                      // 工具执行中
+	stateObserving                      // 观察工具结果
+	stateReviewing                      // 审批等待中
+	stateStreaming                      // 流式输出中
+	stateCompacting                     // 压缩上下文
+	stateCompleted                      // 任务完成
+	stateError                          // 错误状态
 )
 
 // viewState 视图状态
@@ -78,8 +84,21 @@ type Model struct {
 	deleteConfirm    bool
 
 	// 显示信息
-	modelName   string
-	totalTokens int
+	modelName       string
+	currentModel    string // 当前 LLM 模型（如 "deepseek-chat"）
+	currentProvider string // 当前提供商（如 "deepseek"）
+	totalTokens     int    // 当前会话累计 token 数
+	maxTokens       int    // 上下文窗口上限
+	currentHost     string // 当前远程主机（如 "local"）
+
+	// 审批弹窗
+	showConfirm   bool
+	pendingTool   string
+	pendingArgs   map[string]interface{}
+	confirmResult chan bool
+
+	// 当前执行的工具
+	currentTool string
 }
 
 // NewModel 创建 TUI Model
@@ -105,17 +124,21 @@ func NewModel(agent AgentRunner, ctx context.Context) Model {
 	}
 
 	return Model{
-		agent:       agent,
-		ctx:         ctx,
-		textarea:    ta,
-		viewport:    vp,
-		spinner:     s,
-		messages:    make([]ChatMessage, 0),
-		state:       stateIdle,
-		msgChan:     make(chan tea.Msg, 64),
-		sessionMgr:  sessionMgr,
-		modelName:   "deepseek-chat",
-		totalTokens: 0,
+		agent:           agent,
+		ctx:             ctx,
+		textarea:        ta,
+		viewport:        vp,
+		spinner:         s,
+		messages:        make([]ChatMessage, 0),
+		state:           stateIdle,
+		msgChan:         make(chan tea.Msg, 64),
+		sessionMgr:      sessionMgr,
+		modelName:       "deepseek-chat",
+		currentModel:    "deepseek-chat",
+		currentProvider: "deepseek",
+		maxTokens:       6000,
+		currentHost:     "local",
+		totalTokens:     0,
 	}
 }
 
@@ -152,6 +175,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// 审批弹窗拦截所有按键
+		if m.showConfirm {
+			keyStr := msg.String()
+			switch {
+			case keyStr == "y" || keyStr == "Y" || msg.Type == tea.KeyEnter:
+				m.showConfirm = false
+				if m.confirmResult != nil {
+					m.confirmResult <- true
+				}
+				m.state = stateExecuting
+				return m, m.waitForMsg()
+			case keyStr == "n" || keyStr == "N" || msg.Type == tea.KeyEsc:
+				m.showConfirm = false
+				if m.confirmResult != nil {
+					m.confirmResult <- false
+				}
+				m.state = stateIdle
+				return m, m.waitForMsg()
+			}
+			return m, nil // 拦截其他按键
+		}
+
 		if m.viewState == viewSessionList {
 			return m.handleSessionListKeys(msg)
 		}
@@ -166,7 +211,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.loadSessionList()
 			}
 		case tea.KeyEnter:
-			if m.state != stateIdle {
+			if m.state != stateIdle && m.state != stateCompleted && m.state != stateError {
 				return m, nil // 忙时忽略
 			}
 			query := strings.TrimSpace(m.textarea.Value())
@@ -204,6 +249,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Content:   query,
 				Timestamp: time.Now(),
 			})
+			m.totalTokens += estimateTokens(query)
 			m.textarea.Reset()
 			m.viewport.SetContent(m.renderMessages())
 			m.viewport.GotoBottom()
@@ -240,7 +286,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.waitForMsg()
 
 	case thinkDoneMsg:
-		m.state = stateIdle
+		m.state = stateCompleted
 		// 保存助手回复到会话
 		if m.sessionMgr != nil && m.currentSessionID != "" {
 			if len(m.messages) > 0 {
@@ -267,11 +313,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.waitForMsg()
 
 	case toolDoneMsg:
-		m.state = stateIdle
+		m.state = stateObserving
 		return m, nil
 
 	case errorMsg:
-		m.state = stateIdle
+		m.state = stateError
 		m.err = msg.err
 		m.messages = append(m.messages, ChatMessage{
 			Role:      "system",
@@ -322,6 +368,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.loadSessionList()
 		}
+		return m, nil
+
+	case confirmModalMsg:
+		m.showConfirm = true
+		m.pendingTool = msg.toolName
+		m.pendingArgs = msg.args
+		m.confirmResult = msg.resultCh
+		m.state = stateReviewing
 		return m, nil
 
 	case sessionCreatedMsg:
@@ -460,32 +514,123 @@ func (m Model) View() string {
 		return m.renderSessionList()
 	}
 
-	// 标题栏 — 更紧凑，显示模型信息
-	titleBar := titleStyle.Render(fmt.Sprintf("🤖 opsxcli Agent — %s", m.modelName))
+	title := titleStyle.Render("🤖 opsxcli 智能运维助手")
 
-	// 状态栏 — 更丰富的信息
-	var status string
-	switch m.state {
-	case stateThinking:
-		status = fmt.Sprintf("%s 思考中...", m.spinner.View())
-	case stateStreaming:
-		status = fmt.Sprintf("%s 输出中...  tokens: %d", m.spinner.View(), m.totalTokens)
-	case stateExecuting:
-		status = fmt.Sprintf("%s 执行工具...", m.spinner.View())
-	default:
-		status = fmt.Sprintf("就绪 | Enter 发送 | ESC 退出 | Ctrl+O 会话列表 | %s", time.Now().Format("15:04:05"))
-	}
-	statusBar := statusStyle.Width(m.width - 4).Render(status)
+	// Powerline Footer
+	footer := m.renderFooter()
 
-	// 视图区域
-	return lipgloss.JoinVertical(lipgloss.Left,
-		titleBar,
+	view := lipgloss.JoinVertical(lipgloss.Left,
+		title,
 		"",
 		viewportStyle.Width(m.width).Render(m.viewport.View()),
 		"",
-		statusBar,
+		footer,
 		inputStyle.Width(m.width - 2).Render(m.textarea.View()),
 	)
+
+	// 审批弹窗叠加
+	if m.showConfirm {
+		modal := m.renderConfirmModal()
+		view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, modal)
+	}
+
+	return view
+}
+
+// renderFooter 渲染 Powerline 风格底部状态栏
+func (m Model) renderFooter() string {
+	if m.width == 0 {
+		return ""
+	}
+
+	// 左侧: 模型信息
+	modelInfo := m.currentModel
+	if modelInfo == "" {
+		modelInfo = m.modelName
+	}
+	if modelInfo == "" {
+		modelInfo = "未连接"
+	}
+	modelStr := fmt.Sprintf(" %s ", modelInfo)
+
+	// 中间: Token 使用率
+	tokenPercent := 0
+	if m.maxTokens > 0 {
+		tokenPercent = (m.totalTokens * 100) / m.maxTokens
+	}
+	tokenStr := fmt.Sprintf(" %d/%d (%d%%) ", m.totalTokens, m.maxTokens, tokenPercent)
+
+	// 根据使用率选择颜色
+	tokenStyle := footerTokenStyle
+	if tokenPercent > 80 {
+		tokenStyle = footerTokenDangerStyle
+	} else if tokenPercent > 50 {
+		tokenStyle = footerTokenWarnStyle
+	}
+
+	// 右侧: 状态 + 主机
+	statusStr := m.stateString()
+	hostStr := ""
+	if m.currentHost != "" && m.currentHost != "local" {
+		hostStr = fmt.Sprintf(" %s", m.currentHost)
+	}
+	rightStr := fmt.Sprintf(" %s%s ", statusStr, hostStr)
+
+	// Powerline 风格分段渲染
+	left := footerModelStyle.Render(modelStr)
+	mid := tokenStyle.Render(tokenStr)
+	right := footerStatusStyle.Render(rightStr)
+
+	return lipgloss.JoinHorizontal(lipgloss.Left, left, mid, right)
+}
+
+// stateString 返回当前状态的字符串表示
+func (m Model) stateString() string {
+	switch m.state {
+	case stateIdle:
+		return "● 就绪"
+	case statePlanning:
+		return "◐ 规划任务"
+	case stateThinking:
+		return "◐ 思考中"
+	case stateExecuting:
+		return fmt.Sprintf("◒ 执行 %s", m.currentTool)
+	case stateObserving:
+		return "◓ 分析结果"
+	case stateReviewing:
+		return "⚠ 等待审批"
+	case stateStreaming:
+		return "◑ 输出中"
+	case stateCompacting:
+		return "◎ 压缩上下文"
+	case stateCompleted:
+		return "✓ 任务完成"
+	case stateError:
+		return "✗ 执行出错"
+	default:
+		return "○ 未知"
+	}
+}
+
+// renderConfirmModal 渲染审批弹窗
+func (m Model) renderConfirmModal() string {
+	var b strings.Builder
+
+	b.WriteString(modalTitleStyle.Render("⚠️ 安全确认请求"))
+	b.WriteString("\n\n")
+
+	b.WriteString(modalContentStyle.Render(fmt.Sprintf("工具: %s", m.pendingTool)))
+	b.WriteString("\n")
+
+	// 格式化参数
+	argsStr := formatArgs(m.pendingArgs)
+	b.WriteString(modalContentStyle.Render(fmt.Sprintf("参数: %s", argsStr)))
+	b.WriteString("\n\n")
+
+	b.WriteString(modalButtonStyle.Render("[Y] 确认执行  [N] 取消"))
+	b.WriteString("\n")
+
+	return modalBoxStyle.Render(b.String())
 }
 
 // renderMessages 渲染消息历史为字符串
@@ -566,12 +711,25 @@ func (m Model) renderSessionList() string {
 		b.WriteString("\n")
 	}
 	b.WriteString(helpStyle.Render("↑↓ 选择 | Enter 加载 | N 新建 | D 删除 | Ctrl+O 返回"))
+	b.WriteString("\n")
+	b.WriteString(m.renderFooter())
 	return b.String()
 }
 
 // runAgent 启动 Agent 查询（在 goroutine 中执行）
 func (m Model) runAgent(query string) tea.Cmd {
 	return func() tea.Msg {
+		// 设置 TUI 审批函数
+		if setter, ok := m.agent.(interface {
+			SetConfirmFn(func(toolName string, args map[string]interface{}, risk tools.RiskLevel) (bool, error))
+		}); ok {
+			setter.SetConfirmFn(func(toolName string, args map[string]interface{}, risk tools.RiskLevel) (bool, error) {
+				resultCh := make(chan bool, 1)
+				m.msgChan <- confirmModalMsg{toolName: toolName, args: args, resultCh: resultCh}
+				return <-resultCh, nil
+			})
+		}
+
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -638,6 +796,27 @@ func convertLLMMessagesToChatMessages(msgs []llm.Message) []ChatMessage {
 		})
 	}
 	return result
+}
+
+// formatArgs 格式化参数显示（本地副本，避免跨包依赖）
+func formatArgs(args map[string]interface{}) string {
+	if len(args) == 0 {
+		return "{}"
+	}
+
+	parts := make([]string, 0, len(args))
+	for k, v := range args {
+		switch val := v.(type) {
+		case string:
+			if len(val) > 100 {
+				val = val[:100] + "..."
+			}
+			parts = append(parts, fmt.Sprintf("%s=%q", k, val))
+		default:
+			parts = append(parts, fmt.Sprintf("%s=%v", k, v))
+		}
+	}
+	return "{ " + strings.Join(parts, ", ") + " }"
 }
 
 // estimateTokens 简单估算 token 数

@@ -151,8 +151,8 @@ func TestThinkDoneMsg(t *testing.T) {
 	newM, _ := m.Update(thinkDoneMsg{})
 	model := newM.(Model)
 
-	if model.state != stateIdle {
-		t.Error("thinkDoneMsg 后状态应为 idle")
+	if model.state != stateCompleted {
+		t.Error("thinkDoneMsg 后状态应为 completed")
 	}
 }
 
@@ -164,8 +164,8 @@ func TestErrorMsg(t *testing.T) {
 	newM, _ := m.Update(errorMsg{err: context.Canceled})
 	model := newM.(Model)
 
-	if model.state != stateIdle {
-		t.Error("errorMsg 后状态应为 idle")
+	if model.state != stateError {
+		t.Error("errorMsg 后状态应为 error")
 	}
 	if len(model.messages) != 1 {
 		t.Fatalf("错误消息应被添加到消息列表, 实际长度 %d", len(model.messages))
@@ -438,5 +438,295 @@ func TestEstimateTokens(t *testing.T) {
 	emptyTokens := estimateTokens("   \n\t  ")
 	if emptyTokens != 0 {
 		t.Error("空白文本估算 token 应为 0")
+	}
+}
+
+// === Footer 渲染测试 ===
+
+func TestRenderFooter(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.currentModel = "deepseek-chat"
+	m.maxTokens = 6000
+	m.totalTokens = 3000
+	m.currentHost = "local"
+
+	footer := m.renderFooter()
+	if footer == "" {
+		t.Error("renderFooter 不应返回空字符串")
+	}
+	if !strings.Contains(footer, "deepseek-chat") {
+		t.Error("footer 应包含模型名称")
+	}
+	if !strings.Contains(footer, "3000") {
+		t.Error("footer 应包含 token 使用量")
+	}
+	if !strings.Contains(footer, "就绪") {
+		t.Error("footer 应包含状态")
+	}
+}
+
+func TestStateString(t *testing.T) {
+	m := NewModel(nil, context.Background())
+
+	states := map[sessionState]string{
+		stateIdle:       "● 就绪",
+		statePlanning:   "◐ 规划任务",
+		stateThinking:   "◐ 思考中",
+		stateExecuting:  "◒ 执行 ",
+		stateObserving:  "◓ 分析结果",
+		stateReviewing:  "⚠ 等待审批",
+		stateStreaming:  "◑ 输出中",
+		stateCompacting: "◎ 压缩上下文",
+		stateCompleted:  "✓ 任务完成",
+		stateError:      "✗ 执行出错",
+	}
+
+	for s, expected := range states {
+		m.state = s
+		if got := m.stateString(); got != expected {
+			t.Errorf("state %d: expected %q, got %q", s, expected, got)
+		}
+	}
+}
+
+func TestTokenColorByPercent(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.maxTokens = 100
+
+	// < 50%: 绿色
+	m.totalTokens = 30
+	footer := m.renderFooter()
+	if footer == "" {
+		t.Error("footer 不应为空")
+	}
+
+	// 50-80%: 橙色
+	m.totalTokens = 60
+	footer = m.renderFooter()
+	if footer == "" {
+		t.Error("footer 不应为空")
+	}
+
+	// > 80%: 红色
+	m.totalTokens = 90
+	footer = m.renderFooter()
+	if footer == "" {
+		t.Error("footer 不应为空")
+	}
+}
+
+func TestRenderFooterEmptyModel(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.currentModel = ""
+	m.modelName = ""
+
+	footer := m.renderFooter()
+	if !strings.Contains(footer, "未连接") {
+		t.Error("模型为空时 footer 应显示 '未连接'")
+	}
+}
+
+func TestUserMessageTokenCount(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+	m.textarea.SetValue("hello world")
+
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := newM.(Model)
+
+	if model.totalTokens <= 0 {
+		t.Error("用户发送消息后 totalTokens 应大于 0")
+	}
+}
+
+// === 审批弹窗测试 ===
+
+func TestConfirmModalMsg(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+
+	resultCh := make(chan bool, 1)
+	newM, _ := m.Update(confirmModalMsg{toolName: "test_tool", args: map[string]interface{}{"key": "value"}, resultCh: resultCh})
+	model := newM.(Model)
+
+	if !model.showConfirm {
+		t.Error("收到 confirmModalMsg 后应显示审批弹窗")
+	}
+	if model.state != stateReviewing {
+		t.Errorf("收到 confirmModalMsg 后状态应为 reviewing, 实际为 %d", model.state)
+	}
+	if model.pendingTool != "test_tool" {
+		t.Errorf("pendingTool 应为 'test_tool', 实际为 %s", model.pendingTool)
+	}
+}
+
+func TestConfirmModalApprove(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+	m.showConfirm = true
+	m.state = stateReviewing
+	m.confirmResult = make(chan bool, 1)
+
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := newM.(Model)
+
+	if model.showConfirm {
+		t.Error("按 Enter 后应关闭审批弹窗")
+	}
+	if model.state != stateExecuting {
+		t.Errorf("批准后状态应为 executing, 实际为 %d", model.state)
+	}
+
+	select {
+	case result := <-m.confirmResult:
+		if !result {
+			t.Error("Enter 应发送 true 到 resultCh")
+		}
+	default:
+		t.Error("resultCh 应收到值")
+	}
+}
+
+func TestConfirmModalApproveWithY(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+	m.showConfirm = true
+	m.state = stateReviewing
+	m.confirmResult = make(chan bool, 1)
+
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	model := newM.(Model)
+
+	if model.showConfirm {
+		t.Error("按 Y 后应关闭审批弹窗")
+	}
+	if model.state != stateExecuting {
+		t.Errorf("批准后状态应为 executing, 实际为 %d", model.state)
+	}
+
+	select {
+	case result := <-m.confirmResult:
+		if !result {
+			t.Error("Y 应发送 true 到 resultCh")
+		}
+	default:
+		t.Error("resultCh 应收到值")
+	}
+}
+
+func TestConfirmModalRejectWithN(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+	m.showConfirm = true
+	m.state = stateReviewing
+	m.confirmResult = make(chan bool, 1)
+
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	model := newM.(Model)
+
+	if model.showConfirm {
+		t.Error("按 N 后应关闭审批弹窗")
+	}
+	if model.state != stateIdle {
+		t.Errorf("拒绝后状态应为 idle, 实际为 %d", model.state)
+	}
+
+	select {
+	case result := <-m.confirmResult:
+		if result {
+			t.Error("N 应发送 false 到 resultCh")
+		}
+	default:
+		t.Error("resultCh 应收到值")
+	}
+}
+
+func TestConfirmModalRejectWithEsc(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+	m.showConfirm = true
+	m.state = stateReviewing
+	m.confirmResult = make(chan bool, 1)
+
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model := newM.(Model)
+
+	if model.showConfirm {
+		t.Error("按 Esc 后应关闭审批弹窗")
+	}
+	if model.state != stateIdle {
+		t.Errorf("拒绝后状态应为 idle, 实际为 %d", model.state)
+	}
+
+	select {
+	case result := <-m.confirmResult:
+		if result {
+			t.Error("Esc 应发送 false 到 resultCh")
+		}
+	default:
+		t.Error("resultCh 应收到值")
+	}
+}
+
+func TestConfirmModalBlocksOtherKeys(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+	m.showConfirm = true
+	m.state = stateReviewing
+	m.confirmResult = make(chan bool, 1)
+
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	model := newM.(Model)
+
+	if !model.showConfirm {
+		t.Error("按其他键不应关闭审批弹窗")
+	}
+	if model.state != stateReviewing {
+		t.Errorf("按其他键后状态应保持 reviewing, 实际为 %d", model.state)
+	}
+}
+
+func TestRenderConfirmModal(t *testing.T) {
+	m := NewModel(nil, context.Background())
+	m.width = 80
+	m.height = 24
+	m.pendingTool = "ssh_execute"
+	m.pendingArgs = map[string]interface{}{"command": "uptime"}
+
+	modal := m.renderConfirmModal()
+	if !strings.Contains(modal, "ssh_execute") {
+		t.Error("弹窗应包含工具名")
+	}
+	if !strings.Contains(modal, "uptime") {
+		t.Error("弹窗应包含参数")
+	}
+	if !strings.Contains(modal, "安全确认请求") {
+		t.Error("弹窗应包含标题")
+	}
+}
+
+func TestFormatArgs(t *testing.T) {
+	args := map[string]interface{}{"key1": "value1", "key2": 42}
+	s := formatArgs(args)
+	if !strings.Contains(s, "key1=") {
+		t.Error("formatArgs 应包含 key1")
+	}
+	if !strings.Contains(s, "key2=") {
+		t.Error("formatArgs 应包含 key2")
+	}
+
+	empty := formatArgs(map[string]interface{}{})
+	if empty != "{}" {
+		t.Errorf("空参数应返回 {}, 实际为 %s", empty)
 	}
 }
