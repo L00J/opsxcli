@@ -2,6 +2,12 @@ package cmd
 
 import "github.com/spf13/cobra"
 
+func init() {
+	RegisterCommand("tar", "工具", "归档工具", NewTarCmd)
+	RegisterCommand("gzip", "工具", "压缩文件", NewGzipCmd)
+	RegisterCommand("unzip", "工具", "解压 ZIP 文件", NewUnzipCmd)
+}
+
 // === 归档压缩 ===
 
 func NewTarCmd() *cobra.Command {

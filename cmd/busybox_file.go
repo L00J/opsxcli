@@ -18,6 +18,7 @@ func init() {
 	RegisterCommand("chown", "文件", "修改所有者", NewChownCmd)
 	RegisterCommand("ln", "文件", "创建链接", NewLnCmd)
 	RegisterCommand("cat", "文件", "查看文件内容", NewCatCmd)
+	RegisterCommand("tree", "文件", "目录树显示", NewTreeCmd)
 }
 
 // === 基本文件操作 ===

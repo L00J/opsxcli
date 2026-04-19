@@ -30,7 +30,8 @@ func NewRootCmd(version string) *cobra.Command {
 使用 'opsxcli <command> --help' 查看具体命令的帮助信息。`,
 		Version: version,
 		CompletionOptions: cobra.CompletionOptions{
-			DisableDefaultCmd: true, // 禁用 completion 命令
+			DisableDefaultCmd: false, // 启用 completion 子命令（通过 cmd/completion.go 自定义实现）
+			HiddenDefaultCmd:  true,  // 隐藏 Cobra 默认的 completion 命令
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if outputFlag == "json" {

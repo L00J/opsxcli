@@ -124,12 +124,14 @@ func (r *Registry) ToLLMTools() []llm.Tool {
 }
 
 // RegisterDefaults 注册默认工具集合
-// 注册所有 V2 Agent 核心工具：local_bash, ssh_execute, scp_transfer, analyze_output
+// 注册所有 V2 Agent 核心工具：local_bash, ssh_execute, scp_transfer, analyze_output, file_read, file_search
 func (r *Registry) RegisterDefaults() {
 	r.Register(NewLocalBashTool())
 	r.Register(NewSSHExecuteTool())
 	r.Register(NewSCPTransferTool())
 	r.Register(NewAnalyzeOutputTool())
+	r.Register(NewFileReadTool())
+	r.Register(NewFileSearchTool())
 }
 
 // Close 关闭注册表中所有支持关闭的工具

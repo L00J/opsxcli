@@ -19,7 +19,9 @@ var (
 // knownCommands 已注册的命令列表（用于默认 Agent 查询判断）
 var knownCommands = map[string]bool{
 	"agent": true, "session": true,
-	"mysql": true, "psql": true, "redis": true,
+	"mysql": true, "mysqldump": true, "mysqlrestore": true,
+	"psql": true, "pgdump": true, "pgrestore": true,
+	"redis": true,
 	"ssh": true, "ssh-config": true, "telnet": true, "nc": true, "ping": true,
 	"traceroute": true, "netstat": true, "ss": true, "nmap": true,
 	"sys": true, "net": true,
@@ -31,9 +33,16 @@ var knownCommands = map[string]bool{
 	"ls": true, "cp": true, "mv": true, "rm": true, "mkdir": true,
 	"rmdir": true, "touch": true, "chmod": true, "chown": true, "ln": true,
 	"cat": true, "head": true, "tail": true, "grep": true,
-	"ps": true, "top": true, "kill": true, "dd": true,
+	"tree": true,
+	"ps": true, "top": true, "kill": true, "pstree": true, "dd": true,
 	"ifconfig": true, "route": true, "ip": true,
+	"tar": true, "gzip": true, "unzip": true,
+	"df": true, "du": true, "free": true,
+	"uname": true, "hostname": true, "whoami": true, "id": true,
+	"date": true, "sleep": true,
 	"help": true, "version": true,
+	"completion": true, "search": true,
+	"logs": true,
 }
 
 // removeHelpFlagShorthand 移除子命令的 help flag 的 shorthand，避免与自定义 flags 冲突

@@ -2,6 +2,16 @@ package cmd
 
 import "github.com/spf13/cobra"
 
+func init() {
+	RegisterCommand("uname", "系统", "显示系统信息", NewUnameCmd)
+	RegisterCommand("hostname", "系统", "显示或设置主机名", NewHostnameCmd)
+	RegisterCommand("whoami", "系统", "显示当前用户", NewWhoamiCmd)
+	RegisterCommand("id", "系统", "显示用户和组信息", NewIdCmd)
+	RegisterCommand("free", "系统", "显示内存使用情况", NewFreeCmd)
+	RegisterCommand("df", "系统", "显示磁盘空间", NewDfCmd)
+	RegisterCommand("du", "系统", "显示目录大小", NewDuCmd)
+}
+
 // === 系统信息 ===
 
 func NewUnameCmd() *cobra.Command {
@@ -30,12 +40,4 @@ func NewDfCmd() *cobra.Command {
 
 func NewDuCmd() *cobra.Command {
 	return createForwardCmd("du", "显示目录大小", "显示目录或文件的磁盘使用情况")
-}
-
-func NewMountCmd() *cobra.Command {
-	return createForwardCmd("mount", "挂载文件系统", "挂载文件系统到指定挂载点")
-}
-
-func NewUmountCmd() *cobra.Command {
-	return createForwardCmd("umount", "卸载文件系统", "卸载已挂载的文件系统")
 }

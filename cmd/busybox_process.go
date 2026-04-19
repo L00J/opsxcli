@@ -9,6 +9,7 @@ func init() {
 	RegisterCommand("ps", "系统", "进程查看", NewPsCmd)
 	RegisterCommand("top", "系统", "进程监控", NewTopCmd)
 	RegisterCommand("kill", "系统", "终止进程", NewKillCmd)
+	RegisterCommand("pstree", "系统", "进程树显示", NewPstreeCmd)
 }
 
 // === 进程管理 ===
