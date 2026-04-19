@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("upgrade", "管理", "升级opsxcli", NewUpgradeCmd)
+}
+
 // NewUpgradeCmd 创建升级命令
 func NewUpgradeCmd() *cobra.Command {
 	cmd := &cobra.Command{

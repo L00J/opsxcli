@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("install", "管理", "安装系统服务", NewInstallCmd)
+}
+
 // NewInstallCmd 创建安装命令
 func NewInstallCmd() *cobra.Command {
 	cmd := &cobra.Command{

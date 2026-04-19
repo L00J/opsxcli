@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -13,8 +15,8 @@ import (
 func NewRootCmd(version string) *cobra.Command {
 	var (
 		upgradeFlag bool
-		quietFlag  bool
-		outputFlag string
+		quietFlag   bool
+		outputFlag  string
 	)
 
 	rootCmd := &cobra.Command{
@@ -88,18 +90,10 @@ func NewRootCmd(version string) *cobra.Command {
 		NewWgetCmd(),
 		NewRequestCmd(),
 		NewWebSearchCmd(), // Web搜索
-		NewDockerCmd(),
 		NewKubectlCmd(),
 		NewConsulCmd(),
 		NewKubernetesCmd(),
-		NewInstallCmd(),
-		NewUpgradeCmd(),
 		NewTestCmd(), // 测试命令
-	)
-	// AI 工具
-	rootCmd.AddCommand(
-		NewAgentCmd(),
-		NewSessionCmd(),
 	)
 
 	// === Busybox 兼容命令 ===
@@ -169,6 +163,16 @@ func NewRootCmd(version string) *cobra.Command {
 	// 	NewTftpCmd(),
 	// )
 
+	// 动态注册已自注册的命令
+	var names []string
+	for name := range commandRegistry {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		rootCmd.AddCommand(commandRegistry[name].Factory())
+	}
+
 	// 自定义版本输出
 	rootCmd.SetVersionTemplate(fmt.Sprintf("%s: %s\n", color.CyanString("opsxcli"), version))
 
@@ -195,71 +199,59 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 	fmt.Printf("%s\n\n", cmd.Long)
 	fmt.Printf("Usage:\n  %s [command]\n\n", cmd.Use)
 
-	// 定义命令分组（精简）
+	// 定义命令分组
 	type commandGroup struct {
 		name     string
 		commands []string
-		desc     string // 分组描述
+		desc     string
 	}
 
-	groups := []commandGroup{
-		// === 核心工具（最常用） ===
-		{"文件", []string{"ls", "cat", "grep", "vi", "cp", "mv", "rm", "mkdir", "tree"}, "文件和目录操作"},
-		{"数据库", []string{"mysql", "psql", "redis"}, "MySQL, PostgreSQL, Redis"},
-		{"系统", []string{"ps", "top", "free", "df", "du", "uname", "hostname"}, "进程和系统信息"},
-		{"磁盘", []string{"dd"}, "磁盘读写和数据转换"},
-		{"", []string{}, ""}, // 空行分隔
-		// === 网络工具 ===
-		{"网络", []string{"ssh", "ping", "traceroute", "telnet", "nc", "ss", "nmap"}, "SSH, Ping, 端口扫描等"},
-		{"网络配置", []string{"ifconfig", "route", "ip"}, "网络接口和路由管理"},
-		{"", []string{}, ""}, // 空行分隔
-		// === 其他工具 ===
-		{"压缩", []string{"tar", "gzip", "unzip"}, "归档和压缩工具"},
-		{"服务", []string{"server"}, "HTTP/WebSocket/gRPC 服务"},
-		{"工具", []string{"curl", "wget", "request", "websearch"}, "HTTP请求, 文件下载, Web搜索"},
-		{"", []string{}, ""}, // 空行分隔
-		// === Docker 工具 ===
-		{"Docker", []string{"docker"}, "镜像管理, 多源极速下载"},
-		{"", []string{}, ""}, // 空行分隔
-		// === Kubernetes 工具 ===
-		{"Kubernetes", []string{"kubectl", "consul", "kubernetes"}, "kubectl 命令行, 服务注册, 资源管理"},
-		// === AI 工具 ===
-		{"AI", []string{"agent", "agentv2", "session"}, "AI 运维助手, 会话管理"},
-		{"", []string{}, ""}, // 空行分隔
-		// === 监控工具 ===
-		{"监控", []string{"sys", "net"}, "系统监控, 网络监控 (2秒实时刷新)"},
-		{"", []string{}, ""}, // 空行分隔
-		// === 管理工具 ===
-		{"管理", []string{"install", "upgrade"}, "安装系统服务, 升级opsxcli"},
+	// 收集并分类命令
+	categoryCommands := make(map[string][]string)
+	categoryDescs := make(map[string][]string)
+
+	for _, subCmd := range cmd.Commands() {
+		if subCmd.Hidden {
+			continue
+		}
+		if entry, ok := commandRegistry[subCmd.Name()]; ok {
+			categoryCommands[entry.Category] = append(categoryCommands[entry.Category], subCmd.Name())
+			categoryDescs[entry.Category] = append(categoryDescs[entry.Category], entry.Description)
+		} else {
+			categoryCommands["其他"] = append(categoryCommands["其他"], subCmd.Name())
+		}
+	}
+
+	categoryOrder := []string{"AI", "数据库", "网络", "监控", "文件", "系统", "Docker", "Kubernetes", "工具", "管理", "其他"}
+
+	groups := make([]commandGroup, 0)
+	for _, cat := range categoryOrder {
+		cmds, ok := categoryCommands[cat]
+		if !ok || len(cmds) == 0 {
+			continue
+		}
+		desc := ""
+		if cat == "其他" {
+			desc = "其他命令"
+		} else {
+			seen := make(map[string]bool)
+			uniqueDescs := make([]string, 0)
+			for _, d := range categoryDescs[cat] {
+				if !seen[d] {
+					seen[d] = true
+					uniqueDescs = append(uniqueDescs, d)
+				}
+			}
+			desc = strings.Join(uniqueDescs, ", ")
+		}
+		groups = append(groups, commandGroup{name: cat, commands: cmds, desc: desc})
 	}
 
 	// 打印分组命令（紧凑格式）
 	fmt.Println("Commands:")
 	for _, group := range groups {
-		// 跳过空行分隔符
-		if group.name == "" {
-			fmt.Println()
-			continue
-		}
-
-		validCommands := make([]*cobra.Command, 0)
-		for _, cmdName := range group.commands {
-			if subCmd, _, err := cmd.Find([]string{cmdName}); err == nil && subCmd != cmd {
-				validCommands = append(validCommands, subCmd)
-			}
-		}
-
-		if len(validCommands) > 0 {
-			// 分组标题 + 描述
-			fmt.Printf("\n  %s:  %s\n", color.YellowString(group.name), color.New(color.FgHiBlack).Sprint(group.desc))
-
-			// 命令列表（紧凑）
-			cmdNames := make([]string, 0)
-			for _, subCmd := range validCommands {
-				cmdNames = append(cmdNames, subCmd.Name())
-			}
-			fmt.Printf("    %s\n", color.CyanString(formatCommandList(cmdNames)))
-		}
+		fmt.Printf("\n  %s:  %s\n", color.YellowString(group.name), color.New(color.FgHiBlack).Sprint(group.desc))
+		fmt.Printf("    %s\n", color.CyanString(formatCommandList(group.commands)))
 	}
 
 	// 底部提示
@@ -277,12 +269,5 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 
 // formatCommandList 格式化命令列表为紧凑格式
 func formatCommandList(commands []string) string {
-	result := ""
-	for i, cmd := range commands {
-		if i > 0 {
-			result += ", "
-		}
-		result += cmd
-	}
-	return result
+	return strings.Join(commands, ", ")
 }

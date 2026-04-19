@@ -21,6 +21,10 @@ import (
 	"opsxcli/internal/llm"
 )
 
+func init() {
+	RegisterCommand("agent", "AI", "AI运维助手", NewAgentCmd)
+}
+
 // NewAgentCmd 创建 agent 命令（统一入口）
 func NewAgentCmd() *cobra.Command {
 	var (

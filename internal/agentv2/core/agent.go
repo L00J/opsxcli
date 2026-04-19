@@ -40,7 +40,13 @@ func NewAgent(llmClient llm.Client, registry *tools.Registry, config *Config, sa
 	}
 
 	// 初始化 Evolver 引擎（失败时降级处理，不影响 Agent 正常运行）
-	evolverEngine, err := evolver.NewEvolverEngine(config.SessionDir)
+	var evolverEngine *evolver.EvolverEngine
+	var err error
+	if llmClient != nil {
+		evolverEngine, err = evolver.NewEvolverEngineWithLLM(config.SessionDir, llmClient)
+	} else {
+		evolverEngine, err = evolver.NewEvolverEngine(config.SessionDir)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[警告] 初始化 Evolver 引擎失败: %v，将以降级模式运行\n", err)
 		evolverEngine = nil
@@ -191,21 +197,27 @@ func (a *Agent) Run(ctx context.Context, query string) (*tools.Result, error) {
 			cancel()
 
 			// 记录工具调用（Evolver Step 1: OBSERVE）
+			var resultOutput string
+			var resultSuccess bool
+			if result != nil {
+				resultOutput = result.Output
+				resultSuccess = result.Success
+			}
 			toolCallRecords = append(toolCallRecords, evolver.ToolCallRecord{
 				ToolName:  tc.Function.Name,
 				Args:      args,
-				Output:    result.Output,
+				Output:    resultOutput,
 				Duration:  time.Since(toolStart),
-				Success:   result.Success && err == nil,
+				Success:   resultSuccess && err == nil,
 				RiskLevel: int(tool.RiskLevel()),
 			})
 
 			// 压缩输出（过长时截断）
-			output := result.Output
+			output := resultOutput
 			if len(output) > a.config.OutputMaxLength {
 				output = output[:a.config.OutputMaxLength] +
 					fmt.Sprintf("\n\n[输出已截断，原始长度 %d 字符，超过最大限制 %d]",
-						len(result.Output), a.config.OutputMaxLength)
+						len(resultOutput), a.config.OutputMaxLength)
 			}
 
 			// 构建 observation 消息

@@ -12,6 +12,10 @@ import (
 	"opsxcli/internal/agentv2/session"
 )
 
+func init() {
+	RegisterCommand("session", "AI", "会话管理", NewSessionCmd)
+}
+
 // NewSessionCmd 创建 session 命令
 func NewSessionCmd() *cobra.Command {
 	sessionCmd := &cobra.Command{

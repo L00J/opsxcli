@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("docker", "Docker", "镜像管理", NewDockerCmd)
+}
+
 // NewDockerCmd 创建 Docker 命令
 func NewDockerCmd() *cobra.Command {
 	cmd := &cobra.Command{
