@@ -10,6 +10,10 @@ import (
 	"opsxcli/internal/db"
 )
 
+func init() {
+	RegisterCommand("test-db", "Kubernetes", "测试命令", NewTestCmd)
+}
+
 // NewTestCmd 创建测试命令
 func NewTestCmd() *cobra.Command {
 	cmd := &cobra.Command{

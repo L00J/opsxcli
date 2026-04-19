@@ -7,6 +7,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("telnet", "网络", "Telnet连接测试", NewTelnetCmd)
+}
+
 // NewTelnetCmd 创建telnet命令
 func NewTelnetCmd() *cobra.Command {
 	cmd := &cobra.Command{

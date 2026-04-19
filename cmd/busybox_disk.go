@@ -7,6 +7,10 @@ import (
 	"opsxcli/plugins/busybox"
 )
 
+func init() {
+	RegisterCommand("dd", "系统", "磁盘读写", NewDdCmd)
+}
+
 // === 磁盘工具 ===
 
 func NewDdCmd() *cobra.Command {

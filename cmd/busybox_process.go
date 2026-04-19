@@ -5,6 +5,12 @@ import (
 	"opsxcli/internal/exec"
 )
 
+func init() {
+	RegisterCommand("ps", "系统", "进程查看", NewPsCmd)
+	RegisterCommand("top", "系统", "进程监控", NewTopCmd)
+	RegisterCommand("kill", "系统", "终止进程", NewKillCmd)
+}
+
 // === 进程管理 ===
 
 func NewPsCmd() *cobra.Command {

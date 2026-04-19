@@ -8,6 +8,10 @@ import (
 	"opsxcli/plugins/kubernetes"
 )
 
+func init() {
+	RegisterCommand("kubernetes", "Kubernetes", "Kubernetes集群管理", NewKubernetesCmd)
+}
+
 // NewKubernetesCmd 创建Kubernetes命令
 func NewKubernetesCmd() *cobra.Command {
 	cmd := &cobra.Command{

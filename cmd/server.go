@@ -16,6 +16,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("server", "工具", "HTTP服务端工具", NewServerCmd)
+}
+
 // NewServerCmd 创建HTTP服务器命令
 func NewServerCmd() *cobra.Command {
 	var port int

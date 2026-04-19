@@ -7,6 +7,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("psql", "数据库", "PostgreSQL数据库操作", NewPsqlCmd)
+}
+
 // NewPsqlCmd 创建PostgreSQL命令（主命令名为psql）
 func NewPsqlCmd() *cobra.Command {
 	cmd := &cobra.Command{

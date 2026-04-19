@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("netstat", "网络", "网络连接状态查看", NewNetstatCmd)
+}
+
 // NewNetstatCmd 创建netstat命令
 func NewNetstatCmd() *cobra.Command {
 	cmd := &cobra.Command{

@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("mysql", "数据库", "MySQL数据库操作", NewMySQLCmd)
+}
+
 // NewMySQLCmd 创建MySQL命令
 func NewMySQLCmd() *cobra.Command {
 	cmd := &cobra.Command{

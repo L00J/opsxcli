@@ -8,6 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("websearch", "工具", "Web搜索", NewWebSearchCmd)
+}
+
 // NewWebSearchCmd 创建 websearch 命令
 func NewWebSearchCmd() *cobra.Command {
 	cmd := &cobra.Command{

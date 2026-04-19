@@ -14,6 +14,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("ss", "网络", "Socket统计", NewSsCmd)
+}
+
 // NewSsCmd 创建ss命令（在Linux上使用ss命令，类似ss命令）
 func NewSsCmd() *cobra.Command {
 	cmd := &cobra.Command{

@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("ping", "网络", "网络连通性测试", NewPingCmd)
+}
+
 // NewPingCmd 创建ping命令
 func NewPingCmd() *cobra.Command {
 	cmd := &cobra.Command{

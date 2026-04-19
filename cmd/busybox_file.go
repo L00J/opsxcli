@@ -6,6 +6,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("ls", "文件", "列出目录内容", NewLsCmd)
+	RegisterCommand("cp", "文件", "复制文件", NewCpCmd)
+	RegisterCommand("mv", "文件", "移动文件", NewMvCmd)
+	RegisterCommand("rm", "文件", "删除文件", NewRmCmd)
+	RegisterCommand("mkdir", "文件", "创建目录", NewMkdirCmd)
+	RegisterCommand("rmdir", "文件", "删除目录", NewRmdirCmd)
+	RegisterCommand("touch", "文件", "创建空文件", NewTouchCmd)
+	RegisterCommand("chmod", "文件", "修改权限", NewChmodCmd)
+	RegisterCommand("chown", "文件", "修改所有者", NewChownCmd)
+	RegisterCommand("ln", "文件", "创建链接", NewLnCmd)
+	RegisterCommand("cat", "文件", "查看文件内容", NewCatCmd)
+}
+
 // === 基本文件操作 ===
 
 func NewLsCmd() *cobra.Command {

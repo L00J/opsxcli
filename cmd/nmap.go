@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("nmap", "网络", "端口扫描", NewNmapCmd)
+}
+
 // NewNmapCmd 创建nmap命令
 func NewNmapCmd() *cobra.Command {
 	cmd := &cobra.Command{

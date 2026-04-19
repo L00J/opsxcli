@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("traceroute", "网络", "网络路由追踪", NewTracerouteCmd)
+}
+
 // NewTracerouteCmd 创建traceroute命令
 func NewTracerouteCmd() *cobra.Command {
 	cmd := &cobra.Command{

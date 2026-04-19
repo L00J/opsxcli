@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("wget", "工具", "文件下载工具", NewWgetCmd)
+}
+
 // NewWgetCmd 创建wget命令
 func NewWgetCmd() *cobra.Command {
 	cmd := &cobra.Command{

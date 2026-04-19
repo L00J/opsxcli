@@ -18,6 +18,10 @@ var (
 	kubectlReplicas     int
 )
 
+func init() {
+	RegisterCommand("kubectl", "Kubernetes", "kubectl包装器", NewKubectlCmd)
+}
+
 // NewKubectlCmd 创建 kubectl 命令
 func NewKubectlCmd() *cobra.Command {
 	kubectlCmd := &cobra.Command{

@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("net", "监控", "网络监控TUI", NewNetCmd)
+}
+
 // NewNetCmd 创建网络监控命令
 func NewNetCmd() *cobra.Command {
 	cmd := &cobra.Command{

@@ -131,125 +131,7 @@ func (a *Agent) Run(ctx context.Context, query string) (*tools.Result, error) {
 		}
 
 		// 处理工具调用（Observation 阶段）
-		observations := make([]llm.Message, 0, len(resp.Message.ToolCalls))
-
-		for _, tc := range resp.Message.ToolCalls {
-			toolKey := tc.Function.Name + ":" + tc.Function.Arguments
-			toolCallHistory[toolKey]++
-
-			// 循环检测：相同工具+参数调用超过3次视为死循环
-			if toolCallHistory[toolKey] > 3 {
-				observations = append(observations, llm.Message{
-					Role:       "tool",
-					ToolCallID: tc.ID,
-					Name:       tc.Function.Name,
-					Content:    "错误: 检测到循环调用，相同参数已被调用超过3次，请换一种方式处理",
-				})
-				continue
-			}
-
-			// 获取工具实例
-			tool, err := a.registry.Get(tc.Function.Name)
-			if err != nil {
-				observations = append(observations, llm.Message{
-					Role:       "tool",
-					ToolCallID: tc.ID,
-					Name:       tc.Function.Name,
-					Content:    fmt.Sprintf("错误: 工具 '%s' 未找到", tc.Function.Name),
-				})
-				continue
-			}
-
-			// 解析工具参数
-			var args map[string]interface{}
-			if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
-				observations = append(observations, llm.Message{
-					Role:       "tool",
-					ToolCallID: tc.ID,
-					Name:       tc.Function.Name,
-					Content:    fmt.Sprintf("错误: 参数解析失败: %v", err),
-				})
-				continue
-			}
-
-			// 安全检查：是否需要用户确认
-			approved, err := a.safetyCtl.Check(tool, args)
-			if err != nil {
-				observations = append(observations, llm.Message{
-					Role:       "tool",
-					ToolCallID: tc.ID,
-					Name:       tc.Function.Name,
-					Content:    fmt.Sprintf("安全检查失败: %v", err),
-				})
-				continue
-			}
-			if !approved {
-				observations = append(observations, llm.Message{
-					Role:       "tool",
-					ToolCallID: tc.ID,
-					Name:       tc.Function.Name,
-					Content:    "操作已被用户拒绝执行",
-				})
-				a.safetyCtl.MarkExecuted(tc.Function.Name, args, &tools.Result{Success: false, Error: "用户拒绝"})
-				continue
-			}
-
-			// 记录工具执行开始时间（供 Evolver 使用）
-			toolStart := time.Now()
-			toolStartTimes[tc.Function.Name] = toolStart
-
-			// 执行工具（带超时控制）
-			toolCtx, cancel := context.WithTimeout(ctx, a.config.ToolTimeout)
-			result, err := tool.Execute(toolCtx, args)
-			cancel()
-
-			// 记录工具调用（Evolver Step 1: OBSERVE）
-			var resultOutput string
-			var resultSuccess bool
-			if result != nil {
-				resultOutput = result.Output
-				resultSuccess = result.Success
-			}
-			toolCallRecords = append(toolCallRecords, evolver.ToolCallRecord{
-				ToolName:  tc.Function.Name,
-				Args:      args,
-				Output:    resultOutput,
-				Duration:  time.Since(toolStart),
-				Success:   resultSuccess && err == nil,
-				RiskLevel: int(tool.RiskLevel()),
-			})
-
-			// 压缩输出（过长时截断）
-			output := resultOutput
-			if len(output) > a.config.OutputMaxLength {
-				output = output[:a.config.OutputMaxLength] +
-					fmt.Sprintf("\n\n[输出已截断，原始长度 %d 字符，超过最大限制 %d]",
-						len(resultOutput), a.config.OutputMaxLength)
-			}
-
-			// 构建 observation 消息
-			var obsContent string
-			if err != nil {
-				obsContent = fmt.Sprintf("执行错误: %v", err)
-				a.safetyCtl.MarkExecuted(tc.Function.Name, args,
-					&tools.Result{Success: false, Error: err.Error()})
-			} else if !result.Success {
-				obsContent = fmt.Sprintf("执行失败: %s\n输出: %s", result.Error, output)
-				a.safetyCtl.MarkExecuted(tc.Function.Name, args, result)
-			} else {
-				obsContent = output
-				a.safetyCtl.MarkExecuted(tc.Function.Name, args, result)
-			}
-
-			observations = append(observations, llm.Message{
-				Role:       "tool",
-				ToolCallID: tc.ID,
-				Name:       tc.Function.Name,
-				Content:    obsContent,
-			})
-		}
-
-		// 将 observations 添加到对话历史
+		observations := a.processToolCalls(ctx, resp.Message.ToolCalls, toolCallHistory, &toolCallRecords, toolStartTimes)
 		a.messages = append(a.messages, observations...)
 	}
 
@@ -260,6 +142,129 @@ func (a *Agent) Run(ctx context.Context, query string) (*tools.Result, error) {
 	a.triggerEvolve(ctx, query, "", len(toolCallRecords), startTime, toolCallRecords, false)
 
 	return nil, err
+}
+
+// processToolCalls 处理单次 LLM 返回的工具调用，生成 observation 消息列表
+func (a *Agent) processToolCalls(ctx context.Context, toolCalls []llm.ToolCall, toolCallHistory map[string]int, toolCallRecords *[]evolver.ToolCallRecord, toolStartTimes map[string]time.Time) []llm.Message {
+	observations := make([]llm.Message, 0, len(toolCalls))
+
+	for _, tc := range toolCalls {
+		toolKey := tc.Function.Name + ":" + tc.Function.Arguments
+		toolCallHistory[toolKey]++
+
+		// 循环检测：相同工具+参数调用超过3次视为死循环
+		if toolCallHistory[toolKey] > 3 {
+			observations = append(observations, llm.Message{
+				Role:       "tool",
+				ToolCallID: tc.ID,
+				Name:       tc.Function.Name,
+				Content:    "错误: 检测到循环调用，相同参数已被调用超过3次，请换一种方式处理",
+			})
+			continue
+		}
+
+		// 获取工具实例
+		tool, err := a.registry.Get(tc.Function.Name)
+		if err != nil {
+			observations = append(observations, llm.Message{
+				Role:       "tool",
+				ToolCallID: tc.ID,
+				Name:       tc.Function.Name,
+				Content:    fmt.Sprintf("错误: 工具 '%s' 未找到", tc.Function.Name),
+			})
+			continue
+		}
+
+		// 解析工具参数
+		var args map[string]interface{}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			observations = append(observations, llm.Message{
+				Role:       "tool",
+				ToolCallID: tc.ID,
+				Name:       tc.Function.Name,
+				Content:    fmt.Sprintf("错误: 参数解析失败: %v", err),
+			})
+			continue
+		}
+
+		// 安全检查：是否需要用户确认
+		approved, err := a.safetyCtl.Check(tool, args)
+		if err != nil {
+			observations = append(observations, llm.Message{
+				Role:       "tool",
+				ToolCallID: tc.ID,
+				Name:       tc.Function.Name,
+				Content:    fmt.Sprintf("安全检查失败: %v", err),
+			})
+			continue
+		}
+		if !approved {
+			observations = append(observations, llm.Message{
+				Role:       "tool",
+				ToolCallID: tc.ID,
+				Name:       tc.Function.Name,
+				Content:    "操作已被用户拒绝执行",
+			})
+			a.safetyCtl.MarkExecuted(tc.Function.Name, args, &tools.Result{Success: false, Error: "用户拒绝"})
+			continue
+		}
+
+		// 记录工具执行开始时间（供 Evolver 使用）
+		toolStart := time.Now()
+		toolStartTimes[tc.Function.Name] = toolStart
+
+		// 执行工具（带超时控制）
+		toolCtx, cancel := context.WithTimeout(ctx, a.config.ToolTimeout)
+		result, err := tool.Execute(toolCtx, args)
+		cancel()
+
+		// 记录工具调用（Evolver Step 1: OBSERVE）
+		var resultOutput string
+		var resultSuccess bool
+		if result != nil {
+			resultOutput = result.Output
+			resultSuccess = result.Success
+		}
+		*toolCallRecords = append(*toolCallRecords, evolver.ToolCallRecord{
+			ToolName:  tc.Function.Name,
+			Args:      args,
+			Output:    resultOutput,
+			Duration:  time.Since(toolStart),
+			Success:   resultSuccess && err == nil,
+			RiskLevel: int(tool.RiskLevel()),
+		})
+
+		// 压缩输出（过长时截断）
+		output := resultOutput
+		if len(output) > a.config.OutputMaxLength {
+			output = output[:a.config.OutputMaxLength] +
+				fmt.Sprintf("\n\n[输出已截断，原始长度 %d 字符，超过最大限制 %d]",
+					len(resultOutput), a.config.OutputMaxLength)
+		}
+
+		// 构建 observation 消息
+		var obsContent string
+		if err != nil {
+			obsContent = fmt.Sprintf("执行错误: %v", err)
+			a.safetyCtl.MarkExecuted(tc.Function.Name, args,
+				&tools.Result{Success: false, Error: err.Error()})
+		} else if !result.Success {
+			obsContent = fmt.Sprintf("执行失败: %s\n输出: %s", result.Error, output)
+			a.safetyCtl.MarkExecuted(tc.Function.Name, args, result)
+		} else {
+			obsContent = output
+			a.safetyCtl.MarkExecuted(tc.Function.Name, args, result)
+		}
+
+		observations = append(observations, llm.Message{
+			Role:       "tool",
+			ToolCallID: tc.ID,
+			Name:       tc.Function.Name,
+			Content:    obsContent,
+		})
+	}
+
+	return observations
 }
 
 // RunInteractive 运行交互式会话
@@ -304,20 +309,12 @@ func (a *Agent) RunInteractive(ctx context.Context) error {
 			continue
 		}
 
-		// 执行查询
-		fmt.Println(color.CyanString("🤖 Agent") + ": 思考中...")
+		// 使用流式执行查询
 		fmt.Println()
-
-		result, err := a.Run(ctx, input)
+		_, err = a.RunStream(ctx, input, os.Stdout)
 		if err != nil {
 			fmt.Println(color.RedString("❌ 错误: ") + err.Error())
-			fmt.Println()
-			continue
 		}
-
-		// 显示结果
-		fmt.Println(color.CyanString("🤖 Agent") + ":")
-		fmt.Println(result.Output)
 		fmt.Println()
 	}
 }

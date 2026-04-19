@@ -8,6 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("redis", "数据库", "Redis数据库操作", NewRedisCmd)
+}
+
 // NewRedisCmd 创建Redis命令
 func NewRedisCmd() *cobra.Command {
 	rootCmd := &cobra.Command{

@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("curl", "工具", "HTTP请求客户端", NewCurlCmd)
+}
+
 // NewCurlCmd 创建curl命令
 func NewCurlCmd() *cobra.Command {
 	cmd := &cobra.Command{

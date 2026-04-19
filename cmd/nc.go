@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("nc", "网络", "Netcat网络调试", NewNcCmd)
+}
+
 // NewNcCmd 创建nc命令
 func NewNcCmd() *cobra.Command {
 	cmd := &cobra.Command{

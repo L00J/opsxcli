@@ -8,6 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("ssh", "网络", "SSH远程连接与执行", NewSSHCmd)
+}
+
 // NewSSHCmd 创建SSH命令
 func NewSSHCmd() *cobra.Command {
 	rootCmd := &cobra.Command{

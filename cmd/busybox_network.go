@@ -8,6 +8,12 @@ import (
 	"opsxcli/plugins/busybox"
 )
 
+func init() {
+	RegisterCommand("ifconfig", "系统", "网络接口配置", NewIfconfigCmd)
+	RegisterCommand("route", "系统", "路由表管理", NewRouteCmd)
+	RegisterCommand("ip", "系统", "IP地址管理", NewIpCmd)
+}
+
 // === 网络配置 ===
 
 func NewIfconfigCmd() *cobra.Command {

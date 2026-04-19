@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("consul", "Kubernetes", "Consul服务发现", NewConsulCmd)
+}
+
 // NewConsulCmd 创建Consul命令
 func NewConsulCmd() *cobra.Command {
 	var (

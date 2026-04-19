@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("sys", "监控", "系统监控TUI", NewSysCmd)
+}
+
 // NewSysCmd 创建系统监控命令
 func NewSysCmd() *cobra.Command {
 	cmd := &cobra.Command{

@@ -6,6 +6,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("head", "文件", "查看文件头部", NewHeadCmd)
+	RegisterCommand("tail", "文件", "查看文件尾部", NewTailCmd)
+	RegisterCommand("grep", "文件", "文本搜索", NewGrepCmd)
+}
+
 // === 文件查看/编辑 ===
 
 func NewMoreCmd() *cobra.Command {

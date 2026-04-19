@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	RegisterCommand("request", "工具", "HTTP请求测试", NewRequestCmd)
+}
+
 // NewRequestCmd 创建request命令
 func NewRequestCmd() *cobra.Command {
 	cmd := &cobra.Command{
