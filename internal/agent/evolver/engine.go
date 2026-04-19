@@ -83,7 +83,7 @@ func NewEvolverEngine(baseDir string) (*EvolverEngine, error) {
 		if err != nil {
 			return nil, fmt.Errorf("获取用户主目录失败: %w", err)
 		}
-		baseDir = filepath.Join(home, ".opsxcli", "agentv2")
+		baseDir = filepath.Join(home, ".opsxcli", "agent")
 	}
 
 	// 确保目录存在

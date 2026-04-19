@@ -1,6 +1,6 @@
 // environment.go - 环境记忆系统
 // Layer 3: 环境记忆 - 记录服务器特征、用户偏好、常用配置
-// 存储: ~/.opsxcli/agentv2/environment.json
+// 存储: ~/.opsxcli/agent/environment.json
 package evolver
 
 import (

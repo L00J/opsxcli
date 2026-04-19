@@ -93,7 +93,7 @@ func NewModel(agent AgentRunner, ctx context.Context) Model {
 	var sessionMgr session.Manager
 	homeDir, err := os.UserHomeDir()
 	if err == nil {
-		sessionDir := filepath.Join(homeDir, ".opsxcli", "agentv2", "sessions")
+		sessionDir := filepath.Join(homeDir, ".opsxcli", "agent", "sessions")
 		store, err := session.NewJSONLStore(sessionDir)
 		if err == nil {
 			sessionMgr = session.NewManager(store)

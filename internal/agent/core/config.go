@@ -29,7 +29,7 @@ type Config struct {
 	ToolTimeout        time.Duration // 工具执行超时，默认 60s
 	MaxTokens          int           // 最大 token 数，默认 4096
 	SafetyMode         SafetyMode    // 安全模式，默认 balanced
-	SessionDir         string        // 会话存储目录，默认 ~/.opsxcli/agentv2/sessions
+	SessionDir         string        // 会话存储目录，默认 ~/.opsxcli/agent/sessions
 	AutoApprove        bool          // 自动批准（危险，仅测试），默认 false
 	SSHConnectTimeout  time.Duration // SSH 连接超时，默认 10s
 	OutputMaxLength    int           // 输出最大长度（超过则截断），默认 10000
@@ -49,7 +49,7 @@ func NewDefaultConfig() *Config {
 		ToolTimeout:        60 * time.Second,
 		MaxTokens:          4096,
 		SafetyMode:         SafetyModeBalanced,
-		SessionDir:         filepath.Join(homeDir, ".opsxcli", "agentv2", "sessions"),
+		SessionDir:         filepath.Join(homeDir, ".opsxcli", "agent", "sessions"),
 		AutoApprove:        false,
 		SSHConnectTimeout:  10 * time.Second,
 		OutputMaxLength:    10000,

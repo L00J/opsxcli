@@ -1,6 +1,6 @@
 // experience.go - 经验记忆系统
 // Layer 2: 经验记忆 - 存储任务类型到最佳工具序列的映射
-// 格式: ~/.opsxcli/agentv2/experience.jsonl
+// 格式: ~/.opsxcli/agent/experience.jsonl
 package evolver
 
 import (
