@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -102,12 +103,13 @@ func (cm *ConfigManager) Get(name string) (*ProviderConfig, error) {
 	return config, nil
 }
 
-// List 列出所有配置
+// List 列出所有配置（按字母排序，确保顺序稳定）
 func (cm *ConfigManager) List() []string {
 	names := make([]string, 0, len(cm.configs))
 	for name := range cm.configs {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
 }
 
@@ -170,7 +172,7 @@ func (c *ProviderConfig) IsValid() bool {
 	return true
 }
 
-// GetValidProviders 返回所有有效（非占位符）的 provider 名称
+// GetValidProviders 返回所有有效（非占位符）的 provider 名称（按字母排序）
 func (cm *ConfigManager) GetValidProviders() []string {
 	var valid []string
 	for name, config := range cm.configs {
@@ -178,12 +180,134 @@ func (cm *ConfigManager) GetValidProviders() []string {
 			valid = append(valid, name)
 		}
 	}
+	sort.Strings(valid)
 	return valid
 }
 
 // HasAnyValidProvider 检查是否有任何有效配置
 func (cm *ConfigManager) HasAnyValidProvider() bool {
 	return len(cm.GetValidProviders()) > 0
+}
+
+// globalConfigPath 返回全局配置文件路径 (~/.opsxcli/config.json)
+func globalConfigPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("获取用户主目录失败: %w", err)
+	}
+	return filepath.Join(homeDir, ".opsxcli", "config.json"), nil
+}
+
+// globalConfig 全局配置结构
+type globalConfig struct {
+	DefaultProvider string `json:"default_provider,omitempty"`
+	Region          string `json:"region,omitempty"` // "cn" 或 "global"
+}
+
+// SaveDefaultProvider 保存默认 provider 到 ~/.opsxcli/config.json
+func (cm *ConfigManager) SaveDefaultProvider(name string) error {
+	configPath, err := globalConfigPath()
+	if err != nil {
+		return err
+	}
+
+	// 确保目录存在
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("创建配置目录失败: %w", err)
+	}
+
+	// 读取已有配置（保留其他字段）
+	var gc globalConfig
+	data, err := os.ReadFile(configPath)
+	if err == nil {
+		_ = json.Unmarshal(data, &gc)
+	}
+
+	gc.DefaultProvider = name
+
+	data, err = json.MarshalIndent(gc, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化配置失败: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		return fmt.Errorf("保存默认 provider 失败: %w", err)
+	}
+
+	return nil
+}
+
+// GetDefaultProvider 从 ~/.opsxcli/config.json 读取默认 provider
+func (cm *ConfigManager) GetDefaultProvider() string {
+	configPath, err := globalConfigPath()
+	if err != nil {
+		return ""
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+
+	var gc globalConfig
+	if err := json.Unmarshal(data, &gc); err != nil {
+		return ""
+	}
+
+	return gc.DefaultProvider
+}
+
+// SaveRegion 保存区域设置到 ~/.opsxcli/config.json
+func (cm *ConfigManager) SaveRegion(region string) error {
+	configPath, err := globalConfigPath()
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("创建配置目录失败: %w", err)
+	}
+
+	var gc globalConfig
+	data, err := os.ReadFile(configPath)
+	if err == nil {
+		_ = json.Unmarshal(data, &gc)
+	}
+
+	gc.Region = region
+
+	data, err = json.MarshalIndent(gc, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化配置失败: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		return fmt.Errorf("保存区域设置失败: %w", err)
+	}
+
+	return nil
+}
+
+// GetRegion 从 ~/.opsxcli/config.json 读取区域设置
+func (cm *ConfigManager) GetRegion() string {
+	configPath, err := globalConfigPath()
+	if err != nil {
+		return ""
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+
+	var gc globalConfig
+	if err := json.Unmarshal(data, &gc); err != nil {
+		return ""
+	}
+
+	return gc.Region
 }
 
 // CreateDefaultConfigs 创建默认配置示例
@@ -193,7 +317,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		Type:        "deepseek",
 		BaseURL:     "https://api.deepseek.com/v1",
 		APIKey:      "YOUR_DEEPSEEK_API_KEY",
-		Model:       "deepseek-v3",
+		Model:       "deepseek-chat",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}
@@ -253,7 +377,7 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		Type:        "minimax",
 		BaseURL:     "https://api.minimax.chat/v1",
 		APIKey:      "YOUR_MINIMAX_API_KEY",
-		Model:       "MiniMax-M2.7-highspeed",
+		Model:       "MiniMax-Text-01",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}

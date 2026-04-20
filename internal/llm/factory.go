@@ -30,8 +30,23 @@ func (f *ClientFactory) Create(name string) (Client, error) {
 func (f *ClientFactory) CreateFromConfig(config *ProviderConfig) (Client, error) {
 	switch config.Type {
 	// OpenAI 兼容的模型（使用统一的 OpenAI API 格式）
-	case "deepseek", "openai", "gpt", "kimi", "qwen", "glm", "yi", "baichuan", "minimax", "doubao", "llama", "ollama":
+	case "deepseek", "openai", "gpt", "kimi", "qwen", "yi", "baichuan", "doubao", "llama", "ollama":
 		return NewOpenAIClient(config.BaseURL, config.APIKey, config.Model), nil
+
+	// Anthropic 兼容的模型（GLM、MiniMax 走 Anthropic 协议）
+	case "glm":
+		baseURL := config.BaseURL
+		if baseURL == "" {
+			baseURL = "https://open.bigmodel.cn/api/anthropic"
+		}
+		return NewClaudeClientWithBaseURL(baseURL, config.APIKey, config.Model), nil
+
+	case "minimax":
+		baseURL := config.BaseURL
+		if baseURL == "" {
+			baseURL = "https://api.minimaxi.com/anthropic"
+		}
+		return NewClaudeClientWithBaseURL(baseURL, config.APIKey, config.Model), nil
 
 	// Claude 专用客户端
 	case "claude":

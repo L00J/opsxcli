@@ -110,9 +110,22 @@ func NewAgentCmd() *cobra.Command {
 				}
 			}
 
-			// 如果未指定 provider，优先使用第一个有有效 key 的 provider
+			// 如果未指定 provider，优先使用默认 provider，其次使用第一个有有效 key 的 provider
 			if provider == "" {
-				provider = validProviders[0]
+				// 优先使用用户设置的默认 provider
+				if defaultProvider := configManager.GetDefaultProvider(); defaultProvider != "" {
+					// 验证默认 provider 是否在有效列表中
+					for _, vp := range validProviders {
+						if vp == defaultProvider {
+							provider = defaultProvider
+							break
+						}
+					}
+				}
+				// 如果默认 provider 无效或未设置，使用第一个有效 provider
+				if provider == "" && len(validProviders) > 0 {
+					provider = validProviders[0]
+				}
 			}
 
 			// 2. 创建 LLM 客户端

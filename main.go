@@ -43,6 +43,8 @@ var knownCommands = map[string]bool{
 	"help": true, "version": true,
 	"completion": true, "search": true,
 	"logs": true,
+	"ssl": true, "bench": true, "notify": true,
+	"setup": true,
 }
 
 // removeHelpFlagShorthand 移除子命令的 help flag 的 shorthand，避免与自定义 flags 冲突

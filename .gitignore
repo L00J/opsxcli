@@ -4,10 +4,9 @@ opsxcli.exe
 dist/
 *.tar.gz
 *.zip
-test.sh
 
-# 构建脚本（仅本地使用）
-build.sh
+# 测试脚本（仅本地使用）
+test.sh
 
 # Go 相关
 *.test

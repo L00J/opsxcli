@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 // ConfigWizard 配置向导
 type ConfigWizard struct {
 	configManager *ConfigManager
 	reader        *bufio.Reader
+	region        string // "cn" 或 "global"，选择模型时自动设置
 }
 
 // NewConfigWizard 创建配置向导
@@ -21,8 +23,100 @@ func NewConfigWizard(configManager *ConfigManager) *ConfigWizard {
 	}
 }
 
+// detectRegion 自动检测服务区域
+// 通过时区和语言环境判断，检测不到默认中国
+func (w *ConfigWizard) detectRegion() string {
+	// 方法1: 检查时区
+	tz := time.Now().Location().String()
+	if strings.Contains(tz, "Asia/Shanghai") || strings.Contains(tz, "Asia/Chongqing") ||
+		strings.Contains(tz, "Asia/Hong_Kong") || strings.Contains(tz, "Asia/Taipei") ||
+		strings.Contains(tz, "Asia/Macau") || strings.Contains(tz, "PRC") ||
+		strings.Contains(tz, "CTT") {
+		return "cn"
+	}
+
+	// 方法2: 检查 LANG / LC_ALL 环境变量
+	for _, envKey := range []string{"LANG", "LC_ALL", "LC_CTYPE"} {
+		lang := os.Getenv(envKey)
+		if strings.Contains(lang, "zh_CN") || strings.Contains(lang, "zh_TW") ||
+			strings.Contains(lang, "zh_HK") || strings.Contains(lang, "zh_SG") {
+			return "cn"
+		}
+	}
+
+	// 方法3: 检查 TZ 环境变量
+	tzEnv := os.Getenv("TZ")
+	if strings.HasPrefix(tzEnv, "Asia/Shanghai") || strings.HasPrefix(tzEnv, "PRC") {
+		return "cn"
+	}
+
+	// 默认中国
+	return "cn"
+}
+
+// ensureRegion 确保有区域设置，没有则自动检测+确认
+func (w *ConfigWizard) ensureRegion() {
+	if w.region != "" {
+		return
+	}
+	// 先从配置读取
+	if r := w.configManager.GetRegion(); r != "" {
+		w.region = r
+		return
+	}
+	// 自动检测
+	detected := w.detectRegion()
+	// 首次使用，提示确认
+	w.selectRegionWithDetect(detected)
+}
+
+// selectRegionWithDetect 带自动检测的区域选择
+func (w *ConfigWizard) selectRegionWithDetect(detected string) {
+	defaultLabel := "1"
+	detectedDesc := "中国大陆"
+	if detected == "global" {
+		defaultLabel = "2"
+		detectedDesc = "全球/海外"
+	}
+
+	fmt.Println()
+	fmt.Println("  🌍 请选择服务区域（影响部分模型的 API 地址）：")
+	fmt.Println()
+	fmt.Println("    \033[1;36m1. 🇨🇳 中国大陆\033[0m  （默认，使用国内 API 端点）")
+	fmt.Println("    \033[1;36m2. 🌐 全球/海外\033[0m   （使用国际 API 端点）")
+	fmt.Println()
+	fmt.Printf("  🔍 自动检测: \033[1;33m%s\033[0m\n", detectedDesc)
+	fmt.Println()
+
+	for {
+		fmt.Printf("  👉 请选择 [默认: \033[1;33m%s\033[0m]: ", defaultLabel)
+		input, _ := w.reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			input = defaultLabel
+		}
+		switch input {
+		case "1":
+			w.region = "cn"
+			fmt.Println("  \033[1;32m✓ 已选择：中国大陆\033[0m")
+		case "2":
+			w.region = "global"
+			fmt.Println("  \033[1;32m✓ 已选择：全球/海外\033[0m")
+		default:
+			fmt.Println("  ❌ 无效选择，请输入 1 或 2")
+			continue
+		}
+		// 持久化
+		_ = w.configManager.SaveRegion(w.region)
+		return
+	}
+}
+
 // Run 运行配置向导
 func (w *ConfigWizard) Run() error {
+	// 确保有区域设置
+	w.ensureRegion()
+
 	// 打印欢迎界面
 	w.printWelcome()
 
@@ -92,7 +186,7 @@ func (w *ConfigWizard) printWelcome() {
 	fmt.Println("    \033[1;36m4. Kimi\033[0m              ⭐⭐⭐⭐☆ K2.5-code | 超长上下文 | 代码与文档处理")
 	fmt.Println("    \033[1;36m5. Gemini\033[0m            ⭐⭐⭐⭐ Gemini 3.1 Pro | 多模态强 | 推理翻倍")
 	fmt.Println("    \033[1;36m6. GLM (智谱)\033[0m        ⭐⭐⭐⭐ GLM-5.1 | 国产之光 | Agentic Coding | 百万级上下文")
-	fmt.Println("    \033[1;36m7. MiniMax\033[0m           ⭐⭐⭐☆ M2.7-highspeed | 速度优先 | Agent自我进化")
+	fmt.Println("    \033[1;36m7. MiniMax\033[0m           ⭐⭐⭐☆ MiniMax-Text-01 | 旗舰模型 | Agent自我进化")
 	fmt.Println()
 
 	// 本地模型
@@ -106,6 +200,11 @@ func (w *ConfigWizard) printWelcome() {
 
 // printSuccess 打印成功信息
 func (w *ConfigWizard) printSuccess(providerType string) {
+	// 保存配置后设置默认 provider
+	if err := w.configManager.SaveDefaultProvider(providerType); err != nil {
+		fmt.Printf("  ⚠️  设置默认 provider 失败: %v\n", err)
+	}
+
 	fmt.Println()
 	fmt.Println(strings.Repeat("=", 70))
 	fmt.Println()
@@ -379,7 +478,7 @@ func (w *ConfigWizard) configureQwen() (*ProviderConfig, error) {
 	}, nil
 }
 
-// configureGLM 配置GLM
+// configureGLM 配置GLM（走 Anthropic 兼容接口）
 func (w *ConfigWizard) configureGLM() (*ProviderConfig, error) {
 	fmt.Println()
 	fmt.Println(strings.Repeat("-", 70))
@@ -395,11 +494,28 @@ func (w *ConfigWizard) configureGLM() (*ProviderConfig, error) {
 		return nil, fmt.Errorf("API密钥不能为空")
 	}
 
+	fmt.Println()
+	fmt.Println("  📌 常用模型:")
+	fmt.Println("     • glm-5.1 (推荐，最新推理模型)")
+	fmt.Println("     • glm-5-turbo (快速)")
+	fmt.Println("     • glm-5")
+	fmt.Println("     • glm-4.7")
+	fmt.Println("     • glm-4.5-air (轻量)")
+	fmt.Println()
 	model := w.promptWithDefault("  🤖 模型名称", "glm-5.1")
+
+	// 根据 region 选择 Anthropic 兼容端点
+	baseURL := "https://open.bigmodel.cn/api/anthropic"
+	if w.region == "global" {
+		baseURL = "https://open.bigmodel.cn/api/anthropic"
+		fmt.Println("  🌐 使用国际端点")
+	} else {
+		fmt.Println("  🇨🇳 使用国内端点")
+	}
 
 	return &ProviderConfig{
 		Type:        "glm",
-		BaseURL:     "https://open.bigmodel.cn/api/paas/v4",
+		BaseURL:     baseURL,
 		APIKey:      apiKey,
 		Model:       model,
 		Temperature: 0.7,
@@ -529,7 +645,7 @@ func (w *ConfigWizard) configureBaichuan() (*ProviderConfig, error) {
 	}, nil
 }
 
-// configureMiniMax 配置MiniMax
+// configureMiniMax 配置MiniMax（走 Anthropic 兼容接口）
 func (w *ConfigWizard) configureMiniMax() (*ProviderConfig, error) {
 	fmt.Println()
 	fmt.Println(strings.Repeat("-", 70))
@@ -537,7 +653,7 @@ func (w *ConfigWizard) configureMiniMax() (*ProviderConfig, error) {
 	fmt.Println(strings.Repeat("-", 70))
 	fmt.Println()
 	fmt.Println("  💡 获取 API 密钥:")
-	fmt.Println("     访问 \033[1;34mhttps://api.minimax.chat/\033[0m")
+	fmt.Println("     访问 \033[1;34mhttps://platform.minimaxi.com/\033[0m")
 	fmt.Println()
 
 	apiKey := w.prompt("  🔑 请输入 MiniMax API 密钥")
@@ -545,11 +661,26 @@ func (w *ConfigWizard) configureMiniMax() (*ProviderConfig, error) {
 		return nil, fmt.Errorf("API密钥不能为空")
 	}
 
-	model := w.promptWithDefault("  🤖 模型名称", "MiniMax-M2.7-highspeed")
+	fmt.Println()
+	fmt.Println("  📌 常用模型:")
+	fmt.Println("     • MiniMax-Text-01 (推荐，旗舰模型)")
+	fmt.Println("     • MiniMax-M1 (推理模型)")
+	fmt.Println("     • abab7-chat-preview")
+	fmt.Println()
+	model := w.promptWithDefault("  🤖 模型名称", "MiniMax-Text-01")
+
+	// 根据 region 选择 Anthropic 兼容端点
+	baseURL := "https://api.minimaxi.com/anthropic"
+	if w.region == "global" {
+		baseURL = "https://api.minimax.io/anthropic"
+		fmt.Println("  🌐 使用国际端点 (minimax.io)")
+	} else {
+		fmt.Println("  🇨🇳 使用国内端点 (minimaxi.com)")
+	}
 
 	return &ProviderConfig{
 		Type:        "minimax",
-		BaseURL:     "https://api.minimax.chat/v1",
+		BaseURL:     baseURL,
 		APIKey:      apiKey,
 		Model:       model,
 		Temperature: 0.7,

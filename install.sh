@@ -104,13 +104,43 @@ get_latest_version() {
 
 # ==================== 下载文件 ====================
 
+# 映射到 Release 文件名格式（与 build.sh 一致）
+map_os_name() {
+    local os="$1"
+    case "$os" in
+        linux)  echo "Linux" ;;
+        darwin) echo "Darwin" ;;
+        *) echo "$os" ;;
+    esac
+}
+
+map_arch_name() {
+    local os="$1"
+    local arch="$2"
+    case "$arch" in
+        amd64|x86_64) echo "x86_64" ;;
+        arm64|aarch64)
+            if [ "$os" = "linux" ]; then
+                echo "aarch64"
+            else
+                echo "arm64"
+            fi
+            ;;
+        386|i386) echo "i386" ;;
+        *) echo "$arch" ;;
+    esac
+}
+
 download_binary() {
     local version="$1"
     local os="$2"
     local arch="$3"
     local output="$4"
 
-    local filename="${BINARY_NAME}_${os}_${arch}"
+    # 文件名格式: opsxcli-{OS}-{ARCH}.tar.gz（与 build.sh / upgrade.go 一致）
+    local os_name=$(map_os_name "$os")
+    local arch_name=$(map_arch_name "$os" "$arch")
+    local filename="${BINARY_NAME}-${os_name}-${arch_name}.tar.gz"
 
     # 构建 URL 列表（Gitee 优先）
     local urls=(
@@ -118,20 +148,38 @@ download_binary() {
         "https://github.com/${GITHUB_REPO}/releases/download/${version}/${filename}"
     )
 
-    info "正在下载 opsxcli ${version} (${os}/${arch})..."
+    info "正在下载 opsxcli ${version} (${os_name}/${arch_name})..."
+
+    local tarfile="${output}.tar.gz"
 
     for url in "${urls[@]}"; do
         info "尝试下载: ${url}"
         if curl -fsSL --connect-timeout 10 --max-time 120 --progress-bar \
-            -o "${output}" "${url}" 2>/dev/null; then
+            -o "${tarfile}" "${url}" 2>/dev/null; then
             # 验证下载的文件不为空
-            if [ -s "${output}" ]; then
-                success "下载成功"
-                return 0
+            if [ -s "${tarfile}" ]; then
+                # 解压 tar.gz，提取 opsxcli 二进制
+                if tar xzf "${tarfile}" -C "$(dirname "${output}")" 2>/dev/null; then
+                    # tar 内部文件名固定为 opsxcli，重命名为目标文件名
+                    local extracted="$(dirname "${output}")/opsxcli"
+                    if [ -f "${extracted}" ] && [ "${extracted}" != "${output}" ]; then
+                        mv "${extracted}" "${output}"
+                    fi
+                    rm -f "${tarfile}"
+                    success "下载并解压成功"
+                    return 0
+                else
+                    # 解压失败，尝试当作裸二进制使用（向后兼容旧 release）
+                    mv "${tarfile}" "${output}" 2>/dev/null
+                    if [ -s "${output}" ]; then
+                        success "下载成功"
+                        return 0
+                    fi
+                fi
             fi
         fi
         warn "从 ${url} 下载失败，尝试下一个源..."
-        rm -f "${output}"
+        rm -f "${tarfile}" "${output}"
     done
 
     error "所有下载源均失败，请检查网络连接或稍后重试"

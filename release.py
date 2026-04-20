@@ -115,17 +115,18 @@ class GiteeReleaseUploader:
         
         for file_path in sorted(files):
             filename = file_path.name
-            if "linux-amd64" in filename:
+            fl = filename.lower()
+            if "linux" in fl and "x86_64" in fl:
                 platforms["Linux x86_64"].append(filename)
-            elif "linux-arm64" in filename:
+            elif "linux" in fl and "aarch64" in fl:
                 platforms["Linux ARM64"].append(filename)
-            elif "darwin-amd64" in filename:
+            elif "darwin" in fl and "x86_64" in fl:
                 platforms["macOS x86_64"].append(filename)
-            elif "darwin-arm64" in filename:
+            elif "darwin" in fl and "arm64" in fl:
                 platforms["macOS ARM64"].append(filename)
-            elif "windows-amd64" in filename:
+            elif "windows" in fl and "x86_64" in fl:
                 platforms["Windows x86_64"].append(filename)
-            elif "windows-386" in filename:
+            elif "windows" in fl and ("i386" in fl or "386" in fl):
                 platforms["Windows x86"].append(filename)
         
         # 生成描述

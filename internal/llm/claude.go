@@ -9,10 +9,11 @@ import (
 	"net/http"
 )
 
-// ClaudeClient Claude API 客户端
+// ClaudeClient Claude/Anthropic 兼容 API 客户端
 type ClaudeClient struct {
 	apiKey     string
 	model      string
+	baseURL    string // API 基础地址，默认 https://api.anthropic.com
 	httpClient *http.Client
 }
 
@@ -21,6 +22,17 @@ func NewClaudeClient(apiKey, model string) *ClaudeClient {
 	return &ClaudeClient{
 		apiKey:     apiKey,
 		model:      model,
+		baseURL:    "https://api.anthropic.com",
+		httpClient: &http.Client{},
+	}
+}
+
+// NewClaudeClientWithBaseURL 创建带自定义 base URL 的 Claude 兼容客户端
+func NewClaudeClientWithBaseURL(baseURL, apiKey, model string) *ClaudeClient {
+	return &ClaudeClient{
+		apiKey:     apiKey,
+		model:      model,
+		baseURL:    baseURL,
 		httpClient: &http.Client{},
 	}
 }
@@ -69,8 +81,9 @@ func (c *ClaudeClient) Complete(ctx context.Context, req *CompletionRequest) (*C
 		return nil, fmt.Errorf("序列化请求失败: %w", err)
 	}
 
-	// 创建HTTP请求
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(jsonData))
+	// 创建HTTP请求（使用 baseURL 支持第三方 Anthropic 兼容接口）
+	url := c.baseURL + "/v1/messages"
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
