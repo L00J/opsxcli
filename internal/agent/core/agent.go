@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,12 +30,16 @@ type Agent struct {
 	registry     *tools.Registry
 	config       *Config
 	safetyCtl    *safety.Controller
-	evolver      *evolver.EvolverEngine // Evolver 自我进化引擎
-	evolveWg     sync.WaitGroup         // 等待后台 Evolver goroutine 完成
+	evolver      *evolver.EvolverEngine  // Evolver 自我进化引擎
+	evolveWg     sync.WaitGroup          // 等待后台 Evolver goroutine 完成
 	messages     []llm.Message
 	totalTokens  int
-	tokenizer    *TokenEstimator       // Token 估算器
-	toolCallback ToolCallback          // 工具执行回调（可选，供 TUI 使用）
+	tokenizer    *TokenEstimator         // Token 估算器
+	toolCallback ToolCallback            // 工具执行回调（可选，供 TUI 使用）
+
+	// 上一次进化结果（会话级别，用于将 Evolver 结果反馈到后续 Prompt）
+	lastEvolveResult *evolver.EvolveResult
+	evolveResultMu   sync.RWMutex
 }
 
 // NewAgent 创建 Agent
@@ -82,10 +87,14 @@ func (a *Agent) Run(ctx context.Context, query string) (*tools.Result, error) {
 	a.totalTokens = 0
 	startTime := time.Now()
 
-	// Evolver Step 8: PREDICT - 获取历史经验上下文
+	// Evolver Step 8: PREDICT - 获取历史经验上下文 + 会话级最新进化结果
 	evolveContext := ""
 	if a.evolver != nil {
 		evolveContext = a.evolver.GetContextForPrompt(query)
+	}
+	// 注入上一次进化结果到当前 Prompt（修复 W4: Evolver 结果不再被丢弃）
+	if lastHint := a.getLastEvolveHint(); lastHint != "" {
+		evolveContext += lastHint
 	}
 
 	// 构建 System Prompt（五层架构 + 动态记忆注入）
@@ -404,9 +413,11 @@ func (a *Agent) triggerEvolve(ctx context.Context, query, finalAnswer string, to
 		defer cancel()
 
 		result := a.evolver.Evolve(evolveCtx, exec)
-		if result != nil && result.UserFeedback != "" {
-			// 可通过 debug 模式或 /stats 命令查看进化状态
-			_ = result
+		if result != nil {
+			// 将进化结果存储到会话级别，下次 Run/RunStream 时注入 Prompt
+			a.evolveResultMu.Lock()
+			a.lastEvolveResult = result
+			a.evolveResultMu.Unlock()
 		}
 	}()
 }
@@ -429,6 +440,37 @@ func (a *Agent) GetEvolveStats() map[string]interface{} {
 		return map[string]interface{}{"enabled": false}
 	}
 	return a.evolver.GetStats()
+}
+
+// getLastEvolveHint 获取上一次进化的会话级提示
+// 在 Run/RunStream 中被调用，将上一次任务的进化结果反馈到当前 Prompt
+func (a *Agent) getLastEvolveHint() string {
+	a.evolveResultMu.RLock()
+	defer a.evolveResultMu.RUnlock()
+
+	if a.lastEvolveResult == nil || !a.lastEvolveResult.ExperienceAdded {
+		return ""
+	}
+
+	var hint strings.Builder
+	hint.WriteString("\n【本次会话最新经验】\n")
+	if a.lastEvolveResult.LearnedHint != "" {
+		h := a.lastEvolveResult.LearnedHint
+		if len(h) > 200 {
+			h = h[:200] + "..."
+		}
+		hint.WriteString(fmt.Sprintf("   上次任务学到: %s\n", h))
+	}
+	if len(a.lastEvolveResult.ToolSequence) > 0 {
+		hint.WriteString(fmt.Sprintf("   推荐工具序列: %s\n", strings.Join(a.lastEvolveResult.ToolSequence, " → ")))
+	}
+	if a.lastEvolveResult.TaskType != "" {
+		hint.WriteString(fmt.Sprintf("   任务类型: %s\n", a.lastEvolveResult.TaskType))
+	}
+	if a.lastEvolveResult.Consolidated {
+		hint.WriteString("   已整合相似经验，工具选择策略已优化\n")
+	}
+	return hint.String()
 }
 
 // Close 关闭 Agent，释放相关资源

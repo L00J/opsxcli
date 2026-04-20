@@ -1,0 +1,23 @@
+{
+  "session": {
+    "id": "sess_9b1c4f4c4a224590",
+    "title": "文件导出测试",
+    "provider": "openai",
+    "model": "gpt-4",
+    "created_at": "2026-04-21T05:49:55.303318+08:00",
+    "updated_at": "2026-04-21T05:49:55.303318+08:00"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "hello"
+    }
+  ],
+  "tool_results": null,
+  "statistics": {
+    "total_messages": 1,
+    "user_messages": 1,
+    "assistant_messages": 0,
+    "tool_calls": 0
+  }
+}

@@ -43,7 +43,7 @@
 |------|------|----------|------|------|
 | **C1** | 命令注入漏洞 | `plugins/nc/nc.go:95` | 用户输入未转义，可执行任意命令 | ✅ 已修复 |
 | **C2** | 测试分类失败 | `internal/llm/factory_test.go` | glm/minimax提供商分类测试用例失败 | ✅ 已修复 |
-| **W4** | Evolver结果丢弃 | `agent.go:405` | 10步进化循环结果未被消费/反馈 | 🔴 待修复 |
+| **W4** | Evolver结果丢弃 | `agent.go:405` | 10步进化循环结果未被消费/反馈 | ✅ 已修复 |
 
 **修复优先级**: C1(安全) > C2(测试) > W4(功能)
 
@@ -296,7 +296,7 @@ v0.4.x (当前)                    v0.5.0 (目标)                    v0.6.0 (�
 | **C1** | 🔴 Critical | `plugins/nc/nc.go` | 95 | 命令注入漏洞 | 输入转义+白名单 | ✅ 已修复 |
 | **C2** | 🔴 Critical | `internal/llm/factory_test.go` | — | glm/minimax分类测试失败 | 修复测试用例 | ✅ 已修复 |
 | **W1** | 🟡 Warning | `cmd/common.go` | 12 | 全局密码变量 | 改为局部传递 | 🟡 待修复 |
-| **W4** | 🟡 Warning | `agent.go` | 405 | Evolver结果被丢弃 | 接入Prompt/Persist | 🟡 待修复 |
+| **W4** | 🟡 Warning | `agent.go` | 405 | Evolver结果被丢弃 | 接入Prompt/Persist | ✅ 已修复 |
 
 ---
 

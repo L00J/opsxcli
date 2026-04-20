@@ -22,10 +22,14 @@ func (a *Agent) RunStream(ctx context.Context, query string, out io.Writer) (*to
 	a.totalTokens = 0
 	startTime := time.Now()
 
-	// Evolver Step 8: PREDICT - 获取历史经验上下文
+	// Evolver Step 8: PREDICT - 获取历史经验上下文 + 会话级最新进化结果
 	evolveContext := ""
 	if a.evolver != nil {
 		evolveContext = a.evolver.GetContextForPrompt(query)
+	}
+	// 注入上一次进化结果到当前 Prompt（修复 W4: Evolver 结果不再被丢弃）
+	if lastHint := a.getLastEvolveHint(); lastHint != "" {
+		evolveContext += lastHint
 	}
 
 	// 构建 System Prompt（五层架构 + 动态记忆注入）

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"opsxcli/internal/agent/evolver"
 	"opsxcli/internal/agent/safety"
 	"opsxcli/internal/agent/tools"
 	"opsxcli/internal/llm"
@@ -1347,4 +1348,131 @@ func TestAgentStream(t *testing.T) {
 	if chunk.Delta.Content != "streamed" {
 		t.Errorf("expected content 'streamed', got %q", chunk.Delta.Content)
 	}
+}
+
+// TestGetLastEvolveHint 测试会话级进化结果提示
+// 验证 W4 修复: Evolver 结果不再被丢弃，而是反馈到后续 Prompt
+func TestGetLastEvolveHint(t *testing.T) {
+	t.Run("nil_result_returns_empty", func(t *testing.T) {
+		mockLLM := &mockLLMClient{
+			responses: []llm.CompletionResponse{},
+		}
+		registry := tools.NewRegistry()
+		sessionDir := t.TempDir()
+		config := NewDefaultConfig()
+		config.SessionDir = sessionDir
+		safetyCtl := safety.NewController(safety.SafetyModeBalanced)
+		safetyCtl.SetAutoApprove(true)
+
+		agent := NewAgent(mockLLM, registry, config, safetyCtl)
+		defer agent.Close()
+
+		hint := agent.getLastEvolveHint()
+		if hint != "" {
+			t.Errorf("expected empty hint for nil result, got %q", hint)
+		}
+	})
+
+	t.Run("no_experience_added_returns_empty", func(t *testing.T) {
+		mockLLM := &mockLLMClient{
+			responses: []llm.CompletionResponse{},
+		}
+		registry := tools.NewRegistry()
+		sessionDir := t.TempDir()
+		config := NewDefaultConfig()
+		config.SessionDir = sessionDir
+		safetyCtl := safety.NewController(safety.SafetyModeBalanced)
+		safetyCtl.SetAutoApprove(true)
+
+		agent := NewAgent(mockLLM, registry, config, safetyCtl)
+		defer agent.Close()
+
+		// 设置一个没有新增经验的进化结果
+		agent.evolveResultMu.Lock()
+		agent.lastEvolveResult = &evolver.EvolveResult{
+			ExperienceAdded: false,
+		}
+		agent.evolveResultMu.Unlock()
+
+		hint := agent.getLastEvolveHint()
+		if hint != "" {
+			t.Errorf("expected empty hint when no experience added, got %q", hint)
+		}
+	})
+
+	t.Run("experience_added_returns_hint", func(t *testing.T) {
+		mockLLM := &mockLLMClient{
+			responses: []llm.CompletionResponse{},
+		}
+		registry := tools.NewRegistry()
+		sessionDir := t.TempDir()
+		config := NewDefaultConfig()
+		config.SessionDir = sessionDir
+		safetyCtl := safety.NewController(safety.SafetyModeBalanced)
+		safetyCtl.SetAutoApprove(true)
+
+		agent := NewAgent(mockLLM, registry, config, safetyCtl)
+		defer agent.Close()
+
+		// 设置一个有经验的进化结果
+		agent.evolveResultMu.Lock()
+		agent.lastEvolveResult = &evolver.EvolveResult{
+			TaskType:        "磁盘分析",
+			ToolSequence:    []string{"local_bash", "ssh_execute"},
+			LearnedHint:     "优先使用 df -h 检查磁盘使用情况",
+			ExperienceAdded: true,
+			Consolidated:    true,
+		}
+		agent.evolveResultMu.Unlock()
+
+		hint := agent.getLastEvolveHint()
+		if hint == "" {
+			t.Fatal("expected non-empty hint, got empty")
+		}
+		if !strings.Contains(hint, "磁盘分析") {
+			t.Errorf("expected hint to contain task type '磁盘分析', got %q", hint)
+		}
+		if !strings.Contains(hint, "df -h") {
+			t.Errorf("expected hint to contain learned hint, got %q", hint)
+		}
+		if !strings.Contains(hint, "local_bash → ssh_execute") {
+			t.Errorf("expected hint to contain tool sequence, got %q", hint)
+		}
+		if !strings.Contains(hint, "整合") {
+			t.Errorf("expected hint to mention consolidation, got %q", hint)
+		}
+	})
+
+	t.Run("long_hint_truncated", func(t *testing.T) {
+		mockLLM := &mockLLMClient{
+			responses: []llm.CompletionResponse{},
+		}
+		registry := tools.NewRegistry()
+		sessionDir := t.TempDir()
+		config := NewDefaultConfig()
+		config.SessionDir = sessionDir
+		safetyCtl := safety.NewController(safety.SafetyModeBalanced)
+		safetyCtl.SetAutoApprove(true)
+
+		agent := NewAgent(mockLLM, registry, config, safetyCtl)
+		defer agent.Close()
+
+		longHint := ""
+		for i := 0; i < 50; i++ {
+			longHint += "这是一段很长的提示内容用于测试截断功能"
+		}
+
+		agent.evolveResultMu.Lock()
+		agent.lastEvolveResult = &evolver.EvolveResult{
+			TaskType:        "通用运维",
+			LearnedHint:     longHint,
+			ExperienceAdded: true,
+		}
+		agent.evolveResultMu.Unlock()
+
+		hint := agent.getLastEvolveHint()
+		if !strings.Contains(hint, "...") {
+			t.Errorf("expected hint to be truncated with '...', got %d chars", len(hint))
+		}
+	})
 }
