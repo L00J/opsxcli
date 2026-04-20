@@ -194,7 +194,7 @@ func (w *ConfigWizard) printWelcome() {
 	fmt.Println("    \033[1;36m4. Kimi\033[0m              ⭐⭐⭐⭐☆ K2.5-code | 超长上下文 | 代码与文档处理")
 	fmt.Println("    \033[1;36m5. Gemini\033[0m            ⭐⭐⭐⭐ Gemini 3.1 Pro | 多模态强 | 推理翻倍")
 	fmt.Println("    \033[1;36m6. GLM (智谱)\033[0m        ⭐⭐⭐⭐ GLM-5.1 | 国产之光 | Agentic Coding | 百万级上下文")
-	fmt.Println("    \033[1;36m7. MiniMax\033[0m           ⭐⭐⭐☆ MiniMax-Text-01 | 旗舰模型 | Agent自我进化")
+	fmt.Println("    \033[1;36m7. MiniMax\033[0m           ⭐⭐⭐☆ M2.7-highspeed | 高速模型 | Agent自我进化")
 	fmt.Println()
 
 	// 本地模型
@@ -671,11 +671,12 @@ func (w *ConfigWizard) configureMiniMax() (*ProviderConfig, error) {
 
 	fmt.Println()
 	fmt.Println("  📌 常用模型:")
-	fmt.Println("     • MiniMax-Text-01 (推荐，旗舰模型)")
+	fmt.Println("     • MiniMax-M2.7-highspeed (推荐，高速模型)")
+	fmt.Println("     • MiniMax-Text-01 (旗舰模型)")
 	fmt.Println("     • MiniMax-M1 (推理模型)")
 	fmt.Println("     • abab7-chat-preview")
 	fmt.Println()
-	model := w.promptWithDefault("  🤖 模型名称", "MiniMax-Text-01")
+	model := w.promptWithDefault("  🤖 模型名称", "MiniMax-M2.7-highspeed")
 
 	// 根据 region 选择 Anthropic 兼容端点
 	baseURL := "https://api.minimaxi.com/anthropic"
