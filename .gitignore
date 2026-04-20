@@ -25,3 +25,4 @@ test.sh
 Thumbs.db
 __pycache__
 
+文件导出测试_*.json
