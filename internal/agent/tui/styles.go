@@ -35,6 +35,10 @@ var (
 			Italic(true).
 			Foreground(lipgloss.Color("#F5BDE6"))
 
+	toolResultStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B8E23")).
+			MarginLeft(2)
+
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#ED8796"))
 

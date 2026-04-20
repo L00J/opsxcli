@@ -17,16 +17,22 @@ import (
 	"opsxcli/internal/llm"
 )
 
+// ToolCallback 工具执行回调函数类型
+// name: 工具名称, args: 工具参数, start: true=开始执行, false=执行完成
+// success/duration/output 仅在 start=false 时有效
+type ToolCallback func(name string, args map[string]interface{}, start bool, success bool, duration time.Duration, output string)
+
 // Agent V2 Agent 核心引擎
 type Agent struct {
-	llmClient   llm.Client
-	registry    *tools.Registry
-	config      *Config
-	safetyCtl   *safety.Controller
-	evolver     *evolver.EvolverEngine // Evolver 自我进化引擎
-	messages    []llm.Message
-	totalTokens int
-	tokenizer   *TokenEstimator       // Token 估算器
+	llmClient    llm.Client
+	registry     *tools.Registry
+	config       *Config
+	safetyCtl    *safety.Controller
+	evolver      *evolver.EvolverEngine // Evolver 自我进化引擎
+	messages     []llm.Message
+	totalTokens  int
+	tokenizer    *TokenEstimator       // Token 估算器
+	toolCallback ToolCallback          // 工具执行回调（可选，供 TUI 使用）
 }
 
 // NewAgent 创建 Agent
@@ -212,10 +218,26 @@ func (a *Agent) processToolCalls(ctx context.Context, toolCalls []llm.ToolCall, 
 		toolStart := time.Now()
 		toolStartTimes[tc.Function.Name] = toolStart
 
+		// 回调通知：工具开始执行
+		if a.toolCallback != nil {
+			a.toolCallback(tc.Function.Name, args, true, false, 0, "")
+		}
+
 		// 执行工具（带超时控制）
 		toolCtx, cancel := context.WithTimeout(ctx, a.config.ToolTimeout)
 		result, err := tool.Execute(toolCtx, args)
 		cancel()
+
+		// 回调通知：工具执行完成
+		if a.toolCallback != nil {
+			toolDuration := time.Since(toolStart)
+			toolSuccess := err == nil && result != nil && result.Success
+			var toolOutput string
+			if result != nil {
+				toolOutput = result.Output
+			}
+			a.toolCallback(tc.Function.Name, args, false, toolSuccess, toolDuration, toolOutput)
+		}
 
 		// 记录工具调用（Evolver Step 1: OBSERVE）
 		var resultOutput string
@@ -390,6 +412,11 @@ func (a *Agent) SetConfirmFn(fn func(toolName string, args map[string]interface{
 	if a.safetyCtl != nil {
 		a.safetyCtl.SetConfirmFn(fn)
 	}
+}
+
+// SetToolCallback 设置工具执行回调（TUI 使用，用于显示工具执行进度）
+func (a *Agent) SetToolCallback(cb ToolCallback) {
+	a.toolCallback = cb
 }
 
 // GetEvolveStats 获取进化统计（供 CLI 使用）

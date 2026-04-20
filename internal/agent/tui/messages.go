@@ -3,6 +3,7 @@ package tui
 import (
 	"opsxcli/internal/agent/session"
 	"opsxcli/internal/llm"
+	"time"
 )
 
 // streamChunkMsg 流式输出内容片段
@@ -16,12 +17,15 @@ type thinkDoneMsg struct{}
 // toolStartMsg 工具开始执行
 type toolStartMsg struct {
 	name string
+	args map[string]interface{}
 }
 
 // toolDoneMsg 工具执行完成
 type toolDoneMsg struct {
-	name    string
-	success bool
+	name     string
+	success  bool
+	output   string        // 结果预览（截断到 3 行）
+	duration time.Duration // 执行耗时
 }
 
 // errorMsg 错误消息

@@ -303,9 +303,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case toolStartMsg:
 		m.state = stateExecuting
+		m.currentTool = msg.name
+		// 格式化工具调用详情
+		var detail string
+		switch msg.name {
+		case "local_bash", "bash", "shell":
+			if cmd, ok := msg.args["command"].(string); ok {
+				detail = fmt.Sprintf("执行命令: %s", cmd)
+			} else {
+				detail = fmt.Sprintf("执行: %s", formatToolArgs(msg.name, msg.args))
+			}
+		case "ssh_execute", "remote_bash":
+			host, _ := msg.args["host"].(string)
+			cmd, _ := msg.args["command"].(string)
+			if host != "" && cmd != "" {
+				detail = fmt.Sprintf("SSH %s → %s", host, cmd)
+			} else {
+				detail = fmt.Sprintf("执行: %s", formatToolArgs(msg.name, msg.args))
+			}
+		default:
+			detail = formatToolArgs(msg.name, msg.args)
+		}
 		m.messages = append(m.messages, ChatMessage{
 			Role:      "tool",
-			Content:   fmt.Sprintf("正在执行: %s...", msg.name),
+			Content:   detail,
 			Timestamp: time.Now(),
 		})
 		m.viewport.SetContent(m.renderMessages())
@@ -314,6 +335,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case toolDoneMsg:
 		m.state = stateObserving
+		m.currentTool = ""
+		// 显示工具执行结果摘要
+		status := "✅"
+		if !msg.success {
+			status = "❌"
+		}
+		durStr := formatDuration(msg.duration)
+		var content string
+		if msg.output != "" {
+			preview := truncateOutput(msg.output, 3)
+			content = fmt.Sprintf("%s %s 完成 (%s)\n%s", status, msg.name, durStr, preview)
+		} else {
+			content = fmt.Sprintf("%s %s 完成 (%s)", status, msg.name, durStr)
+		}
+		m.messages = append(m.messages, ChatMessage{
+			Role:      "tool_result",
+			Content:   content,
+			Timestamp: time.Now(),
+		})
+		m.viewport.SetContent(m.renderMessages())
+		m.viewport.GotoBottom()
 		return m, nil
 
 	case errorMsg:
@@ -658,6 +700,8 @@ func (m Model) renderMessages() string {
 			b.WriteString(assistantBubbleStyle.Render(rendered))
 		case "tool":
 			b.WriteString(toolStyle.Render("🔧 " + msg.Content))
+		case "tool_result":
+			b.WriteString(toolResultStyle.Render(msg.Content))
 		case "system":
 			b.WriteString(errorStyle.Render("⚠️ " + msg.Content))
 		}
@@ -727,6 +771,19 @@ func (m Model) runAgent(query string) tea.Cmd {
 				resultCh := make(chan bool, 1)
 				m.msgChan <- confirmModalMsg{toolName: toolName, args: args, resultCh: resultCh}
 				return <-resultCh, nil
+			})
+		}
+
+		// 设置工具执行回调（用于 TUI 显示工具执行进度）
+		if setter, ok := m.agent.(interface {
+			SetToolCallback(func(name string, args map[string]interface{}, start bool, success bool, duration time.Duration, output string))
+		}); ok {
+			setter.SetToolCallback(func(name string, args map[string]interface{}, start bool, success bool, duration time.Duration, output string) {
+				if start {
+					m.msgChan <- toolStartMsg{name: name, args: args}
+				} else {
+					m.msgChan <- toolDoneMsg{name: name, success: success, duration: duration, output: output}
+				}
 			})
 		}
 
@@ -838,4 +895,52 @@ func estimateTokens(s string) int {
 		}
 	}
 	return count / 4
+}
+
+// formatToolArgs 格式化工具名和参数为可读字符串
+func formatToolArgs(name string, args map[string]interface{}) string {
+	if len(args) == 0 {
+		return name
+	}
+	parts := make([]string, 0, len(args))
+	for k, v := range args {
+		// 跳过内部字段
+		if k == "_i" || k == "_intent" {
+			continue
+		}
+		s := fmt.Sprintf("%v", v)
+		if len(s) > 60 {
+			s = s[:60] + "..."
+		}
+		parts = append(parts, fmt.Sprintf("%s=%s", k, s))
+	}
+	return fmt.Sprintf("%s(%s)", name, strings.Join(parts, ", "))
+}
+
+// truncateOutput 截断工具输出到指定行数
+func truncateOutput(output string, maxLines int) string {
+	lines := strings.Split(output, "\n")
+	// 移除空行
+	var nonEmpty []string
+	for _, l := range lines {
+		if strings.TrimSpace(l) != "" {
+			nonEmpty = append(nonEmpty, l)
+		}
+	}
+	if len(nonEmpty) <= maxLines {
+		return strings.Join(nonEmpty, "\n")
+	}
+	return strings.Join(nonEmpty[:maxLines], "\n") +
+		fmt.Sprintf("\n  ... (%d more lines)", len(nonEmpty)-maxLines)
+}
+
+// formatDuration 格式化耗时
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	return fmt.Sprintf("%.1fm", d.Minutes())
 }

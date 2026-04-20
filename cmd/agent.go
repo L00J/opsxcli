@@ -393,6 +393,46 @@ func runSingleQuery(ag *core.Agent, manager session.Manager, query, provider str
 	fmt.Println()
 
 	ctx := context.Background()
+
+	// 设置工具执行回调，实时显示工具调用过程
+	ag.SetToolCallback(func(name string, args map[string]interface{}, start bool, success bool, duration time.Duration, output string) {
+		if start {
+			// 工具开始执行
+			var detail string
+			switch name {
+			case "local_bash", "bash", "shell":
+				if cmd, ok := args["command"].(string); ok {
+					detail = fmt.Sprintf("执行命令: %s", cmd)
+				} else {
+					detail = formatToolCallDetail(name, args)
+				}
+			case "ssh_execute", "remote_bash":
+				host, _ := args["host"].(string)
+				cmd, _ := args["command"].(string)
+				if host != "" && cmd != "" {
+					detail = fmt.Sprintf("SSH %s → %s", host, cmd)
+				} else {
+					detail = formatToolCallDetail(name, args)
+				}
+			default:
+				detail = formatToolCallDetail(name, args)
+			}
+			fmt.Printf("  🔧 %s\n", color.YellowString(detail))
+		} else {
+			// 工具执行完成
+			status := "✅"
+			if !success {
+				status = "❌"
+			}
+			if output != "" {
+				preview := truncateCmdOutput(output, 3)
+				fmt.Printf("  %s %s (%v)\n    %s\n", status, name, duration.Round(time.Millisecond), color.HiBlackString(preview))
+			} else {
+				fmt.Printf("  %s %s (%v)\n", status, name, duration.Round(time.Millisecond))
+			}
+		}
+	})
+
 	result, err := ag.Run(ctx, query)
 	if err != nil {
 		return fmt.Errorf("Agent 执行失败: %w", err)
@@ -570,4 +610,39 @@ func showAgentHelp(ag *core.Agent) {
 	fmt.Println("  opsxcli agent --export sess_xxx > session.md")
 	fmt.Println(strings.Repeat("─", 50))
 	fmt.Println()
+}
+
+// formatToolCallDetail 格式化工具调用详情为可读字符串
+func formatToolCallDetail(name string, args map[string]interface{}) string {
+	if len(args) == 0 {
+		return name
+	}
+	parts := make([]string, 0, len(args))
+	for k, v := range args {
+		if k == "_i" || k == "_intent" {
+			continue
+		}
+		s := fmt.Sprintf("%v", v)
+		if len(s) > 80 {
+			s = s[:80] + "..."
+		}
+		parts = append(parts, fmt.Sprintf("%s=%s", k, s))
+	}
+	return fmt.Sprintf("%s(%s)", name, strings.Join(parts, ", "))
+}
+
+// truncateCmdOutput 截断命令输出到指定行数
+func truncateCmdOutput(output string, maxLines int) string {
+	lines := strings.Split(output, "\n")
+	var nonEmpty []string
+	for _, l := range lines {
+		if strings.TrimSpace(l) != "" {
+			nonEmpty = append(nonEmpty, l)
+		}
+	}
+	if len(nonEmpty) <= maxLines {
+		return strings.Join(nonEmpty, "\n    ")
+	}
+	return strings.Join(nonEmpty[:maxLines], "\n    ") +
+		fmt.Sprintf("\n    ... (%d more lines)", len(nonEmpty)-maxLines)
 }

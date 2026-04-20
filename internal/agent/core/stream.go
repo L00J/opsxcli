@@ -3,6 +3,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -64,7 +65,11 @@ func (a *Agent) RunStream(ctx context.Context, query string, out io.Writer) (*to
 		}
 
 		// 有工具调用，打印进度反馈
-		fmt.Fprintf(out, "\n%s 正在执行工具...\n", color.CyanString("🤖 Agent"))
+		for _, tc := range msg.ToolCalls {
+			var args map[string]interface{}
+			json.Unmarshal([]byte(tc.Function.Arguments), &args)
+			fmt.Fprintf(out, "\n%s 🔧 %s\n", color.CyanString("🤖 Agent"), formatToolCallDetail(tc.Function.Name, args))
+		}
 
 		// 处理工具调用（Observation 阶段）
 		observations := a.processToolCalls(ctx, msg.ToolCalls, toolCallHistory, &toolCallRecords, toolStartTimes)
@@ -159,4 +164,36 @@ func (a *Agent) streamRound(ctx context.Context, out io.Writer, msgs []llm.Messa
 	}
 
 	return msg, nil
+}
+
+// formatToolCallDetail 格式化工具调用为可读的详情字符串
+func formatToolCallDetail(name string, args map[string]interface{}) string {
+	switch name {
+	case "local_bash", "bash", "shell":
+		if cmd, ok := args["command"].(string); ok {
+			return fmt.Sprintf("执行命令: %s", cmd)
+		}
+	case "ssh_execute", "remote_bash":
+		host, _ := args["host"].(string)
+		cmd, _ := args["command"].(string)
+		if host != "" && cmd != "" {
+			return fmt.Sprintf("SSH %s → %s", host, cmd)
+		}
+	}
+	// 通用格式
+	if len(args) == 0 {
+		return name
+	}
+	parts := make([]string, 0, len(args))
+	for k, v := range args {
+		if k == "_i" || k == "_intent" {
+			continue
+		}
+		s := fmt.Sprintf("%v", v)
+		if len(s) > 60 {
+			s = s[:60] + "..."
+		}
+		parts = append(parts, fmt.Sprintf("%s=%s", k, s))
+	}
+	return fmt.Sprintf("%s(%s)", name, strings.Join(parts, ", "))
 }
