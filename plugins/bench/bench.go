@@ -98,14 +98,13 @@ func Run(opts *BenchOptions) (*Result, error) {
 
 	if useDuration {
 		// Duration mode: send work items until duration expires
+		durationCancel := time.AfterFunc(opts.Duration, cancel)
+		_ = durationCancel
 		go func() {
-			ticker := time.NewTicker(opts.Duration)
-			defer ticker.Stop()
+			defer close(work)
 			for {
 				select {
 				case <-ctx.Done():
-					return
-				case <-ticker.C:
 					return
 				default:
 					if atomic.AddInt64(&totalSent, 1) <= int64(opts.Concurrency)*100000 {

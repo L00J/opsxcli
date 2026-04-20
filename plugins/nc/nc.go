@@ -6,9 +6,14 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"regexp"
+	"strings"
 
 	"opsxcli/internal/logger"
 )
+
+// 危险shell元字符模式，用于检测命令注入（包括换行符）
+var dangerousPatterns = regexp.MustCompile(`[;&|` + "`" + `$(){}\n]`)
 
 // Connect 连接到远程主机
 func Connect(host, port string, verbose bool) error {
@@ -85,14 +90,40 @@ func handleConnection(conn net.Conn, verbose bool) {
 	io.Copy(os.Stdout, conn)
 }
 
+// ValidateExecuteCommand 验证执行命令的安全性
+// 防止命令注入：拒绝包含shell元字符的命令
+func ValidateExecuteCommand(command string) error {
+	if command == "" {
+		return fmt.Errorf("命令不能为空")
+	}
+	if dangerousPatterns.MatchString(command) {
+		return fmt.Errorf("命令包含危险字符，不允许shell元字符 (;|&|`|$()|{} 等): %q", command)
+	}
+	return nil
+}
+
 // handleExecute 处理执行命令的连接
-// 注意: 此功能依赖系统shell (/bin/sh)，类似nc的-e选项
-// 这是nc的标准功能，用于反向shell等场景
+// 安全改进：使用参数分割代替 /bin/sh -c，避免shell注入
+// 注意: 此功能类似nc的-e选项，用于反向shell等场景
 func handleExecute(conn net.Conn, command string, verbose bool) {
 	defer conn.Close()
 
-	// 创建命令
-	cmd := exec.Command("/bin/sh", "-c", command)
+	// 安全检查：验证命令不包含危险元字符
+	if err := ValidateExecuteCommand(command); err != nil {
+		if verbose {
+			logger.Error("命令验证失败: %v", err)
+		}
+		fmt.Fprintf(conn, "Error: %v\n", err)
+		return
+	}
+
+	// 将命令分割为程序和参数，直接执行而不通过shell
+	parts := strings.Fields(command)
+	if len(parts) == 0 {
+		return
+	}
+
+	cmd := exec.Command(parts[0], parts[1:]...)
 	cmd.Stdin = conn
 	cmd.Stdout = conn
 	cmd.Stderr = conn

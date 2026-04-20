@@ -1,8 +1,8 @@
 # 🧪 OpsXCLI TDD 开发计划
 
-> **版本**: v1.0  
-> **更新日期**: 2026-04-19  
-> **当前测试覆盖**: 12.9% (5,327 行 / 41,418 行)  
+> **版本**: v1.1  
+> **更新日期**: 2026-04-21  
+> **当前测试覆盖**: ~10-15% (诚实估算)  
 > **目标覆盖率**: 50%+
 
 ---
@@ -52,33 +52,46 @@
 
 ## 当前测试现状
 
-### 已有测试 (16 个文件, 5,327 行)
+> ⚠️ **数据修正**: 之前估算的 12.9% 偏高，经复查实际覆盖率约 10-15%
 
-| 文件 | 行数 | 模块 | 覆盖内容 |
-|------|------|------|----------|
-| agent_test.go | 1,321 | agent/core | ReAct 循环、工具调用链、死循环检测 |
-| model_test.go | 732 | agent/tui | TUI 模型、消息处理、视图渲染 |
-| manager_test.go | 515 | agent/session | 会话创建/加载/列表/导出 |
-| controller_test.go | 445 | agent/safety | 安全控制、风险评级、黑名单匹配 |
-| store_test.go | 410 | agent/session | JSONL 存储、会话持久化 |
-| builder_test.go | 300 | agent/prompt | System Prompt 构建、记忆注入 |
-| config_test.go | 288 | sshconfig | SSH 配置解析、主机匹配 |
-| stream_test.go | 261 | agent/core | 流式响应、Token 估算 |
-| engine_test.go | 237 | agent/evolver | 进化引擎、环境感知 |
-| tokenizer_test.go | 179 | agent/core | Token 计数、消息裁剪 |
-| local_bash_test.go | 167 | agent/tools | 本地命令执行、超时控制 |
-| config_test.go | 120 | config | 配置加载、环境变量覆盖 |
-| factory_test.go | 116 | llm | 客户端工厂、提供商路由 |
-| output_test.go | 92 | output | 输出格式化（text/json） |
-| logger_test.go | 80 | logger | 日志级别、格式化 |
-| ssh_execute_test.go | 64 | agent/tools | SSH 远程执行 |
+### 概览
+
+| 指标 | 数值 |
+|------|------|
+| 测试文件数 | 16 |
+| 有测试的包 | 11 |
+| 测试失败数 | **1** (`internal/llm/factory_test.go`) |
+| `plugins/` 覆盖 | 0% (28个包，零测试) |
+| `cmd/` 覆盖 | 0% (52个文件，零测试) |
+| 总体覆盖率 | ~10-15% |
+
+### 已有测试 (16 个文件)
+
+| 文件 | 行数 | 模块 | 覆盖内容 | 状态 |
+|------|------|------|----------|------|
+| agent_test.go | 1,321 | agent/core | ReAct 循环、工具调用链、死循环检测 | ✅ |
+| model_test.go | 732 | agent/tui | TUI 模型、消息处理、视图渲染 | ✅ |
+| manager_test.go | 515 | agent/session | 会话创建/加载/列表/导出 | ✅ |
+| controller_test.go | 445 | agent/safety | 安全控制、风险评级、黑名单匹配 | ✅ |
+| store_test.go | 410 | agent/session | JSONL 存储、会话持久化 | ✅ |
+| builder_test.go | 300 | agent/prompt | System Prompt 构建、记忆注入 | ✅ |
+| config_test.go | 288 | sshconfig | SSH 配置解析、主机匹配 | ✅ |
+| stream_test.go | 261 | agent/core | 流式响应、Token 估算 | ✅ |
+| engine_test.go | 237 | agent/evolver | 进化引擎、环境感知 | ✅ |
+| tokenizer_test.go | 179 | agent/core | Token 计数、消息裁剪 | ✅ |
+| local_bash_test.go | 167 | agent/tools | 本地命令执行、超时控制 | ✅ |
+| config_test.go | 120 | config | 配置加载、环境变量覆盖 | ✅ |
+| factory_test.go | 116 | llm | 客户端工厂、提供商路由 | ❌ **失败** |
+| output_test.go | 92 | output | 输出格式化（text/json） | ✅ |
+| logger_test.go | 80 | logger | 日志级别、格式化 | ✅ |
+| ssh_execute_test.go | 64 | agent/tools | SSH 远程执行 | ✅ |
 
 ### 测试空白区
 
-| 层级 | 文件数 | 代码行数 | 测试文件 | 严重程度 |
-|------|--------|----------|----------|----------|
-| `plugins/*` | 69 | 17,410 | **0** | 🔴 严重 |
-| `cmd/*` | 43 | 3,982 | **0** | 🟠 高 |
+| 层级 | 包数/文件数 | 代码行数 | 测试文件 | 严重程度 |
+|------|------------|----------|----------|----------|
+| `plugins/*` | 28个包 | 17,410 | **0** | 🔴 严重 |
+| `cmd/*` | 52个文件 | 3,982 | **0** | 🟠 高 |
 | `internal/tui/` (通用) | 9 | 1,617 | **0** | 🟡 中 |
 | `internal/db/` | 5 | 553 | **0** | 🟠 高 |
 | `internal/memory/` | 1 | 332 | **0** | 🟡 中 |
@@ -86,6 +99,30 @@
 ---
 
 ## 分阶段测试计划
+
+### Phase 0: 紧急修复 + 安全测试 (本周)
+
+> **目标**: 修复已知测试失败，添加安全回归测试
+
+#### 0.1 修复 C2: factory_test.go 失败
+
+```
+TestFactory_GLMClassification    — 修复 glm 提供商分类逻辑
+TestFactory_MiniMaxClassification — 修复 minimax 提供商分类逻辑
+TestFactory_UnknownProvider      — 确保未知提供商返回错误
+```
+
+**根因**: glm/minimax 的模型名匹配规则与测试期望不一致
+
+#### 0.2 紧急安全测试
+
+```
+TestNC_CommandInjection          — plugins/nc 命令注入防护（C1验证）
+TestNC_SpecialCharacters         — 特殊字符转义
+TestCommon_PasswordHandling      — cmd/common.go 密码变量安全（W1验证）
+```
+
+---
 
 ### Phase 1: plugins/ 基础覆盖 (第 1-2 周)
 
@@ -181,7 +218,7 @@ TestScreenManager          — 屏幕切换
 #### 2.4 internal/agent/ 补充 (预计 10 个测试用例)
 
 ```
-TestEvolverFeedback        — 进化结果反馈到 Prompt
+TestEvolverFeedback        — 进化结果反馈到 Prompt (W4验证)
 TestToolOutputTruncate     — 输出截断逻辑
 TestMultiToolChain         — 多工具串联调用
 TestConcurrentAgentRun     — 并发 Agent 运行安全
@@ -231,6 +268,8 @@ TestE2EAgentQuery          — Agent 单次查询全流程（mock LLM）
 
 | 模块 | Phase | 预计用例数 | 优先级 |
 |------|-------|-----------|--------|
+| **紧急修复(C2)** | 0 | 3 | P0 |
+| **安全测试(C1/W1)** | 0 | 3 | P0 |
 | plugins/mysql/ | 1 | 15 | P0 |
 | plugins/redis/ | 1 | 15 | P0 |
 | plugins/ssh/ | 1 | 20 | P0 |
@@ -247,7 +286,7 @@ TestE2EAgentQuery          — Agent 单次查询全流程（mock LLM）
 | internal/agent/ | 2 | 10 | P1 |
 | cmd/ 集成 | 3 | 25 | P1 |
 | E2E 测试 | 4 | 10 | P2 |
-| **总计** | — | **179** | — |
+| **总计** | — | **185** | — |
 
 ---
 
@@ -257,11 +296,13 @@ TestE2EAgentQuery          — Agent 单次查询全流程（mock LLM）
 
 | 版本 | 日期 | 总覆盖率 | plugins/ | internal/ | cmd/ |
 |------|------|----------|----------|-----------|------|
-| v0.4.x (当前) | 2026-04 | 12.9% | 0% | ~35% | 0% |
-| v0.5.0 | 2026-05 | 25% | 15% | 45% | 10% |
+| v0.4.x (当前) | 2026-04 | ~10-15% | 0% | ~35% | 0% |
+| v0.5.0 | 2026-05 | 20% | 15% | 45% | 10% |
 | v0.6.0 | 2026-05 | 35% | 25% | 55% | 20% |
 | v0.8.0 | 2026-06 | 45% | 35% | 65% | 30% |
 | v1.0.0 | 2026-10 | 50%+ | 40%+ | 70%+ | 40%+ |
+
+> ⚠️ 注：v0.4.x 覆盖率从之前记录的 12.9% 修正为 ~10-15%（诚实估算）
 
 ### 每模块覆盖率追踪
 
@@ -275,10 +316,11 @@ TestE2EAgentQuery          — Agent 单次查询全流程（mock LLM）
 | netstat/ | ~500 | 10 | 目标 40% | 1 | 🔴 待开始 |
 | docker/ | ~800 | 8 | 目标 30% | 1 | 🔴 待开始 |
 | postgres/ | ~600 | 10 | 目标 40% | 1 | 🔴 待开始 |
+| nc/ | ~300 | 3 | 目标 50% | 0 | 🔴 安全测试 |
 | kubernetes/ | ~1,000 | 8 | 目标 30% | 2 | 🔴 待开始 |
 | sys/ | ~1,500 | 8 | 目标 20% | 2 | 🔴 待开始 |
 | net/ | ~1,200 | 8 | 目标 20% | 2 | 🔴 待开始 |
-| 其他 | ~9,210 | — | — | 3 | 🔴 待开始 |
+| 其他 | ~9,010 | — | — | 3 | 🔴 待开始 |
 
 ---
 
@@ -294,7 +336,8 @@ TestE2EAgentQuery          — Agent 单次查询全流程（mock LLM）
 
 ```yaml
 # .github/workflows/ci.yml 门禁调整时间线
-# v0.5.0: threshold: 25%
+# v0.4.x: threshold: 30% (从15%提升)
+# v0.5.0: threshold: 20% (新基准)
 # v0.6.0: threshold: 35%
 # v0.8.0: threshold: 45%
 # v1.0.0: threshold: 50%
@@ -314,19 +357,20 @@ TestE2EAgentQuery          — Agent 单次查询全流程（mock LLM）
 
 ### PR 合并条件
 
-- [x] 所有单元测试通过
-- [x] 覆盖率不低于当前门禁值
-- [x] 无竞态条件 (`-race`)
-- [x] `go vet` 通过
-- [x] 新增代码有对应测试
+- [ ] 所有单元测试通过
+- [ ] 覆盖率不低于当前门禁值
+- [ ] 无竞态条件 (`-race`)
+- [ ] `go vet` 通过
+- [ ] 新增代码有对应测试
 
 ---
 
 ## 测试时间表
 
-### 8 周执行计划
+### 8+1 周执行计划
 
 ```
+第 0 周  ████████ Phase 0:  修复C2测试失败 + 安全回归测试(本周)
 第 1 周  ████████ Phase 1A: plugins/mysql + plugins/redis 测试
 第 2 周  ████████ Phase 1B: plugins/ssh + plugins/netstat 测试
 第 3 周  ████████ Phase 1C: plugins/docker + plugins/postgres 测试
@@ -339,16 +383,17 @@ TestE2EAgentQuery          — Agent 单次查询全流程（mock LLM）
 
 ### 每周产出目标
 
-| 周 | 新增测试文件 | 新增测试行数 | 累计覆盖率 |
-|----|------------|------------|-----------|
-| 1 | 2 | ~400 | 12.9% → 17% |
-| 2 | 2 | ~500 | 17% → 22% |
-| 3 | 2 | ~300 | 22% → 25% |
-| 4 | 2 | ~350 | 25% → 30% |
-| 5 | 3 | ~400 | 30% → 35% |
-| 6 | 3 | ~500 | 35% → 40% |
-| 7 | 2 | ~300 | 40% → 45% |
-| 8 | 0 | 验证 | 45% → 50%+ |
+| 周 | 新增测试文件 | 新增测试行数 | 累计覆盖率 | 备注 |
+|----|------------|------------|-----------|------|
+| 0 | 2 | ~150 | 10%→12% | 修复C2 + 安全测试 |
+| 1 | 2 | ~400 | 12%→17% | mysql + redis |
+| 2 | 2 | ~500 | 17%→22% | ssh + netstat |
+| 3 | 2 | ~300 | 22%→25% | docker + postgres |
+| 4 | 2 | ~350 | 25%→30% | db + memory |
+| 5 | 3 | ~400 | 30%→35% | tui + agent |
+| 6 | 3 | ~500 | 35%→40% | cmd集成 |
+| 7 | 2 | ~300 | 40%→45% | E2E |
+| 8 | 0 | 验证 | 45%→50%+ | CI门禁调整 |
 
 ### 测试编写规范
 
