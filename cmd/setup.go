@@ -41,6 +41,39 @@ func runSetup(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("初始化配置管理器失败: %w", err)
 	}
 
+	// 检查是否有有效配置
+	providers := configManager.List()
+	validProviders := configManager.GetValidProviders()
+
+	// 无配置或全部占位符 → 走首次配置向导
+	if len(providers) == 0 || len(validProviders) == 0 {
+		fmt.Println()
+		if len(providers) == 0 {
+			fmt.Println(color.CyanString("🔧 未检测到 LLM 配置，启动首次配置向导..."))
+		} else {
+			fmt.Println(color.YellowString("⚠️  现有 API 密钥无效（占位符），启动配置向导..."))
+		}
+		fmt.Println()
+
+		wizard := llm.NewConfigWizard(configManager)
+		if err := wizard.Run(); err != nil {
+			return fmt.Errorf("配置向导失败: %w", err)
+		}
+
+		// 配置完成后重新加载
+		configManager, err = llm.NewConfigManager("")
+		if err != nil {
+			return fmt.Errorf("重新加载配置失败: %w", err)
+		}
+
+		// 引导进入管理菜单
+		fmt.Println()
+		fmt.Println(color.New(color.FgHiBlack).Sprint("  提示: 输入 opsxcli setup 可随时管理配置"))
+		fmt.Println()
+		return nil
+	}
+
+	// 有有效配置 → 走管理菜单
 	reader := bufio.NewReader(os.Stdin)
 
 	for {

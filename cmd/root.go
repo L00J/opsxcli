@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -48,6 +49,31 @@ func NewRootCmd(version string) *cobra.Command {
 				return NewUpgradeCmd().RunE(cmd, args)
 			}
 			if !output.IsQuiet() {
+				// 检测是否已完成首次配置（有 providers 目录且内有 .json 文件）
+				homeDir, _ := os.UserHomeDir()
+				if homeDir != "" {
+					providersDir := homeDir + "/.opsxcli/providers"
+					configured := false
+					if entries, err := os.ReadDir(providersDir); err == nil {
+						for _, e := range entries {
+							if !e.IsDir() && len(e.Name()) > 5 && e.Name()[len(e.Name())-5:] == ".json" {
+								configured = true
+								break
+							}
+						}
+					}
+					if !configured {
+						fmt.Println()
+						fmt.Println(color.CyanString("🤖 欢迎使用 OpsX CLI - AI 智能运维助手"))
+						fmt.Println()
+						fmt.Println(color.YellowString("⚠️  未检测到 LLM 配置"))
+						fmt.Println()
+						fmt.Println("  首次使用请先配置 LLM 提供商：")
+						fmt.Println()
+						fmt.Printf("    %s\n\n", color.GreenString("opsxcli setup"))
+						return nil
+					}
+				}
 				cmd.Help()
 			}
 			return nil
