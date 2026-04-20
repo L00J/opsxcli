@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,18 +17,25 @@ import (
 
 // mockLLMClient implements llm.Client for testing.
 // It cycles through a slice of prepared responses on each Complete call.
+// Thread-safe: callIndex is protected by a mutex because the background
+// Evolver goroutine may call Complete concurrently with test assertions.
 type mockLLMClient struct {
 	name      string
 	responses []llm.CompletionResponse
 	callIndex int
+	mu        sync.Mutex
 	err       error
 }
 
 func (m *mockLLMClient) Complete(ctx context.Context, req *llm.CompletionRequest) (*llm.CompletionResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if m.err != nil {
 		return nil, m.err
 	}
 	if m.callIndex >= len(m.responses) {
+		m.callIndex++
 		return &llm.CompletionResponse{
 			ID:      "mock-fallback",
 			Model:   "mock",
@@ -38,6 +46,13 @@ func (m *mockLLMClient) Complete(ctx context.Context, req *llm.CompletionRequest
 	resp := &m.responses[m.callIndex]
 	m.callIndex++
 	return resp, nil
+}
+
+// getCallCount returns the current call index (thread-safe).
+func (m *mockLLMClient) getCallCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.callIndex
 }
 
 func (m *mockLLMClient) Stream(ctx context.Context, req *llm.CompletionRequest) (<-chan llm.StreamChunk, error) {
@@ -196,6 +211,7 @@ func TestAgentRunDirectAnswer(t *testing.T) {
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+ defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "What is the meaning of life?")
@@ -289,6 +305,7 @@ func TestAgentRunWithToolCall(t *testing.T) {
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+ defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Please run the mock tool.")
@@ -308,8 +325,9 @@ func TestAgentRunWithToolCall(t *testing.T) {
 	if agent.totalTokens != 35 {
 		t.Errorf("expected totalTokens 35, got %d", agent.totalTokens)
 	}
-	if mockLLM.callIndex != 2 {
-		t.Errorf("expected 2 LLM calls, got %d", mockLLM.callIndex)
+	// 注意：后台 Evolver goroutine 可能额外调用 LLM，所以用 >= 而非 ==
+	if mockLLM.getCallCount() < 2 {
+		t.Errorf("expected at least 2 LLM calls, got %d", mockLLM.getCallCount())
 	}
 }
 
@@ -393,6 +411,7 @@ func TestAgentRunWithMultipleToolCalls(t *testing.T) {
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+ defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Run the mock tool twice.")
@@ -409,8 +428,9 @@ func TestAgentRunWithMultipleToolCalls(t *testing.T) {
 	if result.Output != "Done with both tools." {
 		t.Errorf("expected output 'Done with both tools.', got %q", result.Output)
 	}
-	if mockLLM.callIndex != 2 {
-		t.Errorf("expected 2 LLM calls, got %d", mockLLM.callIndex)
+	// 注意：后台 Evolver goroutine 可能额外调用 LLM，所以用 >= 而非 ==
+	if mockLLM.getCallCount() < 2 {
+		t.Errorf("expected at least 2 LLM calls, got %d", mockLLM.getCallCount())
 	}
 }
 
@@ -438,6 +458,7 @@ func TestAgentRunWithLLMError(t *testing.T) {
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+ defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "This will fail.")
@@ -515,6 +536,7 @@ func TestAgentRunMaxIterations(t *testing.T) {
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+ defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "This will hit max iterations.")
@@ -525,8 +547,9 @@ func TestAgentRunMaxIterations(t *testing.T) {
 	if result != nil {
 		t.Error("expected result to be nil when max iterations reached")
 	}
-	if mockLLM.callIndex != 3 {
-		t.Errorf("expected 3 LLM calls, got %d", mockLLM.callIndex)
+	// 注意：后台 Evolver goroutine 可能额外调用 LLM，所以用 >= 而非 ==
+	if mockLLM.getCallCount() < 3 {
+		t.Errorf("expected at least 3 LLM calls, got %d", mockLLM.getCallCount())
 	}
 }
 
@@ -868,6 +891,7 @@ func TestAgentRunWithToolExecutionError(t *testing.T) {
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+ defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Run the failing tool.")
@@ -954,6 +978,7 @@ func TestAgentRunWithToolResultFailure(t *testing.T) {
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+ defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Run the failing tool.")
@@ -1034,6 +1059,7 @@ func TestAgentRunWithLoopDetection(t *testing.T) {
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+ defer agent.Close()
 
 	ctx := context.Background()
 	_, err := agent.Run(ctx, "Trigger loop detection.")
@@ -1043,8 +1069,8 @@ func TestAgentRunWithLoopDetection(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error due to max iterations or loop")
 	}
-	if mockLLM.callIndex < 4 {
-		t.Errorf("expected at least 4 LLM calls, got %d", mockLLM.callIndex)
+	if mockLLM.getCallCount() < 4 {
+		t.Errorf("expected at least 4 LLM calls, got %d", mockLLM.getCallCount())
 	}
 }
 
@@ -1100,6 +1126,7 @@ func TestAgentRunWithUnknownTool(t *testing.T) {
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+ defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Call unknown tool.")
@@ -1183,6 +1210,7 @@ func TestAgentRunWithInvalidToolArguments(t *testing.T) {
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+ defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Call with bad args.")
@@ -1271,6 +1299,7 @@ func TestAgentRunWithOutputTruncation(t *testing.T) {
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
+ defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Get long output.")

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbletea"
@@ -29,6 +30,7 @@ type Agent struct {
 	config       *Config
 	safetyCtl    *safety.Controller
 	evolver      *evolver.EvolverEngine // Evolver 自我进化引擎
+	evolveWg     sync.WaitGroup         // 等待后台 Evolver goroutine 完成
 	messages     []llm.Message
 	totalTokens  int
 	tokenizer    *TokenEstimator       // Token 估算器
@@ -387,7 +389,9 @@ func (a *Agent) triggerEvolve(ctx context.Context, query, finalAnswer string, to
 	}
 
 	// 在后台 goroutine 中执行进化（不阻塞用户）
+	a.evolveWg.Add(1)
 	go func() {
+		defer a.evolveWg.Done()
 		defer func() {
 			if r := recover(); r != nil {
 				// panic recovery: 防止 Evolver 异常导致整个程序崩溃
@@ -430,6 +434,8 @@ func (a *Agent) GetEvolveStats() map[string]interface{} {
 // Close 关闭 Agent，释放相关资源
 // 调用注册表的 Close 方法，关闭工具连接池等
 func (a *Agent) Close() error {
+	// 等待后台 Evolver goroutine 完成，防止资源泄漏
+	a.evolveWg.Wait()
 	if a.registry != nil {
 		a.registry.Close()
 	}
