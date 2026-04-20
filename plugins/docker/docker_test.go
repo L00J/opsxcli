@@ -329,6 +329,421 @@ func TestConvertResumeInfoToChunks(t *testing.T) {
 	}
 }
 
+// === ProgressTracker 测试 ===
+
+func TestNewProgressTracker(t *testing.T) {
+	pt := NewProgressTracker()
+	assert.NotNil(t, pt)
+	assert.NotNil(t, pt.layers)
+
+	// 新建的 tracker 应该是零进度
+	downloaded, total, pct := pt.GetProgress()
+	assert.Equal(t, int64(0), downloaded)
+	assert.Equal(t, int64(0), total)
+	assert.Equal(t, float64(0), pct)
+}
+
+func TestProgressTrackerStartLayer(t *testing.T) {
+	pt := NewProgressTracker()
+
+	pt.StartLayer("sha256:abc123", 1024)
+
+	downloaded, total, pct := pt.GetProgress()
+	assert.Equal(t, int64(0), downloaded)
+	assert.Equal(t, int64(1024), total)
+	assert.Equal(t, float64(0), pct)
+}
+
+func TestProgressTrackerMultipleLayers(t *testing.T) {
+	pt := NewProgressTracker()
+
+	pt.StartLayer("layer1", 1024)
+	pt.StartLayer("layer2", 2048)
+	pt.StartLayer("layer3", 4096)
+
+	_, total, _ := pt.GetProgress()
+	assert.Equal(t, int64(1024+2048+4096), total)
+}
+
+func TestProgressTrackerUpdateProgress(t *testing.T) {
+	pt := NewProgressTracker()
+
+	pt.StartLayer("layer1", 1024)
+	pt.UpdateProgress("layer1", 512)
+
+	downloaded, total, pct := pt.GetProgress()
+	assert.Equal(t, int64(512), downloaded)
+	assert.Equal(t, int64(1024), total)
+	assert.InDelta(t, 50.0, pct, 0.01)
+}
+
+func TestProgressTrackerUpdateProgressUnknownLayer(t *testing.T) {
+	pt := NewProgressTracker()
+
+	pt.StartLayer("layer1", 1024)
+	// 更新不存在的 layer，不应影响进度
+	pt.UpdateProgress("unknown", 512)
+
+	downloaded, _, _ := pt.GetProgress()
+	assert.Equal(t, int64(0), downloaded)
+}
+
+func TestProgressTrackerCompleteLayer(t *testing.T) {
+	pt := NewProgressTracker()
+
+	pt.StartLayer("layer1", 1024)
+	pt.UpdateProgress("layer1", 512)
+	pt.CompleteLayer("layer1")
+
+	// 验证 CompleteLayer 不改变下载量
+	downloaded, _, _ := pt.GetProgress()
+	assert.Equal(t, int64(512), downloaded)
+}
+
+func TestProgressTrackerCompleteLayerUnknown(t *testing.T) {
+	pt := NewProgressTracker()
+	// 不应 panic
+	pt.CompleteLayer("nonexistent")
+}
+
+func TestProgressTrackerGetProgressEmpty(t *testing.T) {
+	pt := NewProgressTracker()
+
+	downloaded, total, pct := pt.GetProgress()
+	assert.Equal(t, int64(0), downloaded)
+	assert.Equal(t, int64(0), total)
+	assert.Equal(t, float64(0), pct)
+}
+
+func TestProgressTrackerGetSpeed(t *testing.T) {
+	pt := NewProgressTracker()
+
+	// 模拟一些下载
+	pt.StartLayer("layer1", 1024*1024)
+	pt.UpdateProgress("layer1", 512*1024)
+
+	speed := pt.GetSpeed()
+	// 速度应该 > 0（因为已经过了一段时间）
+	assert.True(t, speed >= 0)
+}
+
+func TestProgressTrackerGetSpeedNoTime(t *testing.T) {
+	pt := NewProgressTracker()
+	// 刚创建时时间差非常小，但不应 panic
+	speed := pt.GetSpeed()
+	assert.True(t, speed >= 0)
+}
+
+func TestProgressTrackerGetETA(t *testing.T) {
+	pt := NewProgressTracker()
+
+	// 没有下载时 ETA 应为 0
+	eta := pt.GetETA()
+	assert.Equal(t, time.Duration(0), eta)
+}
+
+func TestProgressTrackerGetSummary(t *testing.T) {
+	pt := NewProgressTracker()
+	pt.StartLayer("layer1", 1024*1024)
+	pt.UpdateProgress("layer1", 512*1024)
+
+	summary := pt.GetSummary()
+	assert.Contains(t, summary, "进度:")
+	assert.Contains(t, summary, "速度:")
+	assert.Contains(t, summary, "剩余:")
+}
+
+func TestProgressTrackerFullProgress(t *testing.T) {
+	pt := NewProgressTracker()
+
+	pt.StartLayer("layer1", 1024)
+	pt.UpdateProgress("layer1", 1024)
+	pt.CompleteLayer("layer1")
+
+	downloaded, total, pct := pt.GetProgress()
+	assert.Equal(t, int64(1024), downloaded)
+	assert.Equal(t, int64(1024), total)
+	assert.InDelta(t, 100.0, pct, 0.01)
+}
+
+// === HealthMonitor 测试 ===
+
+func TestNewHealthMonitor(t *testing.T) {
+	hm := NewHealthMonitor()
+	assert.NotNil(t, hm)
+	assert.NotNil(t, hm.healths)
+}
+
+func TestHealthMonitorRecordSuccess(t *testing.T) {
+	hm := NewHealthMonitor()
+
+	hm.RecordSuccess("reg1", 50*time.Millisecond)
+	hm.RecordSuccess("reg1", 30*time.Millisecond)
+	hm.RecordSuccess("reg2", 100*time.Millisecond)
+
+	registries := hm.GetSortedRegistries()
+	assert.Equal(t, 2, len(registries))
+	// reg1 有更高的成功率 (2次成功) 和更低的延迟 (30ms)
+	assert.Equal(t, "reg1", registries[0])
+}
+
+func TestHealthMonitorRecordFailure(t *testing.T) {
+	hm := NewHealthMonitor()
+
+	hm.RecordSuccess("reg1", 50*time.Millisecond)
+	hm.RecordFailure("reg2")
+	hm.RecordFailure("reg2")
+
+	registries := hm.GetSortedRegistries()
+	assert.Equal(t, 2, len(registries))
+	// reg1 有100%成功率，排前面
+	assert.Equal(t, "reg1", registries[0])
+	assert.Equal(t, "reg2", registries[1])
+}
+
+func TestHealthMonitorMixedResults(t *testing.T) {
+	hm := NewHealthMonitor()
+
+	// reg1: 1成功 1失败 = 50%
+	hm.RecordSuccess("reg1", 100*time.Millisecond)
+	hm.RecordFailure("reg1")
+
+	// reg2: 2成功 = 100%
+	hm.RecordSuccess("reg2", 200*time.Millisecond)
+	hm.RecordSuccess("reg2", 200*time.Millisecond)
+
+	registries := hm.GetSortedRegistries()
+	// reg2 成功率更高，应排前面
+	assert.Equal(t, "reg2", registries[0])
+	assert.Equal(t, "reg1", registries[1])
+}
+
+func TestHealthMonitorGetSortedRegistriesEmpty(t *testing.T) {
+	hm := NewHealthMonitor()
+	registries := hm.GetSortedRegistries()
+	assert.Equal(t, 0, len(registries))
+}
+
+func TestHealthMonitorRecordSuccessNewRegistry(t *testing.T) {
+	hm := NewHealthMonitor()
+	hm.RecordSuccess("newreg", 50*time.Millisecond)
+
+	registries := hm.GetSortedRegistries()
+	assert.Equal(t, []string{"newreg"}, registries)
+}
+
+func TestHealthMonitorRecordFailureNewRegistry(t *testing.T) {
+	hm := NewHealthMonitor()
+	hm.RecordFailure("badreg")
+
+	registries := hm.GetSortedRegistries()
+	assert.Equal(t, []string{"badreg"}, registries)
+}
+
+func TestHealthMonitorSameSuccessRate(t *testing.T) {
+	hm := NewHealthMonitor()
+
+	// 两个都是100%成功率，reg2延迟更低
+	hm.RecordSuccess("reg1", 200*time.Millisecond)
+	hm.RecordSuccess("reg2", 50*time.Millisecond)
+
+	registries := hm.GetSortedRegistries()
+	assert.Equal(t, "reg2", registries[0])
+	assert.Equal(t, "reg1", registries[1])
+}
+
+// === RegistryClient.normalizeImageName 测试 ===
+
+func TestNormalizeImageName(t *testing.T) {
+	tests := []struct {
+		name     string
+		registry string
+		image    string
+		want     string
+	}{
+		{"简单镜像名", "ghcr.io", "nginx", "nginx"},
+		{"带用户路径", "ghcr.io", "myuser/myapp", "myuser/myapp"},
+		{"带registry前缀", "ghcr.io", "ghcr.io/org/image", "org/image"},
+		{"DockerHub官方镜像", "docker.io", "nginx", "library/nginx"},
+		{"DockerHub非官方", "docker.io", "myuser/myapp", "myuser/myapp"},
+		{"DockerHub别名官方", "registry-1.docker.io", "redis", "library/redis"},
+		{"无点的域名前缀不剥除", "myregistry", "myregistry/myapp", "myregistry/myapp"},
+		{"长路径", "ghcr.io", "ghcr.io/org/team/image", "org/team/image"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &RegistryClient{Registry: tt.registry}
+			got := c.normalizeImageName(tt.image)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// === RegistryClient.buildManifestURL 测试 ===
+
+func TestBuildManifestURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		registry string
+		image    string
+		tag      string
+		want     string
+	}{
+		{"DockerHub镜像", "docker.io", "nginx", "latest", "https://registry-1.docker.io/v2/library/nginx/manifests/latest"},
+		{"DockerHub别名", "registry-1.docker.io", "nginx", "1.25", "https://registry-1.docker.io/v2/library/nginx/manifests/1.25"},
+		{"第三方Registry", "ghcr.io", "org/image", "v1", "https://ghcr.io/v2/org/image/manifests/v1"},
+		{"带registry前缀的image", "ghcr.io", "ghcr.io/org/image", "v2", "https://ghcr.io/v2/org/image/manifests/v2"},
+		{"自定义Registry", "myreg.example.com", "myapp", "stable", "https://myreg.example.com/v2/myapp/manifests/stable"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &RegistryClient{Registry: tt.registry}
+			got := c.buildManifestURL(tt.image, tt.tag)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// === RegistryClient.buildBlobURL 测试 ===
+
+func TestBuildBlobURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		registry string
+		image    string
+		digest   string
+		want     string
+	}{
+		{"DockerHub blob", "docker.io", "nginx", "sha256:abc123", "https://registry-1.docker.io/v2/library/nginx/blobs/sha256:abc123"},
+		{"第三方 blob", "ghcr.io", "org/image", "sha256:def456", "https://ghcr.io/v2/org/image/blobs/sha256:def456"},
+		{"带registry前缀", "ghcr.io", "ghcr.io/org/image", "sha256:xyz", "https://ghcr.io/v2/org/image/blobs/sha256:xyz"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &RegistryClient{Registry: tt.registry}
+			got := c.buildBlobURL(tt.image, tt.digest)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// === calculateChunks 测试 ===
+
+func TestCalculateChunks(t *testing.T) {
+	d := &MultiSourceDownloader{ChunkSize: 100}
+
+	tests := []struct {
+		name        string
+		totalSize   int64
+		resumeInfo  map[int]*ChunkInfo
+		wantChunks  int
+		wantFirst   ChunkInfo
+		wantLastEnd int64
+	}{
+		{
+			"小文件不分片",
+			50,
+			nil,
+			1,
+			ChunkInfo{Index: 0, Start: 0, End: 49, Size: 50},
+			49,
+		},
+		{
+			"恰好一个分片",
+			100,
+			nil,
+			1,
+			ChunkInfo{Index: 0, Start: 0, End: 99, Size: 100},
+			99,
+		},
+		{
+			"两个分片",
+			150,
+			nil,
+			2,
+			ChunkInfo{Index: 0, Start: 0, End: 99, Size: 100},
+			149,
+		},
+		{
+			"三个分片有余",
+			250,
+			nil,
+			3,
+			ChunkInfo{Index: 0, Start: 0, End: 99, Size: 100},
+			249,
+		},
+		{
+			"断点续传跳过已完成",
+			200,
+			map[int]*ChunkInfo{
+				0: {Index: 0, Start: 0, End: 99, Size: 100, Completed: true, Registry: "reg1"},
+			},
+			2,
+			ChunkInfo{Index: 0, Start: 0, End: 99, Size: 100, Completed: true, Registry: "reg1"},
+			199,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			chunks := d.calculateChunks(tt.totalSize, tt.resumeInfo)
+			assert.Equal(t, tt.wantChunks, len(chunks))
+			assert.Equal(t, tt.wantFirst.Start, chunks[0].Start)
+			assert.Equal(t, tt.wantFirst.End, chunks[0].End)
+			assert.Equal(t, tt.wantFirst.Size, chunks[0].Size)
+			assert.Equal(t, tt.wantLastEnd, chunks[len(chunks)-1].End)
+
+			// 验证最后一个分片不超过总大小
+			assert.True(t, chunks[len(chunks)-1].End < tt.totalSize)
+		})
+	}
+}
+
+func TestCalculateChunksResumeFirstChunk(t *testing.T) {
+	d := &MultiSourceDownloader{ChunkSize: 100}
+
+	// 小文件 + 有断点续传
+	resumeInfo := map[int]*ChunkInfo{
+		0: {Index: 0, Start: 0, End: 49, Size: 50, Completed: true, Registry: "reg1"},
+	}
+	chunks := d.calculateChunks(50, resumeInfo)
+	assert.Equal(t, 1, len(chunks))
+	assert.True(t, chunks[0].Completed)
+	assert.Equal(t, "reg1", chunks[0].Registry)
+}
+
+func TestCalculateChunksNoResumeInfo(t *testing.T) {
+	d := &MultiSourceDownloader{ChunkSize: 100}
+
+	chunks := d.calculateChunks(350, nil)
+	assert.Equal(t, 4, len(chunks))
+	assert.Equal(t, int64(0), chunks[0].Start)
+	assert.Equal(t, int64(99), chunks[0].End)
+	assert.Equal(t, int64(300), chunks[3].Start)
+	assert.Equal(t, int64(349), chunks[3].End)
+}
+
+func TestCalculateChunksEmptyResumeInfo(t *testing.T) {
+	d := &MultiSourceDownloader{ChunkSize: 100}
+
+	// 空 map 的 resumeInfo
+	chunks := d.calculateChunks(150, map[int]*ChunkInfo{})
+	assert.Equal(t, 2, len(chunks))
+	assert.False(t, chunks[0].Completed)
+}
+
+// === NewRegistryClient 测试 ===
+
+func TestNewRegistryClient(t *testing.T) {
+	c := NewRegistryClient("ghcr.io")
+	assert.Equal(t, "ghcr.io", c.Registry)
+	assert.NotNil(t, c.HTTPClient)
+	assert.Equal(t, 30*time.Second, c.HTTPClient.Timeout)
+}
+
 // === 双向转换一致性测试 ===
 
 func TestChunkConversionRoundTrip(t *testing.T) {
