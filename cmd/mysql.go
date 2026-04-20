@@ -223,8 +223,10 @@ func getSubcommandDBFlags(cmd *cobra.Command) DatabaseFlags {
 	password, _ := cmd.Flags().GetString("password")
 	database, _ := cmd.Flags().GetString("database")
 
-	if password == "ASK" && dbPassword != "" {
-		password = dbPassword
+	if password == "ASK" {
+		if extracted := FetchAndClearDatabasePassword(); extracted != "" {
+			password = extracted
+		}
 	}
 
 	return DatabaseFlags{

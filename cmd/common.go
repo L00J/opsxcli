@@ -8,17 +8,39 @@ import (
 	"golang.org/x/term"
 )
 
-// 原始密码（用于 -pPASSWORD 格式），通过 SetDatabasePassword/GetDatabasePassword 访问
-var dbPassword string
+// securePassword 安全密码存储：设置后仅可读取一次，读取后立即清零内存
+// 替代原来的全局 string 变量，避免密码长期驻留在进程内存中
+var securePassword []byte
 
 // SetDatabasePassword 设置数据库密码（供 main.go 预处理使用）
+// 密码以 []byte 存储，便于用后即清
 func SetDatabasePassword(pwd string) {
-	dbPassword = pwd
+	securePassword = []byte(pwd)
 }
 
 // GetDatabasePassword 获取预处理时提取的密码
+// 保留向后兼容：仅用于不需要立即清零的场景
 func GetDatabasePassword() string {
-	return dbPassword
+	if securePassword == nil {
+		return ""
+	}
+	return string(securePassword)
+}
+
+// FetchAndClearDatabasePassword 获取密码后立即从内存中清零
+// 适用于密码使用后不再需要的场景（推荐使用此方法）
+// 返回密码字符串并从 securePassword 中擦除原始数据
+func FetchAndClearDatabasePassword() string {
+	if securePassword == nil {
+		return ""
+	}
+	pwd := string(securePassword)
+	// 内存清零：覆写原始字节
+	for i := range securePassword {
+		securePassword[i] = 0
+	}
+	securePassword = nil
+	return pwd
 }
 
 // DatabaseFlags 数据库连接通用参数
@@ -58,8 +80,11 @@ func GetDatabaseFlags(cmd *cobra.Command) DatabaseFlags {
 	execute, _ := cmd.Flags().GetString("execute")
 
 	// 如果密码是 "ASK" 且我们之前从 -pXXX 中提取过密码，则使用提取的密码
-	if password == "ASK" && dbPassword != "" {
-		password = dbPassword
+	// 使用 FetchAndClearDatabasePassword 获取后立即清零，避免密码长期驻留内存
+	if password == "ASK" {
+		if extracted := FetchAndClearDatabasePassword(); extracted != "" {
+			password = extracted
+		}
 	}
 
 	return DatabaseFlags{
