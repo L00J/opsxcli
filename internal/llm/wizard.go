@@ -512,14 +512,9 @@ func (w *ConfigWizard) configureGLM() (*ProviderConfig, error) {
 	fmt.Println()
 	model := w.promptWithDefault("  🤖 模型名称", "glm-5.1")
 
-	// 根据 region 选择 Anthropic 兼容端点
+	// GLM 统一使用 Anthropic 兼容端点（国内国际同域名）
 	baseURL := "https://open.bigmodel.cn/api/anthropic"
-	if w.region == "global" {
-		baseURL = "https://open.bigmodel.cn/api/anthropic"
-		fmt.Println("  🌐 使用国际端点")
-	} else {
-		fmt.Println("  🇨🇳 使用国内端点")
-	}
+	fmt.Println("  🇨🇳 使用智谱 Anthropic 兼容端点")
 
 	return &ProviderConfig{
 		Type:        "glm",

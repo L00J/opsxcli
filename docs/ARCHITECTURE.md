@@ -185,7 +185,7 @@ groups := []commandGroup{
 ## 🔧 技术栈
 
 - **CLI 框架**: [cobra](https://github.com/spf13/cobra)
-- **TUI 框架**: [tview](https://github.com/rivo/tview)
+- **TUI 框架**: [Bubble Tea](https://github.com/charmbracelet/bubbletea)
 - **系统信息**: [gopsutil](https://github.com/shirou/gopsutil)
 - **SSH 客户端**: [golang.org/x/crypto/ssh](https://pkg.go.dev/golang.org/x/crypto/ssh)
 - **数据库客户端**: 各数据库官方 Go 驱动

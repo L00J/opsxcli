@@ -158,7 +158,7 @@ internal/utils/ → plugins/ ❌ 工具函数不能依赖插件
    - 提供清晰的接口
 
 3. **配置管理**: 统一的配置管理
-   - 支持配置文件 (`~/.opsxcli/config.yaml`)
+   - 支持配置文件 (`~/.opsxcli/config.json`)
    - 支持环境变量
    - 支持命令行参数覆盖
 
@@ -602,13 +602,13 @@ TUI 组件位于 `internal/tui/`，可复用于其他交互式功能。
 ### 配置文件位置
 
 - 配置目录: `~/.opsxcli/`
-- 主配置文件: `~/.opsxcli/config.yaml`
+- 主配置文件: `~/.opsxcli/config.json`
 - 数据库文件: `~/.opsxcli/opsxcli.db`
 
 ### 配置文件示例
 
 ```yaml
-# ~/.opsxcli/config.yaml
+# ~/.opsxcli/config.json
 
 # 数据库连接配置
 databases:

@@ -116,18 +116,16 @@ build() {
         fi
     fi
 
-    # 打包
+    # 打包（兼容 GNU tar 和 BSD tar）
     if [ "$GOOS" = "windows" ]; then
-        cd $BUILD_DIR
+        cd "$BUILD_DIR"
         zip "${OUTPUT}${ARCHIVE_EXT}" "$BINARY"
-        cd ..
+        cd - > /dev/null
     else
-        cd $BUILD_DIR
-        # 关键：使用 --transform 确保 tar 内部文件名始终是 opsxcli
-        # --transform 's/^opsxcli$/opsxcli/' 是幂等操作，不改变名字
-        # 但更重要的是：直接用 $BINARY 打包，不用重命名
+        cd "$BUILD_DIR"
+        # 直接用 $BINARY 打包，文件名已经是 opsxcli，无需 --transform（BSD tar 不支持）
         COPYFILE_DISABLE=1 tar czf "${OUTPUT}${ARCHIVE_EXT}" "$BINARY"
-        cd ..
+        cd - > /dev/null
     fi
 
     rm "${BUILD_DIR}/${BINARY}"

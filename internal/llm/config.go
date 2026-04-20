@@ -146,10 +146,12 @@ var placeholderPatterns = []string{
 // IsValid 检查配置是否有效（非占位符）
 func (c *ProviderConfig) IsValid() bool {
 	// 本地服务（Ollama/vLLM）不需要 API key
-	if c.Type == "ollama" || c.BaseURL != "" && (c.APIKey == "" || c.APIKey == "ollama") {
-		if c.Type == "ollama" {
-			return true
-		}
+	if c.Type == "ollama" {
+		return true
+	}
+	if c.BaseURL != "" && (c.APIKey == "" || c.APIKey == "ollama") {
+		// 本地服务（vLLM 等）无需 API key
+		return true
 	}
 
 	// 云服务必须有效 key
@@ -362,22 +364,22 @@ func (cm *ConfigManager) CreateDefaultConfigs() error {
 		MaxTokens:   4096,
 	}
 
-	// 6. GLM (智谱) 配置
+	// 6. GLM (智谱) 配置 — Anthropic 兼容接口
 	glmConfig := &ProviderConfig{
 		Type:        "glm",
-		BaseURL:     "https://open.bigmodel.cn/api/paas/v4",
+		BaseURL:     "https://open.bigmodel.cn/api/anthropic",
 		APIKey:      "YOUR_GLM_API_KEY",
 		Model:       "glm-5.1",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}
 
-	// 7. MiniMax 配置
+	// 7. MiniMax 配置 — Anthropic 兼容接口
 	minimaxConfig := &ProviderConfig{
 		Type:        "minimax",
-		BaseURL:     "https://api.minimax.chat/v1",
+		BaseURL:     "https://api.minimaxi.com/anthropic",
 		APIKey:      "YOUR_MINIMAX_API_KEY",
-		Model:       "MiniMax-Text-01",
+		Model:       "MiniMax-M2.7",
 		Temperature: 0.7,
 		MaxTokens:   4096,
 	}

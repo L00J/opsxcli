@@ -74,7 +74,9 @@ func NewRootCmd(version string) *cobra.Command {
 						return nil
 					}
 				}
-				cmd.Help()
+				if err := cmd.Help(); err != nil {
+					return err
+				}
 			}
 			return nil
 		},

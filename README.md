@@ -69,7 +69,7 @@
 
 **AI 助手**: agent (自然语言运维)
 
-**实用工具**: wget, request, install, upgrade
+**实用工具**: wget, requests, upgrade
 
 </details>
 

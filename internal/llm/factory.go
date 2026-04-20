@@ -48,9 +48,14 @@ func (f *ClientFactory) CreateFromConfig(config *ProviderConfig) (Client, error)
 		}
 		return NewClaudeClientWithBaseURL(baseURL, config.APIKey, config.Model), nil
 
-	// Claude 专用客户端
-	case "claude":
-		return NewClaudeClient(config.APIKey, config.Model), nil
+	// Claude 专用客户端（支持自定义 BaseURL）
+	// 也处理 type="anthropic" 的通用 Anthropic 兼容配置
+	case "claude", "anthropic":
+		baseURL := config.BaseURL
+		if baseURL == "" {
+			baseURL = "https://api.anthropic.com"
+		}
+		return NewClaudeClientWithBaseURL(baseURL, config.APIKey, config.Model), nil
 
 	// Gemini 专用客户端
 	case "gemini":

@@ -64,6 +64,35 @@ func NewAgentCmd() *cobra.Command {
 				query = strings.Join(args, " ")
 			}
 
+			// --list-sessions / --export 不需要 LLM 配置，提前处理
+			if listSessions {
+				homeDir, err := os.UserHomeDir()
+				if err != nil {
+					return fmt.Errorf("获取用户主目录失败: %w", err)
+				}
+				sessionDir := filepath.Join(homeDir, ".opsxcli", "agent", "sessions")
+				store, err := session.NewJSONLStore(sessionDir)
+				if err != nil {
+					return fmt.Errorf("创建会话存储失败: %w", err)
+				}
+				manager := session.NewManager(store)
+				return runListSessions(manager)
+			}
+
+			if exportID != "" {
+				homeDir, err := os.UserHomeDir()
+				if err != nil {
+					return fmt.Errorf("获取用户主目录失败: %w", err)
+				}
+				sessionDir := filepath.Join(homeDir, ".opsxcli", "agent", "sessions")
+				store, err := session.NewJSONLStore(sessionDir)
+				if err != nil {
+					return fmt.Errorf("创建会话存储失败: %w", err)
+				}
+				manager := session.NewManager(store)
+				return runExportSession(manager, exportID)
+			}
+
 			// 1. 初始化 LLM 配置管理器
 			configManager, err := llm.NewConfigManager("")
 			if err != nil {
@@ -186,16 +215,6 @@ func NewAgentCmd() *cobra.Command {
 			defer ag.Close()
 
 			// 8. 处理不同运行模式
-
-			// 列出会话模式
-			if listSessions {
-				return runListSessions(manager)
-			}
-
-			// 导出会话模式
-			if exportID != "" {
-				return runExportSession(manager, exportID)
-			}
 
 			// 恢复会话模式
 			if resumeID != "" {

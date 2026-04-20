@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"time"
 )
 
 // ClaudeClient Claude/Anthropic 兼容 API 客户端
@@ -23,7 +25,7 @@ func NewClaudeClient(apiKey, model string) *ClaudeClient {
 		apiKey:     apiKey,
 		model:      model,
 		baseURL:    "https://api.anthropic.com",
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: 120 * time.Second},
 	}
 }
 
@@ -33,7 +35,7 @@ func NewClaudeClientWithBaseURL(baseURL, apiKey, model string) *ClaudeClient {
 		apiKey:     apiKey,
 		model:      model,
 		baseURL:    baseURL,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: 120 * time.Second},
 	}
 }
 
@@ -44,8 +46,8 @@ func (c *ClaudeClient) Name() string {
 
 // Complete 完成对话
 func (c *ClaudeClient) Complete(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
-	// 转换消息格式
-	messages := c.convertMessages(req.Messages)
+	// 转换消息格式，提取 system 消息
+	messages, systemPrompt := c.convertMessagesWithSystem(req.Messages)
 
 	// 构建请求体
 	reqBody := map[string]interface{}{
@@ -54,11 +56,17 @@ func (c *ClaudeClient) Complete(ctx context.Context, req *CompletionRequest) (*C
 		"max_tokens": 4096,
 	}
 
+	// Anthropic 协议: system 消息放在顶层 "system" 字段
+	if systemPrompt != "" {
+		reqBody["system"] = systemPrompt
+	}
+
 	if req.MaxTokens > 0 {
 		reqBody["max_tokens"] = req.MaxTokens
 	}
 
-	if req.Temperature > 0 {
+	// 支持显式设置 Temperature=0（用指针判断是否设置）
+	if req.Temperature >= 0 {
 		reqBody["temperature"] = req.Temperature
 	}
 
@@ -82,7 +90,15 @@ func (c *ClaudeClient) Complete(ctx context.Context, req *CompletionRequest) (*C
 	}
 
 	// 创建HTTP请求（使用 baseURL 支持第三方 Anthropic 兼容接口）
-	url := c.baseURL + "/v1/messages"
+	// URL 拼接：如果 baseURL 已包含 /v1/messages 则直接用，否则追加
+	url := c.baseURL
+	if !strings.HasSuffix(url, "/messages") {
+		if !strings.HasSuffix(url, "/v1") && !strings.HasSuffix(url, "/v1/") {
+			url = url + "/v1/messages"
+		} else {
+			url = strings.TrimRight(url, "/") + "/messages"
+		}
+	}
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
@@ -106,7 +122,35 @@ func (c *ClaudeClient) Complete(ctx context.Context, req *CompletionRequest) (*C
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API错误 (%d): %s", resp.StatusCode, string(body))
+		// 尝试解析友好错误信息
+		var errResp struct {
+			Error struct {
+				Message string `json:"message"`
+				Type    string `json:"type"`
+			} `json:"error"`
+			Detail []struct {
+				Msg string `json:"msg"`
+			} `json:"detail"`
+		}
+		friendlyMsg := string(body)
+		if json.Unmarshal(body, &errResp) == nil {
+			if errResp.Error.Message != "" {
+				friendlyMsg = errResp.Error.Message
+			} else if len(errResp.Detail) > 0 {
+				friendlyMsg = errResp.Detail[0].Msg
+			}
+		}
+		// 常见状态码友好提示
+		switch resp.StatusCode {
+		case 401:
+			return nil, fmt.Errorf("API密钥无效或已过期，请运行 opsxcli setup 重新配置")
+		case 429:
+			return nil, fmt.Errorf("请求过于频繁，请稍后再试")
+		case 500, 529:
+			return nil, fmt.Errorf("服务端暂时不可用 (%d)，请稍后再试", resp.StatusCode)
+		default:
+			return nil, fmt.Errorf("API错误 (%d): %s", resp.StatusCode, friendlyMsg)
+		}
 	}
 
 	// 解析响应
@@ -186,13 +230,17 @@ func (c *ClaudeClient) Stream(ctx context.Context, req *CompletionRequest) (<-ch
 	return chunks, nil
 }
 
-// convertMessages 转换消息格式
-func (c *ClaudeClient) convertMessages(messages []Message) []map[string]interface{} {
+// convertMessagesWithSystem 转换消息格式，提取 system 消息到顶层字段
+func (c *ClaudeClient) convertMessagesWithSystem(messages []Message) ([]map[string]interface{}, string) {
 	converted := make([]map[string]interface{}, 0, len(messages))
+	var systemParts []string
 
 	for _, msg := range messages {
-		// Claude 不需要 system role，会单独处理
+		// Anthropic 协议: system 消息放在顶层 "system" 字段，不在 messages 中
 		if msg.Role == "system" {
+			if msg.Content != "" {
+				systemParts = append(systemParts, msg.Content)
+			}
 			continue
 		}
 
@@ -243,5 +291,6 @@ func (c *ClaudeClient) convertMessages(messages []Message) []map[string]interfac
 		}
 	}
 
-	return converted
+	systemPrompt := strings.Join(systemParts, "\n\n")
+	return converted, systemPrompt
 }

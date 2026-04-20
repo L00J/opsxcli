@@ -132,7 +132,35 @@ func (c *OpenAIClient) doComplete(ctx context.Context, req *CompletionRequest) (
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API错误 (%d): %s", resp.StatusCode, string(body))
+		// 尝试解析友好错误信息
+		var errResp struct {
+			Error struct {
+				Message string `json:"message"`
+				Type    string `json:"type"`
+			} `json:"error"`
+			Detail []struct {
+				Msg string `json:"msg"`
+			} `json:"detail"`
+		}
+		friendlyMsg := string(body)
+		if json.Unmarshal(body, &errResp) == nil {
+			if errResp.Error.Message != "" {
+				friendlyMsg = errResp.Error.Message
+			} else if len(errResp.Detail) > 0 {
+				friendlyMsg = errResp.Detail[0].Msg
+			}
+		}
+		// 常见状态码友好提示
+		switch resp.StatusCode {
+		case 401:
+			return nil, fmt.Errorf("API密钥无效或已过期，请运行 opsxcli setup 重新配置")
+		case 429:
+			return nil, fmt.Errorf("请求过于频繁，请稍后再试")
+		case 500, 529:
+			return nil, fmt.Errorf("服务端暂时不可用 (%d)，请稍后再试", resp.StatusCode)
+		default:
+			return nil, fmt.Errorf("API错误 (%d): %s", resp.StatusCode, friendlyMsg)
+		}
 	}
 
 	// 解析响应
@@ -210,7 +238,35 @@ func (c *OpenAIClient) Stream(ctx context.Context, req *CompletionRequest) (<-ch
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		return nil, fmt.Errorf("API错误 (%d): %s", resp.StatusCode, string(body))
+		// 尝试解析友好错误信息
+		var errResp struct {
+			Error struct {
+				Message string `json:"message"`
+				Type    string `json:"type"`
+			} `json:"error"`
+			Detail []struct {
+				Msg string `json:"msg"`
+			} `json:"detail"`
+		}
+		friendlyMsg := string(body)
+		if json.Unmarshal(body, &errResp) == nil {
+			if errResp.Error.Message != "" {
+				friendlyMsg = errResp.Error.Message
+			} else if len(errResp.Detail) > 0 {
+				friendlyMsg = errResp.Detail[0].Msg
+			}
+		}
+		// 常见状态码友好提示
+		switch resp.StatusCode {
+		case 401:
+			return nil, fmt.Errorf("API密钥无效或已过期，请运行 opsxcli setup 重新配置")
+		case 429:
+			return nil, fmt.Errorf("请求过于频繁，请稍后再试")
+		case 500, 529:
+			return nil, fmt.Errorf("服务端暂时不可用 (%d)，请稍后再试", resp.StatusCode)
+		default:
+			return nil, fmt.Errorf("API错误 (%d): %s", resp.StatusCode, friendlyMsg)
+		}
 	}
 
 	// 创建流通道
