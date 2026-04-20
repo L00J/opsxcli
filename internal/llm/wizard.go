@@ -23,6 +23,14 @@ func NewConfigWizard(configManager *ConfigManager) *ConfigWizard {
 	}
 }
 
+// NewConfigWizardWithReader 创建配置向导（使用外部 Reader，避免缓冲区冲突）
+func NewConfigWizardWithReader(configManager *ConfigManager, reader *bufio.Reader) *ConfigWizard {
+	return &ConfigWizard{
+		configManager: configManager,
+		reader:        reader,
+	}
+}
+
 // detectRegion 自动检测服务区域
 // 通过时区和语言环境判断，检测不到默认中国
 func (w *ConfigWizard) detectRegion() string {

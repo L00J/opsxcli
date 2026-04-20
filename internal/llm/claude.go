@@ -199,14 +199,14 @@ func (c *ClaudeClient) convertMessages(messages []Message) []map[string]interfac
 		content := make([]interface{}, 0)
 
 		// 文本内容
-		if msg.Content != "" {
+		if msg.Content != "" && msg.Role != "tool" {
 			content = append(content, map[string]interface{}{
 				"type": "text",
 				"text": msg.Content,
 			})
 		}
 
-		// 工具调用
+		// 工具调用（assistant 消息中的 tool_use）
 		if len(msg.ToolCalls) > 0 {
 			for _, tc := range msg.ToolCalls {
 				var input interface{}
@@ -221,7 +221,7 @@ func (c *ClaudeClient) convertMessages(messages []Message) []map[string]interfac
 			}
 		}
 
-		// 工具结果
+		// 工具结果 — Anthropic 协议要求 role 为 "user"
 		if msg.Role == "tool" {
 			content = append(content, map[string]interface{}{
 				"type":        "tool_result",
@@ -231,8 +231,13 @@ func (c *ClaudeClient) convertMessages(messages []Message) []map[string]interfac
 		}
 
 		if len(content) > 0 {
+			// Anthropic 协议: tool_result 必须放在 role="user" 的消息中
+			role := msg.Role
+			if msg.Role == "tool" {
+				role = "user"
+			}
 			converted = append(converted, map[string]interface{}{
-				"role":    msg.Role,
+				"role":    role,
 				"content": content,
 			})
 		}

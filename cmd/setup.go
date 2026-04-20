@@ -65,7 +65,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 
 		switch input {
 		case "1":
-			if err := addProvider(configManager); err != nil {
+			if err := addProvider(configManager, reader); err != nil {
 				fmt.Printf("  ❌ %s\n\n", err.Error())
 			}
 		case "2":
@@ -147,12 +147,12 @@ func showConfigStatus(cm *llm.ConfigManager) {
 }
 
 // addProvider 添加新 provider
-func addProvider(cm *llm.ConfigManager) error {
+func addProvider(cm *llm.ConfigManager, reader *bufio.Reader) error {
 	fmt.Println()
 	fmt.Println(color.CyanString("  ➕ 添加新 provider"))
 	fmt.Println()
 
-	wizard := llm.NewConfigWizard(cm)
+	wizard := llm.NewConfigWizardWithReader(cm, reader)
 	return wizard.Run()
 }
 
@@ -190,7 +190,7 @@ func modifyProvider(cm *llm.ConfigManager, reader *bufio.Reader) error {
 	fmt.Printf("  🔄 重新配置 %s ...\n", color.CyanString(selectedName))
 	fmt.Println()
 
-	wizard := llm.NewConfigWizard(cm)
+	wizard := llm.NewConfigWizardWithReader(cm, reader)
 	return wizard.Run()
 }
 
@@ -243,9 +243,14 @@ func setDefaultProvider(cm *llm.ConfigManager, reader *bufio.Reader) error {
 	}
 	input = strings.TrimSpace(input)
 
+	if input == "" {
+		fmt.Println("  ⚠️  已取消")
+		return nil
+	}
+
 	idx, err := strconv.Atoi(input)
 	if err != nil || idx < 1 || idx > len(validProviders) {
-		return fmt.Errorf("无效选择")
+		return fmt.Errorf("无效选择: %q (请输入 1-%d)", input, len(validProviders))
 	}
 
 	selected := validProviders[idx-1]
