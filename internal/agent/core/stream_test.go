@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -156,10 +155,10 @@ func TestRunStreamWithToolCall(t *testing.T) {
 	if result.Output != "Based on the tool output, the answer is clear." {
 		t.Errorf("expected output 'Based on the tool output, the answer is clear.', got %q", result.Output)
 	}
-	// 输出中应包含进度提示和流式内容
+	// 输出中应包含工具调用进度提示和流式内容
 	outputStr := out.String()
-	if !strings.Contains(outputStr, "正在执行工具") {
-		t.Errorf("expected output to contain progress hint, got %q", outputStr)
+	if !strings.Contains(outputStr, "🔧") {
+		t.Errorf("expected output to contain tool progress hint (🔧), got %q", outputStr)
 	}
 }
 
@@ -218,23 +217,17 @@ func TestRunStreamMaxIterations(t *testing.T) {
 	registry := tools.NewRegistry()
 	registry.Register(mockT)
 
-	// 构造 5 轮 tool_call 的 stream chunks（每轮 2 个 chunk：思考 + tool_call）
-	chunks := make([]llm.StreamChunk, 0, 10)
-	for i := 0; i < 5; i++ {
-		chunks = append(chunks, llm.StreamChunk{
-			Delta: llm.Message{Role: "assistant", Content: "Thinking..."},
-		})
-		chunks = append(chunks, llm.StreamChunk{
-			Delta: llm.Message{Role: "assistant", ToolCalls: []llm.ToolCall{
-				{ID: "call-" + strconv.Itoa(i), Type: "function", Function: llm.FunctionCall{
-					Name:      "mock_tool",
-					Arguments: `{"unique":` + strconv.Itoa(i) + `}`,
-				}},
-			}},
-		})
+	// 每轮 stream 只包含一个 tool_call（模拟单轮工具调用）
+	// mockStreamLLM 会重复返回相同的 chunks，每次调用算一轮迭代
+	chunks := []llm.StreamChunk{
+		{Delta: llm.Message{Role: "assistant", Content: "Thinking..."}},
+		{Delta: llm.Message{Role: "assistant", ToolCalls: []llm.ToolCall{
+			{ID: "call-1", Type: "function", Function: llm.FunctionCall{
+				Name:      "mock_tool",
+				Arguments: `{}`},
+			},
+		}}, Finish: true},
 	}
-	// 最后一个标记结束
-	chunks[len(chunks)-1].Finish = true
 
 	mockLLM := &mockStreamLLM{streamChunks: chunks}
 
@@ -252,10 +245,10 @@ func TestRunStreamMaxIterations(t *testing.T) {
 	if result != nil {
 		t.Error("expected result to be nil when max iterations reached")
 	}
-	// 输出中应包含多次进度提示
+	// 输出中应包含多次工具调用进度提示
 	outputStr := out.String()
-	count := strings.Count(outputStr, "正在执行工具")
+	count := strings.Count(outputStr, "🔧")
 	if count != 3 {
-		t.Errorf("expected 3 progress hints, got %d", count)
+		t.Errorf("expected 3 tool progress hints (🔧), got %d, output: %q", count, outputStr)
 	}
 }

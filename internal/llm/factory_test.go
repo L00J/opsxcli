@@ -60,12 +60,13 @@ func TestClientFactory_CreateFromConfig(t *testing.T) {
 			wantName:   "openai-compatible",
 			wantErr:    false,
 		},
-		{
-			name:       "glm (openai compatible)",
-			config:     &ProviderConfig{Type: "glm", BaseURL: "https://open.bigmodel.cn/api/paas/v4", APIKey: "test", Model: "glm-4"},
-			wantName:   "openai-compatible",
-			wantErr:    false,
-		},
+	// GLM now uses Anthropic-compatible protocol (not OpenAI)
+	{
+		name:       "glm (anthropic compatible)",
+		config:     &ProviderConfig{Type: "glm", BaseURL: "https://open.bigmodel.cn/api/anthropic", APIKey: "test", Model: "glm-4"},
+		wantName:   "claude",
+		wantErr:    false,
+	},
 	}
 
 	for _, tt := range tests {
@@ -96,6 +97,9 @@ func TestClientFactory_CreateFromConfig_allOpenAICompat(t *testing.T) {
 		"yi", "baichuan", "minimax", "doubao", "llama", "ollama",
 	}
 
+	// GLM and MiniMax now use Anthropic-compatible protocol (not OpenAI)
+	anthropicCompatTypes := map[string]bool{"glm": true, "minimax": true}
+
 	for _, providerType := range openAICompatTypes {
 		t.Run(providerType, func(t *testing.T) {
 			config := &ProviderConfig{
@@ -108,8 +112,12 @@ func TestClientFactory_CreateFromConfig_allOpenAICompat(t *testing.T) {
 			if err != nil {
 				t.Fatalf("CreateFromConfig(%q) error: %v", providerType, err)
 			}
-			if client.Name() != "openai-compatible" {
-				t.Errorf("provider %q: expected openai-compatible, got %q", providerType, client.Name())
+			expected := "openai-compatible"
+			if anthropicCompatTypes[providerType] {
+				expected = "claude"
+			}
+			if client.Name() != expected {
+				t.Errorf("provider %q: expected %s, got %q", providerType, expected, client.Name())
 			}
 		})
 	}
