@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -588,4 +589,75 @@ func TestMetadataLabels(t *testing.T) {
 	assert.Equal(t, "web", meta.Labels["app"])
 	assert.Equal(t, "prod", meta.Labels["env"])
 	assert.Equal(t, 3, len(meta.Labels))
+}
+
+// ========== cp.go parsePodPath 测试 ==========
+
+func TestParsePodPath(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantPod   string
+		wantFile  string
+	}{
+		{"标准格式", "mypod:/etc/config.yaml", "mypod", "/etc/config.yaml"},
+		{"无冒号-仅文件路径", "/etc/config.yaml", "", "/etc/config.yaml"},
+		{"空字符串", "", "", ""},
+		{"多个冒号-SplitN限制为2", "pod:host:path", "pod", "host:path"},
+		{"冒号后为空", "mypod:", "mypod", ""},
+		{"冒号前为空", ":/etc/config.yaml", "", "/etc/config.yaml"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pod, file := parsePodPath(tt.input)
+			assert.Equal(t, tt.wantPod, pod)
+			assert.Equal(t, tt.wantFile, file)
+		})
+	}
+}
+
+// ========== kubectl.go formatAge 测试 ==========
+
+func TestFormatAge(t *testing.T) {
+	tests := []struct {
+		name      string
+		timestamp string
+		want      string
+	}{
+		{"空字符串", "", "Unknown"},
+		{"无效格式", "not-a-date", "Unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatAge(tt.timestamp)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+
+	// 测试相对时间格式 - 使用HasSuffix因为duration.Seconds()可能有小误差
+	t.Run("30秒前-显示秒", func(t *testing.T) {
+		ts := time.Now().Add(-30 * time.Second).Format(time.RFC3339)
+		got := formatAge(ts)
+		assert.Contains(t, got, "s") // 30s范围内，格式为Ns
+	})
+
+	t.Run("5分钟前-显示分钟", func(t *testing.T) {
+		ts := time.Now().Add(-5 * time.Minute).Format(time.RFC3339)
+		got := formatAge(ts)
+		assert.Equal(t, "5m", got)
+	})
+
+	t.Run("2小时前-显示小时", func(t *testing.T) {
+		ts := time.Now().Add(-2 * time.Hour).Format(time.RFC3339)
+		got := formatAge(ts)
+		assert.Equal(t, "2h", got)
+	})
+
+	t.Run("3天前-显示天", func(t *testing.T) {
+		ts := time.Now().Add(-72 * time.Hour).Format(time.RFC3339)
+		got := formatAge(ts)
+		assert.Equal(t, "3d", got)
+	})
 }

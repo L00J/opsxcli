@@ -90,8 +90,9 @@ func TestNewAgentCmd_NoArgsReturnsError(t *testing.T) {
 
 func TestNewAgentCmd_SilenceUsage(t *testing.T) {
 	cmd := NewAgentCmd()
-	// agent 命令未设置 SilenceUsage，验证其默认值为 false
-	assert.False(t, cmd.SilenceUsage)
+	// agent 命令已设置 SilenceUsage，错误时不应打印 Usage/Help
+	assert.True(t, cmd.SilenceUsage, "agent 命令应设置 SilenceUsage")
+	assert.False(t, cmd.SilenceErrors, "agent 命令应保留错误信息显示")
 }
 
 // ===== formatToolCallDetail 测试 =====

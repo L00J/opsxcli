@@ -114,10 +114,24 @@ func (a *Agent) Run(ctx context.Context, query string) (*tools.Result, error) {
 	toolCallRecords := make([]evolver.ToolCallRecord, 0) // Evolver 记录
 	toolStartTimes := make(map[string]time.Time)         // 工具执行开始时间
 
-	// ReAct 主循环
+	// 自适应迭代追踪
+	var consecutiveFailures int // 连续失败计数
+	var totalToolCalls int      // 总工具调用次数
+
+	// ReAct 主循环（自适应检查点策略）
 	for iter := 0; iter < a.config.MaxIterations; iter++ {
 		// 裁剪历史消息，保留 system + 最近 N 轮
 		trimmed := a.trimMessages(a.messages)
+
+		// === 自适应检查点 ===
+		if hint := a.checkAdaptiveCheckpoint(iter, a.config.MaxIterations, toolCallHistory, consecutiveFailures, totalToolCalls); hint != "" {
+			// 注入一条 user 消息引导 LLM 走向总结
+			a.messages = append(a.messages, llm.Message{
+				Role:    "user",
+				Content: hint,
+			})
+			trimmed = a.trimMessages(a.messages)
+		}
 
 		// 调用 LLM：获取思考 + 工具调用计划
 		resp, err := a.llmClient.Complete(ctx, &llm.CompletionRequest{
@@ -149,6 +163,10 @@ func (a *Agent) Run(ctx context.Context, query string) (*tools.Result, error) {
 		// 处理工具调用（Observation 阶段）
 		observations := a.processToolCalls(ctx, resp.Message.ToolCalls, toolCallHistory, &toolCallRecords, toolStartTimes)
 		a.messages = append(a.messages, observations...)
+
+		// 更新自适应追踪
+		totalToolCalls += len(resp.Message.ToolCalls)
+		consecutiveFailures = a.updateConsecutiveFailures(observations, consecutiveFailures)
 	}
 
 	// 达到最大迭代次数，任务未完成
@@ -362,6 +380,65 @@ func (a *Agent) trimMessages(msgs []llm.Message) []llm.Message {
 	result := make([]llm.Message, 0, 1+len(kept))
 	result = append(result, systemMsg)
 	result = append(result, kept...)
+
+	// 完整性校验：确保 tool 消息前面一定有对应的 assistant(tool_calls) 消息
+	// 裁剪可能导致 assistant(tool_calls) 被裁掉，但对应的 tool 响应被保留，
+	// 这会导致 API 报错 "Messages with role 'tool' must be a response to a preceding message with 'tool_calls'"
+	result = ensureToolMessageIntegrity(result)
+
+	return result
+}
+
+// ensureToolMessageIntegrity 确保消息列表中 tool 消息的完整性
+// 裁剪可能导致 assistant(tool_calls) 被裁掉但对应的 tool 响应被保留，
+// 这会导致 API 报错。此函数移除所有没有对应 assistant(tool_calls) 的 tool 消息。
+func ensureToolMessageIntegrity(msgs []llm.Message) []llm.Message {
+	// 第一步：收集所有 assistant 消息中的 tool_call_id
+	validToolCallIDs := make(map[string]bool)
+	for _, msg := range msgs {
+		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
+			for _, tc := range msg.ToolCalls {
+				validToolCallIDs[tc.ID] = true
+			}
+		}
+	}
+
+	// 第二步：标记需要保留的 tool 消息（有有效 tool_call_id 且前一条是对应的 assistant）
+	result := make([]llm.Message, 0, len(msgs))
+	for i, msg := range msgs {
+		if msg.Role == "tool" {
+			// tool 消息必须满足：
+			// 1. tool_call_id 在某个 assistant 的 ToolCalls 中存在
+			// 2. 前一条消息是包含该 tool_call_id 的 assistant 消息
+			if !validToolCallIDs[msg.ToolCallID] {
+				// 没有对应的 assistant(tool_calls)，跳过
+				continue
+			}
+			// 找到前一条 assistant(tool_calls) 消息
+			if i == 0 {
+				continue
+			}
+			prev := msgs[i-1]
+			if prev.Role == "assistant" && len(prev.ToolCalls) > 0 {
+				// 检查前一条 assistant 的 tool_calls 是否包含该 tool_call_id
+				found := false
+				for _, tc := range prev.ToolCalls {
+					if tc.ID == msg.ToolCallID {
+						found = true
+						break
+					}
+				}
+				if found {
+					result = append(result, msg)
+					continue
+				}
+			}
+			// 前一条不是匹配的 assistant，跳过
+			continue
+		}
+		result = append(result, msg)
+	}
+
 	return result
 }
 
@@ -482,6 +559,64 @@ func (a *Agent) Close() error {
 		a.registry.Close()
 	}
 	return nil
+}
+
+// checkAdaptiveCheckpoint 自适应检查点策略
+// 在特定迭代轮次注入提示，引导 LLM 走向总结或调整策略
+func (a *Agent) checkAdaptiveCheckpoint(iter, maxIter int, toolCallHistory map[string]int, consecutiveFailures, totalToolCalls int) string {
+	switch iter {
+	case 3: // 第 4 轮：轻量启发式检查
+		// 检测工具调用重复率是否超过 50%
+		repeatCount := 0
+		for _, count := range toolCallHistory {
+			if count > 1 {
+				repeatCount += count - 1
+			}
+		}
+		if totalToolCalls > 0 {
+			repeatRate := float64(repeatCount) / float64(totalToolCalls)
+			if repeatRate > 0.5 || consecutiveFailures >= 3 {
+				return "【系统提示】检测到你正在重复使用相同工具或连续遇到错误。请考虑换一种思路，尝试不同的工具或方法来解决问题。"
+			}
+		}
+
+	case 7: // 第 8 轮：强制中间总结
+		return "【系统提示】已执行到中段，请总结当前进展。如果已经有足够的信息，请直接给出最终答案。如果仍需要更多信息，请说明剩余步骤。"
+
+	case 11: // 第 12 轮：最终提醒
+		remaining := maxIter - iter - 1
+		return fmt.Sprintf("【系统提示】仅剩 %d 步，请立即整理已有信息，给出最终答案。不要再尝试新的工具调用。", remaining)
+	}
+
+	return ""
+}
+
+// updateConsecutiveFailures 更新连续失败计数
+// 扫描观测消息，根据错误指示器判断是否为失败结果
+func (a *Agent) updateConsecutiveFailures(observations []llm.Message, current int) int {
+	if len(observations) == 0 {
+		return current
+	}
+
+	errorCount := 0
+	for _, obs := range observations {
+		content := obs.Content
+		if strings.HasPrefix(content, "错误") ||
+			strings.HasPrefix(content, "失败") ||
+			strings.HasPrefix(content, "error") ||
+			strings.HasPrefix(content, "执行错误") ||
+			strings.HasPrefix(content, "执行失败") {
+			errorCount++
+		}
+	}
+
+	// 全部成功：重置计数
+	if errorCount == 0 {
+		return 0
+	}
+
+	// 全部失败或有混合结果：累加错误数
+	return current + errorCount
 }
 
 // showHelp 显示帮助信息

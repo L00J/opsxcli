@@ -41,8 +41,10 @@ func NewAgentCmd() *cobra.Command {
 	)
 
 	agentCmd := &cobra.Command{
-		Use:   "agent [query]",
-		Short: "AI运维助手 - 使用自然语言解决运维问题",
+		Use:           "agent [query]",
+		Short:         "AI运维助手 - 使用自然语言解决运维问题",
+		SilenceUsage:  true,  // 错误时不显示 Usage/Help
+		SilenceErrors: false, // 显示错误信息
 		Long: `agent - AI驱动的运维助手
 
 使用自然语言描述你的运维问题，Agent会自动调用相关工具来帮你解决。

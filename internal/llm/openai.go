@@ -344,3 +344,12 @@ func (c *OpenAIClient) Stream(ctx context.Context, req *CompletionRequest) (<-ch
 
 	return chunks, nil
 }
+
+func init() {
+	// OpenAI 兼容的模型（使用统一的 OpenAI API 格式）
+	for _, t := range []string{"deepseek", "openai", "gpt", "kimi", "qwen", "yi", "baichuan", "doubao", "llama", "ollama"} {
+		RegisterProvider(t, func(config *ProviderConfig) (Client, error) {
+			return NewOpenAIClient(config.BaseURL, config.APIKey, config.Model), nil
+		})
+	}
+}

@@ -2,7 +2,48 @@ package llm
 
 import (
 	"fmt"
+	"sort"
+	"strings"
+	"sync"
 )
+
+// ProviderFactory 创建 LLM 客户端的工厂函数
+type ProviderFactory func(config *ProviderConfig) (Client, error)
+
+// providerRegistry 全局 provider 注册表
+var providerRegistry = struct {
+	sync.RWMutex
+	factories map[string]ProviderFactory
+}{
+	factories: make(map[string]ProviderFactory),
+}
+
+// RegisterProvider 注册 LLM 提供商工厂
+func RegisterProvider(providerType string, factory ProviderFactory) {
+	providerRegistry.Lock()
+	defer providerRegistry.Unlock()
+	providerRegistry.factories[providerType] = factory
+}
+
+// getProvider 获取已注册的提供商工厂
+func getProvider(providerType string) (ProviderFactory, bool) {
+	providerRegistry.RLock()
+	defer providerRegistry.RUnlock()
+	f, ok := providerRegistry.factories[providerType]
+	return f, ok
+}
+
+// getRegisteredProviders 获取所有已注册的提供商类型（按字母排序）
+func getRegisteredProviders() []string {
+	providerRegistry.RLock()
+	defer providerRegistry.RUnlock()
+	types := make([]string, 0, len(providerRegistry.factories))
+	for t := range providerRegistry.factories {
+		types = append(types, t)
+	}
+	sort.Strings(types)
+	return types
+}
 
 // ClientFactory 客户端工厂
 type ClientFactory struct {
@@ -28,42 +69,12 @@ func (f *ClientFactory) Create(name string) (Client, error) {
 
 // CreateFromConfig 根据配置创建客户端
 func (f *ClientFactory) CreateFromConfig(config *ProviderConfig) (Client, error) {
-	switch config.Type {
-	// OpenAI 兼容的模型（使用统一的 OpenAI API 格式）
-	case "deepseek", "openai", "gpt", "kimi", "qwen", "yi", "baichuan", "doubao", "llama", "ollama":
-		return NewOpenAIClient(config.BaseURL, config.APIKey, config.Model), nil
-
-	// Anthropic 兼容的模型（GLM、MiniMax 走 Anthropic 协议）
-	case "glm":
-		baseURL := config.BaseURL
-		if baseURL == "" {
-			baseURL = "https://open.bigmodel.cn/api/anthropic"
-		}
-		return NewClaudeClientWithBaseURL(baseURL, config.APIKey, config.Model), nil
-
-	case "minimax":
-		baseURL := config.BaseURL
-		if baseURL == "" {
-			baseURL = "https://api.minimaxi.com/anthropic"
-		}
-		return NewClaudeClientWithBaseURL(baseURL, config.APIKey, config.Model), nil
-
-	// Claude 专用客户端（支持自定义 BaseURL）
-	// 也处理 type="anthropic" 的通用 Anthropic 兼容配置
-	case "claude", "anthropic":
-		baseURL := config.BaseURL
-		if baseURL == "" {
-			baseURL = "https://api.anthropic.com"
-		}
-		return NewClaudeClientWithBaseURL(baseURL, config.APIKey, config.Model), nil
-
-	// Gemini 专用客户端
-	case "gemini":
-		return NewGeminiClient(config.APIKey, config.Model), nil
-
-	default:
-		return nil, fmt.Errorf("不支持的提供商类型: %s", config.Type)
+	factory, ok := getProvider(config.Type)
+	if !ok {
+		available := getRegisteredProviders()
+		return nil, fmt.Errorf("不支持的提供商类型: %s (已注册: %s)", config.Type, strings.Join(available, ", "))
 	}
+	return factory(config)
 }
 
 // ListProviders 列出所有可用的提供商

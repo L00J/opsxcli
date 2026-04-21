@@ -264,3 +264,10 @@ func (c *GeminiClient) convertMessages(messages []Message) []map[string]interfac
 
 	return converted
 }
+
+func init() {
+	// Gemini 专用客户端
+	RegisterProvider("gemini", func(config *ProviderConfig) (Client, error) {
+		return NewGeminiClient(config.APIKey, config.Model), nil
+	})
+}

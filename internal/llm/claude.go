@@ -294,3 +294,40 @@ func (c *ClaudeClient) convertMessagesWithSystem(messages []Message) ([]map[stri
 	systemPrompt := strings.Join(systemParts, "\n\n")
 	return converted, systemPrompt
 }
+
+func init() {
+	// GLM (智谱) — Anthropic 兼容接口
+	RegisterProvider("glm", func(config *ProviderConfig) (Client, error) {
+		baseURL := config.BaseURL
+		if baseURL == "" {
+			baseURL = "https://open.bigmodel.cn/api/anthropic"
+		}
+		return NewClaudeClientWithBaseURL(baseURL, config.APIKey, config.Model), nil
+	})
+
+	// MiniMax — Anthropic 兼容接口
+	RegisterProvider("minimax", func(config *ProviderConfig) (Client, error) {
+		baseURL := config.BaseURL
+		if baseURL == "" {
+			baseURL = "https://api.minimaxi.com/anthropic"
+		}
+		return NewClaudeClientWithBaseURL(baseURL, config.APIKey, config.Model), nil
+	})
+
+	// Claude / Anthropic 通用兼容配置
+	RegisterProvider("claude", func(config *ProviderConfig) (Client, error) {
+		baseURL := config.BaseURL
+		if baseURL == "" {
+			baseURL = "https://api.anthropic.com"
+		}
+		return NewClaudeClientWithBaseURL(baseURL, config.APIKey, config.Model), nil
+	})
+
+	RegisterProvider("anthropic", func(config *ProviderConfig) (Client, error) {
+		baseURL := config.BaseURL
+		if baseURL == "" {
+			baseURL = "https://api.anthropic.com"
+		}
+		return NewClaudeClientWithBaseURL(baseURL, config.APIKey, config.Model), nil
+	})
+}

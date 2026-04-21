@@ -24,7 +24,7 @@ func (s SafetyMode) String() string {
 
 // Config Agent 配置结构体
 type Config struct {
-	MaxIterations      int           // 最大迭代次数，默认 10
+	MaxIterations      int           // 最大迭代次数，默认 16
 	Temperature        float64       // LLM 温度，默认 0.3
 	ToolTimeout        time.Duration // 工具执行超时，默认 60s
 	MaxTokens          int           // 最大 token 数，默认 4096
@@ -44,7 +44,7 @@ func NewDefaultConfig() *Config {
 	}
 
 	return &Config{
-		MaxIterations:      10,
+		MaxIterations:      16,
 		Temperature:        0.3,
 		ToolTimeout:        60 * time.Second,
 		MaxTokens:          4096,

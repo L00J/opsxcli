@@ -151,8 +151,8 @@ func TestNewAgentWithNilConfig(t *testing.T) {
 	if agent.config == nil {
 		t.Fatal("expected default config to be set")
 	}
-	if agent.config.MaxIterations != 10 {
-		t.Errorf("expected default MaxIterations 10, got %d", agent.config.MaxIterations)
+	if agent.config.MaxIterations != 16 {
+		t.Errorf("expected default MaxIterations 16, got %d", agent.config.MaxIterations)
 	}
 }
 
@@ -1475,4 +1475,231 @@ func TestGetLastEvolveHint(t *testing.T) {
 			t.Errorf("expected hint to be truncated with '...', got %d chars", len(hint))
 		}
 	})
+}
+
+// ============================================================================
+// trimMessages 相关测试
+// ============================================================================
+
+// TestEnsureToolMessageIntegrity_PairedToolMessages 验证正常配对的 tool 消息不受影响
+func TestEnsureToolMessageIntegrity_PairedToolMessages(t *testing.T) {
+	msgs := []llm.Message{
+		{Role: "system", Content: "You are a helpful assistant."},
+		{Role: "user", Content: "Run the tool"},
+		{Role: "assistant", ToolCalls: []llm.ToolCall{
+			{ID: "call-1", Type: "function", Function: llm.FunctionCall{Name: "test_tool", Arguments: "{}"}},
+		}},
+		{Role: "tool", ToolCallID: "call-1", Content: "tool result"},
+		{Role: "assistant", Content: "Done!"},
+	}
+
+	result := ensureToolMessageIntegrity(msgs)
+
+	if len(result) != 5 {
+		t.Fatalf("expected 5 messages (all preserved), got %d", len(result))
+	}
+	// 验证所有消息角色顺序正确
+	expectedRoles := []string{"system", "user", "assistant", "tool", "assistant"}
+	for i, msg := range result {
+		if msg.Role != expectedRoles[i] {
+			t.Errorf("message[%d]: expected role %q, got %q", i, expectedRoles[i], msg.Role)
+		}
+	}
+}
+
+// TestEnsureToolMessageIntegrity_OrphanedToolMessages 验证孤立的 tool 消息被移除
+func TestEnsureToolMessageIntegrity_OrphanedToolMessages(t *testing.T) {
+	// 模拟裁剪后 assistant(tool_calls) 被裁掉的场景
+	msgs := []llm.Message{
+		{Role: "system", Content: "You are a helpful assistant."},
+		// assistant(tool_calls) 被裁掉了，直接从 tool 消息开始
+		{Role: "tool", ToolCallID: "call-1", Content: "tool result 1"},
+		{Role: "tool", ToolCallID: "call-2", Content: "tool result 2"},
+		{Role: "assistant", Content: "Done!"},
+	}
+
+	result := ensureToolMessageIntegrity(msgs)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 messages (tool messages removed), got %d: %+v", len(result), result)
+	}
+	// 验证 tool 消息被移除，只剩 system 和 assistant
+	expectedRoles := []string{"system", "assistant"}
+	for i, msg := range result {
+		if msg.Role != expectedRoles[i] {
+			t.Errorf("message[%d]: expected role %q, got %q", i, expectedRoles[i], msg.Role)
+		}
+	}
+}
+
+// TestEnsureToolMessageIntegrity_PartiallyOrphanedToolBlock 验证 assistant 存在但 tool_call_id 不匹配时 tool 消息被移除
+func TestEnsureToolMessageIntegrity_PartiallyOrphanedToolBlock(t *testing.T) {
+	msgs := []llm.Message{
+		{Role: "system", Content: "You are a helpful assistant."},
+		{Role: "user", Content: "Do something"},
+		// assistant 有 tool_calls 但 ID 不匹配
+		{Role: "assistant", ToolCalls: []llm.ToolCall{
+			{ID: "call-other", Type: "function", Function: llm.FunctionCall{Name: "other_tool", Arguments: "{}"}},
+		}},
+		{Role: "tool", ToolCallID: "call-1", Content: "result for call-1"},
+		{Role: "assistant", Content: "Final answer"},
+	}
+
+	result := ensureToolMessageIntegrity(msgs)
+
+	if len(result) != 4 {
+		t.Fatalf("expected 4 messages (orphaned tool removed, mismatched assistant kept), got %d", len(result))
+	}
+	// tool 消息应被移除，因为 call-1 不在 assistant 的 tool_calls 中
+	expectedRoles := []string{"system", "user", "assistant", "assistant"}
+	for i, msg := range result {
+		if msg.Role != expectedRoles[i] {
+			t.Errorf("message[%d]: expected role %q, got %q", i, expectedRoles[i], msg.Role)
+		}
+	}
+}
+
+// TestEnsureToolMessageIntegrity_MultipleToolBlocks 验证多组 tool 消息块独立处理
+func TestEnsureToolMessageIntegrity_MultipleToolBlocks(t *testing.T) {
+	msgs := []llm.Message{
+		{Role: "system", Content: "system"},
+		// 第一组：完整配对
+		{Role: "assistant", ToolCalls: []llm.ToolCall{
+			{ID: "call-1", Type: "function", Function: llm.FunctionCall{Name: "tool_a", Arguments: "{}"}},
+		}},
+		{Role: "tool", ToolCallID: "call-1", Content: "result 1"},
+		// 第二组：assistant 被裁掉了（tool 消息孤立）
+		{Role: "tool", ToolCallID: "call-2", Content: "result 2"},
+		{Role: "tool", ToolCallID: "call-3", Content: "result 3"},
+		// 第三组：完整配对
+		{Role: "assistant", ToolCalls: []llm.ToolCall{
+			{ID: "call-4", Type: "function", Function: llm.FunctionCall{Name: "tool_b", Arguments: "{}"}},
+		}},
+		{Role: "tool", ToolCallID: "call-4", Content: "result 4"},
+		{Role: "assistant", Content: "final"},
+	}
+
+	result := ensureToolMessageIntegrity(msgs)
+
+	// 第二组 tool 消息（call-2, call-3）应被移除，因为前面没有 assistant(tool_calls)
+	expectedRoles := []string{"system", "assistant", "tool", "assistant", "tool", "assistant"}
+	if len(result) != len(expectedRoles) {
+		t.Fatalf("expected %d messages, got %d", len(expectedRoles), len(result))
+	}
+	for i, msg := range result {
+		if msg.Role != expectedRoles[i] {
+			t.Errorf("message[%d]: expected role %q, got %q", i, expectedRoles[i], msg.Role)
+		}
+	}
+}
+
+// TestEnsureToolMessageIntegrity_EmptyMessages 验证空消息列表不会 panic
+func TestEnsureToolMessageIntegrity_EmptyMessages(t *testing.T) {
+	result := ensureToolMessageIntegrity(nil)
+	if len(result) != 0 {
+		t.Errorf("expected empty result for nil input, got %d messages", len(result))
+	}
+
+	result = ensureToolMessageIntegrity([]llm.Message{})
+	if len(result) != 0 {
+		t.Errorf("expected empty result for empty input, got %d messages", len(result))
+	}
+}
+
+// TestEnsureToolMessageIntegrity_NoToolMessages 验证没有 tool 消息时不影响
+func TestEnsureToolMessageIntegrity_NoToolMessages(t *testing.T) {
+	msgs := []llm.Message{
+		{Role: "system", Content: "system"},
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "hi"},
+	}
+
+	result := ensureToolMessageIntegrity(msgs)
+
+	if len(result) != 3 {
+		t.Fatalf("expected 3 messages (unchanged), got %d", len(result))
+	}
+}
+
+// TestEnsureToolMessageIntegrity_ToolBlockAtStart 验证 tool 消息在消息列表开头时被移除
+func TestEnsureToolMessageIntegrity_ToolBlockAtStart(t *testing.T) {
+	// 极端场景：消息列表第一条就是 tool（system 被裁掉或 tool 在最前面）
+	msgs := []llm.Message{
+		{Role: "tool", ToolCallID: "call-1", Content: "result 1"},
+		{Role: "tool", ToolCallID: "call-2", Content: "result 2"},
+		{Role: "assistant", Content: "Done!"},
+	}
+
+	result := ensureToolMessageIntegrity(msgs)
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 message (tool block at start removed), got %d", len(result))
+	}
+	if result[0].Role != "assistant" {
+		t.Errorf("expected remaining message to be assistant, got %q", result[0].Role)
+	}
+}
+
+// TestTrimMessages_OrphanedToolFix 集成测试：验证 trimMessages 裁剪后不会产生孤立 tool 消息
+func TestTrimMessages_OrphanedToolFix(t *testing.T) {
+	// 构造一个 Agent，设置较小的 maxContextTokens 使得裁剪发生
+	mockLLM := &mockLLMClient{name: "test-llm"}
+	registry := tools.NewRegistry()
+	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
+	safetyCtl.SetAutoApprove(true)
+
+	agent := NewAgent(mockLLM, registry, &Config{
+		MaxIterations:    5,
+		MaxContextTokens: 200, // 很小的上下文窗口
+		SessionDir:       t.TempDir(),
+		AutoApprove:      true,
+		OutputMaxLength:  5000,
+	}, safetyCtl)
+	defer agent.Close()
+
+	// 构造一组很长的历史消息，其中包含 tool_calls/tool 对
+	msgs := []llm.Message{
+		{Role: "system", Content: "You are a helpful assistant."},
+		// 早期对话（内容很长，会被裁掉）
+		{Role: "user", Content: strings.Repeat("This is a very long early message. ", 100)},
+		{Role: "assistant", ToolCalls: []llm.ToolCall{
+			{ID: "call-old-1", Type: "function", Function: llm.FunctionCall{Name: "tool_a", Arguments: "{}"}},
+		}},
+		{Role: "tool", ToolCallID: "call-old-1", Content: strings.Repeat("old tool result ", 50)},
+		{Role: "assistant", Content: strings.Repeat("Old response ", 50)},
+		// 近期对话（会被保留）
+		{Role: "user", Content: "Recent question"},
+		{Role: "assistant", ToolCalls: []llm.ToolCall{
+			{ID: "call-new-1", Type: "function", Function: llm.FunctionCall{Name: "tool_b", Arguments: "{}"}},
+		}},
+		{Role: "tool", ToolCallID: "call-new-1", Content: "new tool result"},
+		{Role: "assistant", Content: "Final answer"},
+	}
+
+	trimmed := agent.trimMessages(msgs)
+
+	// 验证裁剪后不会出现孤立的 tool 消息
+	for i, msg := range trimmed {
+		if msg.Role == "tool" {
+			if i == 0 {
+				t.Errorf("tool message at index 0 has no preceding assistant")
+				continue
+			}
+			prev := trimmed[i-1]
+			if prev.Role != "assistant" || len(prev.ToolCalls) == 0 {
+				t.Errorf("tool message at index %d has no preceding assistant(tool_calls), prev role=%q", i, prev.Role)
+			}
+			// 验证 tool_call_id 匹配
+			found := false
+			for _, tc := range prev.ToolCalls {
+				if tc.ID == msg.ToolCallID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("tool message at index %d (tool_call_id=%q) not found in preceding assistant's tool_calls", i, msg.ToolCallID)
+			}
+		}
+	}
 }
