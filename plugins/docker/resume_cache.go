@@ -164,12 +164,47 @@ func (rc *ResumeCache) ListAll() ([]*LayerResumeInfo, error) {
 	return infos, nil
 }
 
+// listAllLocked 列出所有断点续传信息（调用者必须持有锁）
+func (rc *ResumeCache) listAllLocked() ([]*LayerResumeInfo, error) {
+	files, err := os.ReadDir(rc.cacheDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var infos []*LayerResumeInfo
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		data, err := os.ReadFile(filepath.Join(rc.cacheDir, file.Name()))
+		if err != nil {
+			continue
+		}
+
+		var info LayerResumeInfo
+		if err := json.Unmarshal(data, &info); err != nil {
+			continue
+		}
+
+		infos = append(infos, &info)
+	}
+
+	return infos, nil
+}
+
+// deleteLocked 删除断点续传信息（调用者必须持有锁）
+func (rc *ResumeCache) deleteLocked(digest string) error {
+	filename := rc.getFilename(digest)
+	return os.Remove(filename)
+}
+
 // CleanExpired 清理过期的断点续传信息
 func (rc *ResumeCache) CleanExpired(maxAge time.Duration) error {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	infos, err := rc.ListAll()
+	infos, err := rc.listAllLocked()
 	if err != nil {
 		return err
 	}
@@ -177,7 +212,7 @@ func (rc *ResumeCache) CleanExpired(maxAge time.Duration) error {
 	now := time.Now()
 	for _, info := range infos {
 		if now.Sub(info.UpdatedAt) > maxAge {
-			rc.Delete(info.Digest)
+			rc.deleteLocked(info.Digest)
 		}
 	}
 

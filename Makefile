@@ -71,6 +71,25 @@ test:
 	@echo "🧪 运行测试..."
 	CGO_CFLAGS="-Wno-gnu-folding-constant" go test -v ./...
 
+# 运行测试并检查覆盖率门禁 (当前门禁: 30%)
+test-coverage:
+	@echo "🧪 运行测试并检查覆盖率..."
+	@CGO_CFLAGS="-Wno-gnu-folding-constant" go test -count=1 -coverprofile=coverage.out -timeout 120s ./...
+	@echo ""
+	@echo "📊 覆盖率报告:"
+	@go tool cover -func=coverage.out | tail -1
+	@echo ""
+	@THRESHOLD=30; \
+	COVERAGE=$$(go tool cover -func=coverage.out | tail -1 | grep -oP '\d+\.\d+'); \
+	echo "门禁: $${THRESHOLD}% | 实际: $${COVERAGE}%"; \
+	if $$(echo "$$COVERAGE < $$THRESHOLD" | bc -l 2>/dev/null || echo "$$COVERAGE < $$THRESHOLD" | awk '{print ($$1 < $$2) ? "true" : "false"}'); then \
+		echo "❌ 覆盖率低于门禁值 ($${THRESHOLD}%)"; \
+		exit 1; \
+	else \
+		echo "✅ 覆盖率达标 ($${THRESHOLD}%)"; \
+	fi
+	@rm -f coverage.out
+
 # 安装到系统路径
 install: release
 	@echo "📦 安装到 /usr/local/bin/..."
