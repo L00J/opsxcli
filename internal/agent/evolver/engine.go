@@ -28,6 +28,7 @@ type reflectionClient interface {
 type EvolverEngine struct {
 	experience  *ExperienceMemory   // 经验记忆层
 	environment *EnvironmentMemory  // 环境记忆层
+	factual     *FactualMemory      // v0.5.0: 事实层 (MEMORY.md + USER.md)
 	mu          sync.RWMutex
 	baseDir     string              // 存储目录
 	minSteps    int                 // 触发 Evolver 的最小步数
@@ -103,9 +104,16 @@ func NewEvolverEngine(baseDir string) (*EvolverEngine, error) {
 		envMemory = NewEnvironmentMemory(baseDir)
 	}
 
+	// v0.5.0: 加载事实层记忆 (MEMORY.md + USER.md)
+	factMemory, factErr := LoadFactualMemory(baseDir)
+	if factErr != nil {
+		factMemory = NewFactualMemory(baseDir)
+	}
+
 	return &EvolverEngine{
 		experience:  expMemory,
 		environment: envMemory,
+		factual:     factMemory,
 		baseDir:     baseDir,
 		minSteps:    2,      // 至少 2 步才触发 Evolver
 		enabled:     true,   // 默认启用
@@ -195,6 +203,11 @@ func (e *EvolverEngine) Evolve(ctx context.Context, exec *TaskExecution) *Evolve
 	result.EnvironmentUpdated = envUpdated
 	if envUpdated {
 		e.environment.Save()
+	}
+
+	// Step 9.5: MEMORIZE - 从执行结果中提取事实并存储到事实层
+	if e.factual != nil && exec.Success {
+		e.stepMemorize(exec, result)
 	}
 
 	// Step 10: FEEDBACK - 准备用户反馈消息
@@ -483,6 +496,36 @@ func (e *EvolverEngine) stepAdapt(exec *TaskExecution) bool {
 	return updated
 }
 
+// stepMemorize Step 9.5: MEMORIZE - 从成功执行中提取事实存储到事实层
+// 自动记录发现的服务器信息、路径、工具配置等持久化事实
+func (e *EvolverEngine) stepMemorize(exec *TaskExecution, result *EvolveResult) {
+	if e.factual == nil {
+		return
+	}
+
+	dirty := false
+
+	// 从 SSH 执行中提取服务器信息作为环境事实
+	for _, tc := range exec.ToolCalls {
+		if tc.ToolName == "ssh_execute" {
+			if host, ok := tc.Args["host"].(string); ok && host != "" {
+				key := fmt.Sprintf("server_%s_last_seen", host)
+				if _, exists := e.factual.GetFact(key); !exists {
+					e.factual.SetFact(key, time.Now().Format("2006-01-02"), "environment")
+					dirty = true
+				}
+			}
+		}
+	}
+
+	// 如果有 LLM 反射结果，可以提取高价值事实
+	// 这部分留待后续 LLM 集成时完善
+
+	if dirty {
+		_ = e.factual.Save()
+	}
+}
+
 // stepFeedback Step 10: FEEDBACK - 生成用户反馈消息
 func (e *EvolverEngine) stepFeedback(result *EvolveResult) string {
 	if !result.ExperienceAdded {
@@ -547,13 +590,32 @@ func (e *EvolverEngine) GetContextForPrompt(query string) string {
 
 // GetStats 获取进化统计
 func (e *EvolverEngine) GetStats() map[string]interface{} {
-	return map[string]interface{}{
+	stats := map[string]interface{}{
 		"total_experiences":   e.experience.Count(),
 		"known_servers":       len(e.environment.KnownServers),
 		"total_queries":       len(e.environment.LastQueries),
 		"enabled":             e.enabled,
 		"min_steps_to_evolve": e.minSteps,
 	}
+	if e.factual != nil {
+		stats["factual_facts"] = e.factual.Count()
+	}
+	return stats
+}
+
+// GetFactualMemory 获取事实层记忆（供 MemoryInjector 使用）
+func (e *EvolverEngine) GetFactualMemory() *FactualMemory {
+	return e.factual
+}
+
+// GetExperienceMemory 获取经验层记忆
+func (e *EvolverEngine) GetExperienceMemory() *ExperienceMemory {
+	return e.experience
+}
+
+// GetEnvironmentMemory 获取环境层记忆
+func (e *EvolverEngine) GetEnvironmentMemory() *EnvironmentMemory {
+	return e.environment
 }
 
 // classifyTaskType 自动分类任务类型

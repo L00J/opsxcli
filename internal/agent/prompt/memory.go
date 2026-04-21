@@ -13,15 +13,25 @@ import (
 // MemoryInjector 记忆注入器
 // 负责从 Evolver 引擎获取记忆并格式化为 Prompt 上下文
 type MemoryInjector struct {
-	envMemory *evolver.EnvironmentMemory
-	expMemory *evolver.ExperienceMemory
+	envMemory   *evolver.EnvironmentMemory
+	expMemory   *evolver.ExperienceMemory
+	factMemory  *evolver.FactualMemory // v0.5.0: 事实层 (MEMORY.md + USER.md)
 }
 
 // NewMemoryInjector 创建记忆注入器
 func NewMemoryInjector(envMem *evolver.EnvironmentMemory, expMem *evolver.ExperienceMemory) *MemoryInjector {
 	return &MemoryInjector{
-		envMemory: envMem,
-		expMemory: expMem,
+		envMemory:  envMem,
+		expMemory:  expMem,
+	}
+}
+
+// NewMemoryInjectorWithFacts 创建带事实层的记忆注入器（v0.5.0 三层记忆架构）
+func NewMemoryInjectorWithFacts(envMem *evolver.EnvironmentMemory, expMem *evolver.ExperienceMemory, factMem *evolver.FactualMemory) *MemoryInjector {
+	return &MemoryInjector{
+		envMemory:  envMem,
+		expMemory:  expMem,
+		factMemory: factMem,
 	}
 }
 
@@ -34,7 +44,12 @@ func (m *MemoryInjector) BuildMemoryContext(query string) string {
 		return ""
 	}
 
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, 4)
+
+	// Layer 5.0: 事实层记忆（MEMORY.md + USER.md 持久化事实）
+	if facts := m.buildFactualContext(query); facts != "" {
+		parts = append(parts, facts)
+	}
 
 	// Layer 5.1: 经验提示（基于查询匹配）
 	if hint := m.buildExperienceHints(query); hint != "" {
@@ -56,6 +71,28 @@ func (m *MemoryInjector) BuildMemoryContext(query string) string {
 	}
 
 	return strings.Join(parts, "\n\n")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Layer 5.0: 事实层记忆注入（v0.5.0 三层记忆架构）
+// 从 MEMORY.md 和 USER.md 中提取持久化事实，注入 Prompt
+// ═══════════════════════════════════════════════════════════════
+func (m *MemoryInjector) buildFactualContext(query string) string {
+	if m.factMemory == nil {
+		return ""
+	}
+
+	// 使用 FactualMemory 的 BuildMemoryContext 生成上下文
+	ctx := m.factMemory.BuildMemoryContext()
+	if ctx == "" {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("🧠 已知事实:\n")
+	sb.WriteString(ctx)
+
+	return sb.String()
 }
 
 // ═══════════════════════════════════════════════════════════════
