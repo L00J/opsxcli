@@ -1,4 +1,4 @@
-# Busybox 命令集成规划
+# Builtin 内置命令规划
 
 ## 📋 目标
 
@@ -35,13 +35,13 @@
 - **高频运维命令**: Go 原生实现（如 ss、netstat、top、ifconfig）
 - **基础文件命令**: 转发到系统命令（如 ls、cp、mv、cat）
 
-## 📦 Busybox 命令分析
+## 📦 Builtin 命令分析
 
 根据 `/root/busybox命令.txt` 的内容：
 
 ### ✅ 已实现 (网络相关)
 
-| Busybox 命令 | opsxcli 对应 | 状态 |
+| Builtin 命令 | opsxcli 对应 | 状态 |
 |-------------|-------------|------|
 | ping | opsxcli ping | ✅ 已实现 |
 | traceroute | opsxcli traceroute | ✅ 已实现 |
@@ -102,11 +102,11 @@ date, time, sleep, watch, hwclock
 创建通用的命令转发机制：
 
 ```go
-// cmd/busybox.go
-func NewBusyboxCmd() *cobra.Command {
+// cmd/builtin.go
+func NewBuiltinCmd() *cobra.Command {
     cmd := &cobra.Command{
         Use:   "busybox [command] [args...]",
-        Short: "Busybox兼容命令（转发到系统命令）",
+        Short: "Builtin内置命令（转发到系统命令）",
         RunE: func(cmd *cobra.Command, args []string) error {
             if len(args) == 0 {
                 return fmt.Errorf("请指定要执行的命令")
@@ -257,6 +257,6 @@ opsxcli vim /etc/hosts
 
 打造一个 **18-20MB** 的全功能运维工具箱：
 - 保留 opsxcli 特色功能（TUI监控、SSH工具等）
-- 兼容 busybox 基础命令
-- 体积适中（比全量 busybox 稍大，但功能更强）
+- 兼容 builtin 基础命令
+- 体积适中（比全量 builtin 稍大，但功能更强）
 - 完全替代传统 Linux 工具链
