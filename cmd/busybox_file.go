@@ -18,7 +18,6 @@ func init() {
 	RegisterCommand("chown", "文件", "修改所有者", NewChownCmd)
 	RegisterCommand("ln", "文件", "创建链接", NewLnCmd)
 	RegisterCommand("cat", "文件", "查看文件内容", NewCatCmd)
-	RegisterCommand("tree", "文件", "目录树显示", NewTreeCmd)
 }
 
 // === 基本文件操作 ===
@@ -113,10 +112,6 @@ func NewRmdirCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&parents, "parents", "p", false, "删除目录及其祖先目录")
 	return cmd
-}
-
-func NewTreeCmd() *cobra.Command {
-	return createForwardCmd("tree", "树形显示目录结构", "以树形结构显示目录内容")
 }
 
 func NewTouchCmd() *cobra.Command {

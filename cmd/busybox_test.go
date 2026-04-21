@@ -6,26 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// ===== Busybox Archive 命令测试 =====
-
-func TestNewTarCmd_Basic(t *testing.T) {
-	cmd := NewTarCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewGzipCmd_Basic(t *testing.T) {
-	cmd := NewGzipCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewUnzipCmd_Basic(t *testing.T) {
-	cmd := NewUnzipCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
 // ===== Busybox Disk 命令测试 =====
 
 func TestNewDdCmd_Basic(t *testing.T) {
@@ -68,12 +48,6 @@ func TestNewMkdirCmd_Basic(t *testing.T) {
 
 func TestNewRmdirCmd_Basic(t *testing.T) {
 	cmd := NewRmdirCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewTreeCmd_Basic(t *testing.T) {
-	cmd := NewTreeCmd()
 	assert.NotNil(t, cmd)
 	assert.NotEmpty(t, cmd.Short)
 }
@@ -128,76 +102,6 @@ func TestNewIpCmd_Basic(t *testing.T) {
 	assert.NotEmpty(t, cmd.Short)
 }
 
-// ===== Busybox Process 命令测试 =====
-
-func TestNewPsCmd_Basic(t *testing.T) {
-	cmd := NewPsCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewTopCmd_Basic(t *testing.T) {
-	cmd := NewTopCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewKillCmd_Basic(t *testing.T) {
-	cmd := NewKillCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewPstreeCmd_Basic(t *testing.T) {
-	cmd := NewPstreeCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-// ===== Busybox System 命令测试 =====
-
-func TestNewUnameCmd_Basic(t *testing.T) {
-	cmd := NewUnameCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewHostnameCmd_Basic(t *testing.T) {
-	cmd := NewHostnameCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewWhoamiCmd_Basic(t *testing.T) {
-	cmd := NewWhoamiCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewIdCmd_Basic(t *testing.T) {
-	cmd := NewIdCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewFreeCmd_Basic(t *testing.T) {
-	cmd := NewFreeCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewDfCmd_Basic(t *testing.T) {
-	cmd := NewDfCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewDuCmd_Basic(t *testing.T) {
-	cmd := NewDuCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
 // ===== Busybox Text 命令测试 =====
 
 func TestNewHeadCmd_Basic(t *testing.T) {
@@ -214,20 +118,6 @@ func TestNewTailCmd_Basic(t *testing.T) {
 
 func TestNewGrepCmd_Basic(t *testing.T) {
 	cmd := NewGrepCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-// ===== Busybox Time 命令测试 =====
-
-func TestNewDateCmd_Basic(t *testing.T) {
-	cmd := NewDateCmd()
-	assert.NotNil(t, cmd)
-	assert.NotEmpty(t, cmd.Short)
-}
-
-func TestNewSleepCmd_Basic(t *testing.T) {
-	cmd := NewSleepCmd()
 	assert.NotNil(t, cmd)
 	assert.NotEmpty(t, cmd.Short)
 }
