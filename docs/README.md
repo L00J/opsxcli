@@ -1,6 +1,22 @@
 # opsxcli 工具文档
 
-## 快速导航
+## 设计文档（循序渐进阅读）
+
+| 编号 | 文档 | 核心内容 |
+|------|------|----------|
+| 01 | [项目概述与设计哲学](01-项目概述与设计哲学.md) | 项目定位、四大学计哲学、Agent 全景图 |
+| 02 | [整体架构设计](02-整体架构设计.md) | cmd/plugins/internal 三层架构详解 |
+| 03 | [Agent 核心引擎设计](03-Agent核心引擎设计.md) | ReAct 主循环、自适应检查点、16 轮迭代 |
+| 04 | [插件架构设计](04-插件架构设计.md) | 插件分类、注册机制、扩展规范 |
+| 05 | [Busybox 集成方案](05-Busybox集成方案.md) | 基础命令 Go 原生实现策略 |
+| 06 | [Prompt 构建与记忆注入](06-Prompt构建与记忆注入.md) | 五层 System Prompt + 动态记忆层 |
+| 07 | [Evolver 自进化引擎](07-Evolver自进化引擎.md) | 三层记忆、经验学习、自我进化 |
+| 08 | [安全系统与工具注册](08-安全系统与工具注册.md) | 风险评估、三级安全模式、Tool 接口扩展 |
+| 09 | [会话管理与 TUI 界面](09-会话管理与TUI界面.md) | JSONL 持久化、Bubble Tea 终端 UI |
+
+---
+
+## 命令文档
 
 ### 文件操作
 - [ls](ls.md) - 列出目录内容
@@ -61,11 +77,6 @@
 - [install](install.md) - 系统包管理器
 - [upgrade](upgrade.md) - 升级 opsxcli
 
-## 架构文档
-- [ARCHITECTURE](ARCHITECTURE.md) - 项目架构说明
-- [PLUGIN](PLUGIN_ARCHITECTURE.md) - 插件架构
-- [BUSYBOX](BUSYBOX_INTEGRATION.md) - Busybox 集成
-
 ## 使用示例
 
 ```bash
@@ -90,4 +101,8 @@ opsxcli redis -h 127.0.0.1
 
 # Docker 镜像加速
 opsxcli docker pull nginx:latest
+
+# Agent 智能运维
+opsxcli "内存使用率"
+opsxcli "检查 192.168.1.100 的磁盘空间"
 ```
