@@ -73,7 +73,7 @@ func TestNewCloudHostRegistry(t *testing.T) {
 		{Hostname: "host1", IP: "10.0.0.1"},
 		{Hostname: "host2", IP: "10.0.0.2"},
 	}
-	registry := NewCloudHostRegistry("http://consul:8500/", hosts, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://consul:8500/", hosts, 8080, 9100, "/metrics", false)
 	assert.NotNil(t, registry)
 	assert.Equal(t, "http://consul:8500", registry.consulURL) // trailing slash trimmed
 	assert.Equal(t, 8080, registry.appPort)
@@ -83,26 +83,26 @@ func TestNewCloudHostRegistry(t *testing.T) {
 }
 
 func TestNewCloudHostRegistry_EmptyHosts(t *testing.T) {
-	registry := NewCloudHostRegistry("http://localhost:8500", nil, 80, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://localhost:8500", nil, 80, 9100, "/metrics", false)
 	assert.NotNil(t, registry)
 	assert.Empty(t, registry.hosts)
 }
 
 func TestNewCloudHostRegistry_TrailingSlashTrimmed(t *testing.T) {
-	registry := NewCloudHostRegistry("http://consul:8500/", nil, 80, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://consul:8500/", nil, 80, 9100, "/metrics", false)
 	assert.NotNil(t, registry)
 	assert.Equal(t, "http://consul:8500", registry.consulURL)
 }
 
 func TestNewCloudHostRegistry_MultipleTrailingSlashes(t *testing.T) {
 	// TrimSuffix 只去掉一个 /，多余的保留
-	registry := NewCloudHostRegistry("http://consul:8500///", nil, 80, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://consul:8500///", nil, 80, 9100, "/metrics", false)
 	assert.NotNil(t, registry)
 	assert.Equal(t, "http://consul:8500//", registry.consulURL)
 }
 
 func TestNewCloudHostRegistry_HttpClient(t *testing.T) {
-	registry := NewCloudHostRegistry("http://consul:8500", nil, 80, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://consul:8500", nil, 80, 9100, "/metrics", false)
 	assert.NotNil(t, registry.httpClient)
 }
 
@@ -261,7 +261,7 @@ func TestCheckEndpoint_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	// 使用测试服务器的URL
@@ -276,7 +276,7 @@ func TestCheckEndpoint_NoExpectedText(t *testing.T) {
 	}))
 	defer server.Close()
 
-	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	// 不验证内容，只验证状态码
@@ -291,7 +291,7 @@ func TestCheckEndpoint_ExpectedTextNotMatch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	result := registry.checkEndpoint(server.URL+"/metrics", "system_cpu_usage")
@@ -304,7 +304,7 @@ func TestCheckEndpoint_Non200(t *testing.T) {
 	}))
 	defer server.Close()
 
-	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	result := registry.checkEndpoint(server.URL+"/metrics", "")
@@ -312,14 +312,14 @@ func TestCheckEndpoint_Non200(t *testing.T) {
 }
 
 func TestCheckEndpoint_ConnectionFailed(t *testing.T) {
-	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics", false)
 	// 使用一个不可达的地址
 	result := registry.checkEndpoint("http://127.0.0.1:1/metrics", "")
 	assert.False(t, result)
 }
 
 func TestCheckEndpoint_InvalidURL(t *testing.T) {
-	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://consul:8500", nil, 8080, 9100, "/metrics", false)
 	result := registry.checkEndpoint("://invalid-url", "")
 	assert.False(t, result)
 }
@@ -340,7 +340,7 @@ func TestRegisterService_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	registry := NewCloudHostRegistry(server.URL, nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry(server.URL, nil, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	err := registry.registerService("web01-app", "application", "192.168.1.10", 8080, "http://192.168.1.10:8080/metrics")
@@ -360,7 +360,7 @@ func TestRegisterService_ConsulError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	registry := NewCloudHostRegistry(server.URL, nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry(server.URL, nil, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	err := registry.registerService("web01-app", "application", "192.168.1.10", 8080, "http://192.168.1.10:8080/metrics")
@@ -369,7 +369,7 @@ func TestRegisterService_ConsulError(t *testing.T) {
 }
 
 func TestRegisterService_ConnectionFailed(t *testing.T) {
-	registry := NewCloudHostRegistry("http://127.0.0.1:1", nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://127.0.0.1:1", nil, 8080, 9100, "/metrics", false)
 	err := registry.registerService("web01-app", "application", "192.168.1.10", 8080, "http://192.168.1.10:8080/metrics")
 	assert.Error(t, err)
 }
@@ -384,7 +384,7 @@ func TestCleanFailedInstances_NoCritical(t *testing.T) {
 	}))
 	defer server.Close()
 
-	registry := NewCloudHostRegistry(server.URL, nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry(server.URL, nil, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	err := registry.CleanFailedInstances()
@@ -405,7 +405,7 @@ func TestCleanFailedInstances_WithCritical(t *testing.T) {
 	}))
 	defer server.Close()
 
-	registry := NewCloudHostRegistry(server.URL, nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry(server.URL, nil, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	err := registry.CleanFailedInstances()
@@ -421,7 +421,7 @@ func TestCleanFailedInstances_ConsulError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	registry := NewCloudHostRegistry(server.URL, nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry(server.URL, nil, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	err := registry.CleanFailedInstances()
@@ -430,7 +430,7 @@ func TestCleanFailedInstances_ConsulError(t *testing.T) {
 }
 
 func TestCleanFailedInstances_ConnectionFailed(t *testing.T) {
-	registry := NewCloudHostRegistry("http://127.0.0.1:1", nil, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry("http://127.0.0.1:1", nil, 8080, 9100, "/metrics", false)
 	err := registry.CleanFailedInstances()
 	assert.Error(t, err)
 }
@@ -446,7 +446,7 @@ func TestRegisterAppServices_SkipUnavailable(t *testing.T) {
 	defer server.Close()
 
 	hosts := []HostEntry{{Hostname: "host1", IP: "127.0.0.1"}}
-	registry := NewCloudHostRegistry(server.URL, hosts, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry(server.URL, hosts, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	// 不会 panic，只打印日志
@@ -465,7 +465,7 @@ func TestRegisterAppServices_AvailableAndRegister(t *testing.T) {
 	defer server.Close()
 
 	hosts := []HostEntry{{Hostname: "host1", IP: "127.0.0.1"}}
-	registry := NewCloudHostRegistry(server.URL, hosts, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry(server.URL, hosts, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	// 注意：checkEndpoint URL 使用 host.IP + appPort 而非 server URL，
@@ -482,7 +482,7 @@ func TestRegisterNodeExporters_Unavailable(t *testing.T) {
 	defer server.Close()
 
 	hosts := []HostEntry{{Hostname: "host1", IP: "127.0.0.1"}}
-	registry := NewCloudHostRegistry(server.URL, hosts, 8080, 9100, "/metrics")
+	registry := NewCloudHostRegistry(server.URL, hosts, 8080, 9100, "/metrics", false)
 	registry.httpClient = server.Client()
 
 	// 不会 panic

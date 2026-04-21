@@ -16,15 +16,16 @@ import (
 
 // BenchOptions holds configuration for the benchmark run.
 type BenchOptions struct {
-	URL         string
-	Method      string
-	Headers     map[string]string
-	Body        string
-	Concurrency int
-	Requests    int
-	Duration    time.Duration
-	Timeout     time.Duration
-	KeepAlive   bool
+	URL               string
+	Method            string
+	Headers           map[string]string
+	Body              string
+	Concurrency       int
+	Requests          int
+	Duration          time.Duration
+	Timeout           time.Duration
+	KeepAlive         bool
+	InsecureSkipVerify bool
 }
 
 // Result holds the aggregated benchmark results.
@@ -73,9 +74,9 @@ func Run(opts *BenchOptions) (*Result, error) {
 	// Determine mode: duration-based or request-count-based
 	useDuration := opts.Duration > 0
 
-	// Create HTTP client (disable TLS verification for convenience in testing)
+	// Create HTTP client (根据参数决定是否跳过TLS验证)
 	transport := &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: opts.InsecureSkipVerify},
 		MaxIdleConnsPerHost: opts.Concurrency,
 		DisableKeepAlives:   !opts.KeepAlive,
 	}

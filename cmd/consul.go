@@ -30,6 +30,7 @@ func NewConsulCmd() *cobra.Command {
 		appPort         int
 		nodeExpPort     int
 		skipNodeExporter bool
+		insecureSkipVerify bool
 	)
 
 	cmd := &cobra.Command{
@@ -77,16 +78,16 @@ Kubernetes 模式（默认）:
 			hasKubeconfig := cmd.Flags().Changed("kubeconfig")
 
 			if isCloudHostMode {
-				return runCloudHostMode(service, metricsPath, clean, hosts, hostsFile, appPort, nodeExpPort, skipNodeExporter)
+				return runCloudHostMode(service, metricsPath, clean, hosts, hostsFile, appPort, nodeExpPort, skipNodeExporter, insecureSkipVerify)
 			}
 
 			if clean && !hasKubeconfig {
 				// 仅清理，不需要 K8s 也不需要主机列表
-				return runCleanMode(service)
+				return runCleanMode(service, insecureSkipVerify)
 			}
 
 			// K8s 模式
-			return runK8sMode(kubeconfig, service, metricsPath, clean, clearCache)
+			return runK8sMode(kubeconfig, service, metricsPath, clean, clearCache, insecureSkipVerify)
 		},
 	}
 
@@ -105,6 +106,7 @@ Kubernetes 模式（默认）:
 	cmd.Flags().IntVar(&appPort, "app-port", 8080, "应用指标端口（云主机模式，默认8080）")
 	cmd.Flags().IntVar(&nodeExpPort, "node-exp-port", 9100, "node-exporter 端口（云主机模式，默认9100）")
 	cmd.Flags().BoolVar(&skipNodeExporter, "skip-node-exporter", false, "跳过 node-exporter 注册")
+	cmd.Flags().BoolVar(&insecureSkipVerify, "insecure", false, "跳过 TLS 证书验证（不推荐在生产环境使用）")
 
 	// 标记必需参数
 	cmd.MarkFlagRequired("service")
@@ -113,8 +115,8 @@ Kubernetes 模式（默认）:
 }
 
 // runK8sMode K8s 模式执行
-func runK8sMode(kubeconfig, service, metricsPath string, clean, clearCache bool) error {
-	monitor := kubernetes.NewKubernetesMonitor(kubeconfig, service, metricsPath, true)
+func runK8sMode(kubeconfig, service, metricsPath string, clean, clearCache bool, insecureSkipVerify bool) error {
+	monitor := kubernetes.NewKubernetesMonitor(kubeconfig, service, metricsPath, true, insecureSkipVerify)
 
 	if clearCache {
 		monitor.ClearCache()
@@ -128,16 +130,16 @@ func runK8sMode(kubeconfig, service, metricsPath string, clean, clearCache bool)
 }
 
 // runCleanMode 通用清理模式（只需 Consul URL，不依赖 K8s 或主机列表）
-func runCleanMode(consulURL string) error {
-	registry := cloudhost.NewCloudHostRegistry(consulURL, nil, 0, 0, "")
+func runCleanMode(consulURL string, insecureSkipVerify bool) error {
+	registry := cloudhost.NewCloudHostRegistry(consulURL, nil, 0, 0, "", insecureSkipVerify)
 	return registry.CleanFailedInstances()
 }
 
 // runCloudHostMode 云主机模式执行
-func runCloudHostMode(consulURL, metricsPath string, clean bool, hostArgs []string, hostsFile string, appPort, nodeExpPort int, skipNodeExporter bool) error {
+func runCloudHostMode(consulURL, metricsPath string, clean bool, hostArgs []string, hostsFile string, appPort, nodeExpPort int, skipNodeExporter bool, insecureSkipVerify bool) error {
 	// 仅清理模式（不需要主机列表）
 	if clean && len(hostArgs) == 0 && hostsFile == "" {
-		registry := cloudhost.NewCloudHostRegistry(consulURL, nil, appPort, nodeExpPort, metricsPath)
+		registry := cloudhost.NewCloudHostRegistry(consulURL, nil, appPort, nodeExpPort, metricsPath, insecureSkipVerify)
 		return registry.CleanFailedInstances()
 	}
 
@@ -165,7 +167,7 @@ func runCloudHostMode(consulURL, metricsPath string, clean bool, hostArgs []stri
 		fmt.Printf("  - %s → %s\n", h.Hostname, h.IP)
 	}
 
-	registry := cloudhost.NewCloudHostRegistry(consulURL, hostEntries, appPort, nodeExpPort, metricsPath)
+	registry := cloudhost.NewCloudHostRegistry(consulURL, hostEntries, appPort, nodeExpPort, metricsPath, insecureSkipVerify)
 
 	// 注册应用服务
 	registry.RegisterAppServices()

@@ -25,6 +25,7 @@ func NewBenchCmd() *cobra.Command {
 		headers     []string
 		timeout     time.Duration
 		jsonOutput  bool
+		insecure    bool
 	)
 
 	cmd := &cobra.Command{
@@ -51,15 +52,16 @@ func NewBenchCmd() *cobra.Command {
 			}
 
 			opts := &bench.BenchOptions{
-				URL:         url,
-				Method:      method,
-				Headers:     headerMap,
-				Body:        body,
-				Concurrency: concurrency,
-				Requests:    requests,
-				Duration:    duration,
-				Timeout:     timeout,
-				KeepAlive:   true,
+				URL:                url,
+				Method:             method,
+				Headers:            headerMap,
+				Body:               body,
+				Concurrency:        concurrency,
+				Requests:           requests,
+				Duration:           duration,
+				Timeout:            timeout,
+				KeepAlive:          true,
+				InsecureSkipVerify: insecure,
 			}
 
 			// Validate: Requests and Duration are mutually exclusive
@@ -127,6 +129,7 @@ func NewBenchCmd() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&headers, "header", "H", nil, "自定义 header (Key: Value)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "单请求超时时间")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "以 JSON 格式输出结果")
+	cmd.Flags().BoolVar(&insecure, "insecure", false, "跳过 TLS 证书验证")
 
 	return cmd
 }

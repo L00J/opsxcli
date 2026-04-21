@@ -52,7 +52,7 @@ type HealthCheckResult struct {
 }
 
 // NewKubernetesMonitor 创建新的监控器
-func NewKubernetesMonitor(kubeconfigPath, consulURL, metricsPath string, skipLocalCheck bool) *KubernetesMonitor {
+func NewKubernetesMonitor(kubeconfigPath, consulURL, metricsPath string, skipLocalCheck bool, insecureSkipVerify bool) *KubernetesMonitor {
 	// 创建 HTTP 客户端
 	k8sClient, err := NewK8sHTTPClient(kubeconfigPath)
 	if err != nil {
@@ -77,11 +77,11 @@ func NewKubernetesMonitor(kubeconfigPath, consulURL, metricsPath string, skipLoc
 	cacheDir := filepath.Join(os.TempDir(), "k8s_monitor_cache")
 	os.MkdirAll(cacheDir, 0755)
 
-	// 创建HTTP客户端（跳过TLS验证，10秒超时）
+	// 创建HTTP客户端（根据参数决定是否跳过TLS验证，10秒超时）
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
 		},
 	}
 

@@ -50,11 +50,11 @@ type CloudHostRegistry struct {
 }
 
 // NewCloudHostRegistry 创建云主机注册器
-func NewCloudHostRegistry(consulURL string, hosts []HostEntry, appPort, nodeExpPort int, metricsPath string) *CloudHostRegistry {
+func NewCloudHostRegistry(consulURL string, hosts []HostEntry, appPort, nodeExpPort int, metricsPath string, insecureSkipVerify bool) *CloudHostRegistry {
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
 		},
 	}
 	return &CloudHostRegistry{

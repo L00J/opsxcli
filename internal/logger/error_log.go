@@ -24,10 +24,16 @@ var (
 )
 
 // InitErrorLog 初始化错误日志文件
+// 注意：此函数内部获取 errorLogMu 锁，不可在持锁状态下调用。
 func InitErrorLog() error {
 	errorLogMu.Lock()
 	defer errorLogMu.Unlock()
 
+	return initErrorLogLocked()
+}
+
+// initErrorLogLocked 在已持锁状态下初始化错误日志文件
+func initErrorLogLocked() error {
 	// 获取临时目录（跨平台）
 	tmpDir := os.TempDir()
 
@@ -56,8 +62,8 @@ func LogErrorToFile(format string, v ...interface{}) {
 	defer errorLogMu.Unlock()
 
 	if errorLogFile == nil {
-		// 如果未初始化，尝试初始化
-		if err := InitErrorLog(); err != nil {
+		// 如果未初始化，尝试初始化（使用 locked 版本避免死锁）
+		if err := initErrorLogLocked(); err != nil {
 			// 如果初始化失败，只输出到stderr
 			fmt.Fprintf(os.Stderr, "[ERROR] %s\n", fmt.Sprintf(format, v...))
 			return
@@ -97,23 +103,18 @@ func LogErrorToFile(format string, v ...interface{}) {
 		fmt.Fprintf(os.Stderr, "[WARN] 刷新错误日志失败: %v\n", err)
 	}
 
-	// 检查文件大小，如果超过限制则轮转（需要在锁外执行，避免死锁）
+	// 检查文件大小，如果超过限制则轮转（在锁内执行）
 	fileSize := int64(0)
 	if info, err := errorLogFile.Stat(); err == nil {
 		fileSize = info.Size()
 	}
 
-	// 如果文件大小超过限制，需要轮转（在锁外执行）
-	needRotate := fileSize >= MaxErrorLogSize
-	if needRotate {
-		// 先释放锁，然后执行轮转
-		errorLogMu.Unlock()
-		if err := checkAndRotateLog(); err != nil {
+	// 如果文件大小超过限制，需要轮转（在锁内安全执行）
+	if fileSize >= MaxErrorLogSize {
+		if err := checkAndRotateLogLocked(); err != nil {
 			// 轮转失败不影响主流程，只记录到 stderr
 			fmt.Fprintf(os.Stderr, "[WARN] 日志轮转失败: %v\n", err)
 		}
-		// 重新获取锁（虽然函数即将返回，但为了保持一致性）
-		errorLogMu.Lock()
 	}
 }
 
@@ -141,11 +142,8 @@ func CloseErrorLog() {
 	}
 }
 
-// checkAndRotateLog 检查日志文件大小，如果超过限制则轮转（必须在锁外调用）
-func checkAndRotateLog() error {
-	errorLogMu.Lock()
-	defer errorLogMu.Unlock()
-
+// checkAndRotateLogLocked 检查日志文件大小，如果超过限制则轮转（必须在持锁状态下调用）
+func checkAndRotateLogLocked() error {
 	if errorLogFile == nil || errorLogPath == "" {
 		return nil
 	}
