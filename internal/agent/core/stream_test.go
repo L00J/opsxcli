@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -231,9 +232,35 @@ func TestRunStreamMaxIterations(t *testing.T) {
 
 	mockLLM := &mockStreamLLM{streamChunks: chunks}
 
-	agent := newTestAgent(t, mockLLM, registry)
-	// 限制最大迭代次数为 3
-	agent.config.MaxIterations = 3
+	// 使用 os.MkdirTemp 而非 t.TempDir()，避免 Evolver 异步写入导致 TempDir 清理失败
+	sessionDir, err := os.MkdirTemp("", "opsxcli-test-maxiter-*")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	t.Cleanup(func() {
+		// 重试清理，容忍 Evolver 异步文件写入的竞态
+		for i := 0; i < 3; i++ {
+			if err := os.RemoveAll(sessionDir); err == nil {
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	})
+
+	config := &Config{
+		MaxIterations:    3,
+		Temperature:      0.3,
+		ToolTimeout:      10 * time.Second,
+		MaxTokens:        1024,
+		SafetyMode:       SafetyModeBalanced,
+		SessionDir:       sessionDir,
+		AutoApprove:      true,
+		OutputMaxLength:  10000,
+		MaxContextTokens: 6000,
+	}
+	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
+	safetyCtl.SetAutoApprove(true)
+	agent := NewAgent(mockLLM, registry, config, safetyCtl)
 
 	ctx := context.Background()
 	var out strings.Builder
