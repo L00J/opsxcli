@@ -1,10 +1,14 @@
 package kubernetes
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // ========== resource.go 纯函数测试 ==========
@@ -552,6 +556,121 @@ func TestWriteYAML(t *testing.T) {
 		return nil, nil
 	}()
 	assert.NoError(t, statErr)
+}
+
+// ========== writeYAML 补充测试 ==========
+
+func TestWriteYAML_MultipleResources(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := tmpDir + "/multi.yaml"
+
+	// 多个资源应该用 --- 分隔
+	resources := []interface{}{
+		map[string]string{"app": "web"},
+		map[string]string{"app": "api"},
+		map[string]string{"app": "db"},
+	}
+
+	err := writeYAML(filename, resources)
+	require.NoError(t, err)
+
+	// 读取文件验证内容
+	data, err := os.ReadFile(filename)
+	require.NoError(t, err)
+	content := string(data)
+
+	// 应该包含 --- 分隔符（3个资源之间有2个分隔符）
+	assert.Contains(t, content, "---")
+	assert.Contains(t, content, "app: web")
+	assert.Contains(t, content, "app: api")
+	assert.Contains(t, content, "app: db")
+}
+
+func TestWriteYAML_InvalidPath(t *testing.T) {
+	// 无效路径应该返回错误
+	err := writeYAML("/nonexistent/dir/file.yaml", []interface{}{map[string]string{"key": "val"}})
+	assert.Error(t, err)
+}
+
+func TestWriteYAML_EmptyResources(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := tmpDir + "/empty.yaml"
+
+	// 空资源列表
+	err := writeYAML(filename, []interface{}{})
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filename)
+	require.NoError(t, err)
+	assert.Empty(t, string(data))
+}
+
+// ========== formatCPUValue 补充测试（非整数毫核） ==========
+
+func TestFormatCPUValue_NonIntegerMillis(t *testing.T) {
+	// 测试非整数毫核的情况（如 0.3333 cores -> 333.3m）
+	result := formatCPUValue(0.3333)
+	assert.Equal(t, "333.3m", result)
+
+	// 0.1515 cores -> 151.5m
+	result = formatCPUValue(0.1515)
+	assert.Equal(t, "151.5m", result)
+}
+
+// ========== formatMemoryValue 补充测试 ==========
+
+func TestFormatMemoryValue_NonInteger(t *testing.T) {
+	// 测试非整数 Mi 的情况
+	result := formatMemoryValue(100.5)
+	assert.Equal(t, "100.5 Mi", result)
+}
+
+// ========== ClearCache 错误路径测试 ==========
+
+func TestClearCache_InvalidDir(t *testing.T) {
+	// 使用一个不存在的 cacheDir，ClearCache 不应该 panic
+	m := &KubernetesMonitor{
+		cacheDir: "/nonexistent/path/for/test",
+	}
+	// 不应 panic
+	m.ClearCache()
+}
+
+// ========== loadCache 损坏JSON测试 ==========
+
+func TestLoadCache_InvalidJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	m := &KubernetesMonitor{
+		cacheDir: tmpDir,
+	}
+
+	// 手动创建一个损坏的 JSON 文件
+	cacheFile := filepath.Join(tmpDir, "bad.json")
+	err := os.WriteFile(cacheFile, []byte("not valid json{{{"), 0644)
+	require.NoError(t, err)
+
+	_, err = m.loadCache("bad")
+	assert.Error(t, err, "损坏的JSON应该返回错误")
+}
+
+// ========== isCacheValid 无expire字段测试 ==========
+
+func TestIsCacheValid_NoExpireField(t *testing.T) {
+	tmpDir := t.TempDir()
+	m := &KubernetesMonitor{
+		cacheDir: tmpDir,
+	}
+
+	// 创建一个没有 expire 字段的缓存
+	cacheFile := filepath.Join(tmpDir, "noexpire.json")
+	data := map[string]interface{}{"data": "test"}
+	jsonData, err := json.Marshal(data)
+	require.NoError(t, err)
+	err = os.WriteFile(cacheFile, jsonData, 0644)
+	require.NoError(t, err)
+
+	// 没有 expire 字段应该返回 false
+	assert.False(t, m.isCacheValid("noexpire"), "没有expire字段的缓存应该无效")
 }
 
 // ========== 结构体JSON序列化测试 ==========

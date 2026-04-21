@@ -80,9 +80,10 @@ test-coverage:
 	@go tool cover -func=coverage.out | tail -1
 	@echo ""
 	@THRESHOLD=30; \
-	COVERAGE=$$(go tool cover -func=coverage.out | tail -1 | grep -oP '\d+\.\d+'); \
+	COVERAGE=$$(go tool cover -func=coverage.out | tail -1 | awk '{print $$NF}' | sed 's/%//'); \
 	echo "门禁: $${THRESHOLD}% | 实际: $${COVERAGE}%"; \
-	if $$(echo "$$COVERAGE < $$THRESHOLD" | bc -l 2>/dev/null || echo "$$COVERAGE < $$THRESHOLD" | awk '{print ($$1 < $$2) ? "true" : "false"}'); then \
+	if [ "$$(echo "$$COVERAGE < $$THRESHOLD" | bc -l 2>/dev/null)" = "1" ] || \
+	   [ "$$(awk "BEGIN{print ($$COVERAGE < $$THRESHOLD) ? \"true\" : \"false\"")" = "true" ]; then \
 		echo "❌ 覆盖率低于门禁值 ($${THRESHOLD}%)"; \
 		exit 1; \
 	else \
