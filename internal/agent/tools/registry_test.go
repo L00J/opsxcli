@@ -82,10 +82,14 @@ func TestRegistry_RegisterDefaults(t *testing.T) {
 	r.RegisterDefaults()
 
 	list := r.List()
-	assert.Len(t, list, 6)
+	assert.Len(t, list, 8)
 
 	expectedNames := map[string]bool{
+		// v0.5.0 统一工具
+		"execute": true, "transfer": true,
+		// 旧工具（向后兼容）
 		"local_bash": true, "ssh_execute": true, "scp_transfer": true,
+		// 分析和文件工具
 		"analyze_output": true, "file_read": true, "file_search": true,
 	}
 	for _, tool := range list {

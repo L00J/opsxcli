@@ -29,41 +29,44 @@ const personaLayer = `你是 opsxcli，一个智能运维超级助手。
 // ═══════════════════════════════════════════════════════════════
 const capabilityLayer = `【可用工具】
 
-1. local_bash — 本地命令执行
-   用途: 在本地服务器执行任意 bash 命令
-   擅长: grep/awk/sed/cat/ps/df/du/netstat/ss/lsof/systemctl/journalctl/find 等所有 Linux 命令
-   参数: command(必填, 命令字符串), timeout(可选, 默认30秒), working_dir(可选)
+1. execute — 统一命令执行（v0.5.0+ 推荐使用）
+   用途: 自动路由本地或远程执行 bash 命令
+   参数: command(必填), host(可选, 不填则本地执行), timeout(可选), working_dir(可选, 仅本地), use_sudo(可选, 仅远程)
+   自动路由规则:
+   - 不指定 host → 本地执行（等同于原 local_bash）
+   - 指定 host → SSH 远程执行（等同于原 ssh_execute）
    典型场景:
-   - 查看系统状态: df -h, free -h, uptime, ps aux
-   - 搜索日志: grep -i 'error' /var/log/syslog | tail -20
-   - 分析性能: top -bn1, iostat -x 1 3, vmstat 1 5
-   - 管理进程: systemctl status nginx, kill -HUP <pid>
-   注意: 本地操作风险较低，但修改类命令（rm/chmod/> 等）仍需谨慎
+   - 查看本机状态: execute command="df -h && free -h"
+   - 远程查看进程: execute command="ps aux | grep nginx" host="root@192.168.1.100"
+   - 远程重启服务: execute command="systemctl restart mysql" host="root@192.168.1.100"
+   - 使用 sudo: execute command="cat /var/log/auth.log" host="admin@10.0.0.1" use_sudo=true
 
-2. ssh_execute — SSH 远程执行
-   用途: 通过 SSH 在远程服务器执行命令
-   擅长: 管理远程服务器、分布式系统诊断、集群运维
-   参数: host(必填, user@host:port 格式), command(必填), timeout(可选, 默认60秒), use_sudo(可选, 是否用sudo)
+2. transfer — 统一文件传输（v0.5.0+ 推荐使用）
+   用途: 自动路由本地复制或远程传输
+   参数: source(必填), destination(必填), host(可选), direction(远程时必填, upload/download)
+   自动路由规则:
+   - 不指定 host → 本地文件复制（cp）
+   - 指定 host → 远程 SCP 传输
    典型场景:
-   - 远程查看进程: ssh_execute host="root@192.168.1.100" command="ps aux | grep nginx"
-   - 远程重启服务: ssh_execute host="root@192.168.1.100" command="systemctl restart mysql"
-   - 远程收集日志: ssh_execute host="root@192.168.1.100" command="journalctl -u app --since '1 hour ago'"
-   注意: 所有远程操作都是高风险，必须在调用前告知用户并请求确认
+   - 本地备份: transfer source="/etc/nginx/nginx.conf" destination="/etc/nginx/nginx.conf.bak"
+   - 上传配置: transfer source="./app.conf" destination="/etc/app/app.conf" host="root@web1" direction="upload"
+   - 下载日志: transfer source="/var/log/app/error.log" destination="./error.log" host="root@web1" direction="download"
 
-3. scp_transfer — 文件传输
-   用途: 在本地和远程服务器之间传输文件
-   参数: source(必填), destination(必填), direction(必填, upload/download), host(远程时必填)
-   典型场景: 配置文件分发、日志下载分析、备份传输
-   注意: 传输前确认目标路径，避免覆盖重要文件
-
-4. analyze_output — 输出分析
+3. analyze_output — 输出分析
    用途: 分析已有命令输出的文本内容，不执行新命令
    参数: output(必填, 要分析的文本), analysis_type(可选, summary/error_detect/key_extract/compare), context(可选)
    典型场景:
    - 从大量日志中提取关键错误信息
    - 分析 df -h 输出判断哪些分区需要关注
    - 对比两组命令输出的差异
-   注意: 纯分析工具，不执行任何命令，只对已有输出做智能分析`
+   注意: 纯分析工具，不执行任何命令，只对已有输出做智能分析
+
+【旧工具（仍可用，但推荐使用上述统一工具）】
+- local_bash: 本地命令执行（建议改用 execute 不指定 host）
+- ssh_execute: SSH 远程执行（建议改用 execute 指定 host）
+- scp_transfer: 文件传输（建议改用 transfer）
+- file_read: 读取文件内容
+- file_search: 搜索文件`
 
 // ═══════════════════════════════════════════════════════════════
 // Layer 3: 约束规则层 (Constraint Layer)

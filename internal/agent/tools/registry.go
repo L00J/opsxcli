@@ -124,11 +124,19 @@ func (r *Registry) ToLLMTools() []llm.Tool {
 }
 
 // RegisterDefaults 注册默认工具集合
-// 注册所有 V2 Agent 核心工具：local_bash, ssh_execute, scp_transfer, analyze_output, file_read, file_search
+// v0.5.0+: 注册统一工具（execute/transfer）+ 保留旧工具（向后兼容）
+// LLM 优先使用 execute（替代 local_bash/ssh_execute）和 transfer（替代 scp_transfer）
 func (r *Registry) RegisterDefaults() {
+	// v0.5.0 统一工具（LLM 优先使用）
+	r.Register(NewUnifiedExecuteTool())
+	r.Register(NewUnifiedTransferTool())
+
+	// 保留旧工具（向后兼容，LLM 不再主动使用）
 	r.Register(NewLocalBashTool())
 	r.Register(NewSSHExecuteTool())
 	r.Register(NewSCPTransferTool())
+
+	// 分析和文件工具
 	r.Register(NewAnalyzeOutputTool())
 	r.Register(NewFileReadTool())
 	r.Register(NewFileSearchTool())
