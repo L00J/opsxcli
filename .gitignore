@@ -1,28 +1,25 @@
-# 构建产物
-opsxcli
-opsxcli.exe
-dist/
-*.tar.gz
-*.zip
-
-# 测试脚本（仅本地使用）
-test.sh
 
 # Go 相关
-*.test
+# IDE
+# 构建产物
+# 测试脚本（仅本地使用）
+# 系统文件
 *.out
 *.prof
-
-# IDE
+*.swo
+*.swp
+*.tar.gz
+*.test
+*.zip
+*~
+.DS_Store
 .idea/
 .vscode/
-*.swp
-*.swo
-*~
-
-# 系统文件
-.DS_Store
 Thumbs.db
 __pycache__
-
+coverage.out
+dist/
+opsxcli
+opsxcli.exe
+test.sh
 文件导出测试_*.json
