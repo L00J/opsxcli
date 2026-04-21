@@ -315,7 +315,7 @@ func searchFileNames(re *regexp.Regexp, searchPath string, info fs.FileInfo, fil
 		// 单文件检查
 		base := filepath.Base(searchPath)
 		if re.MatchString(base) {
-			if fileGlob == "" {
+			if fileGlob != "" {
 				matched, _ := filepath.Match(fileGlob, base)
 				if matched {
 					matches = append(matches, SearchMatch{File: searchPath})
