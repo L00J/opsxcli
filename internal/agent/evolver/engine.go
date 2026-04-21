@@ -26,14 +26,15 @@ type reflectionClient interface {
 
 // EvolverEngine 进化引擎核心
 type EvolverEngine struct {
-	experience  *ExperienceMemory   // 经验记忆层
-	environment *EnvironmentMemory  // 环境记忆层
-	factual     *FactualMemory      // v0.5.0: 事实层 (MEMORY.md + USER.md)
+	experience  *ExperienceMemory    // 经验记忆层
+	environment *EnvironmentMemory   // 环境记忆层
+	factual     *FactualMemory       // v0.5.0: 事实层 (MEMORY.md + USER.md)
+	procedural  *ProceduralMemory    // v0.5.0: 程序层 (SKILL_xxx.md)
 	mu          sync.RWMutex
-	baseDir     string              // 存储目录
-	minSteps    int                 // 触发 Evolver 的最小步数
-	enabled     bool                // 是否启用
-	llmClient   reflectionClient    // 可选的 LLM 客户端，用于反射分析
+	baseDir     string               // 存储目录
+	minSteps    int                  // 触发 Evolver 的最小步数
+	enabled     bool                 // 是否启用
+	llmClient   reflectionClient     // 可选的 LLM 客户端，用于反射分析
 }
 
 // TaskExecution 一次完整的任务执行记录（Evolver 的输入）
@@ -110,10 +111,17 @@ func NewEvolverEngine(baseDir string) (*EvolverEngine, error) {
 		factMemory = NewFactualMemory(baseDir)
 	}
 
+	// v0.5.0: 加载程序层记忆 (SKILL_xxx.md)
+	procMemory, procErr := LoadProceduralMemory(baseDir)
+	if procErr != nil {
+		procMemory = NewProceduralMemory(baseDir)
+	}
+
 	return &EvolverEngine{
 		experience:  expMemory,
 		environment: envMemory,
 		factual:     factMemory,
+		procedural:  procMemory,
 		baseDir:     baseDir,
 		minSteps:    2,      // 至少 2 步才触发 Evolver
 		enabled:     true,   // 默认启用
@@ -603,12 +611,17 @@ func (e *EvolverEngine) GetStats() map[string]interface{} {
 	return stats
 }
 
-// GetFactualMemory 获取事实层记忆（供 MemoryInjector 使用）
+// GetFactualMemory 获取事实层记忆
 func (e *EvolverEngine) GetFactualMemory() *FactualMemory {
 	return e.factual
 }
 
-// GetExperienceMemory 获取经验层记忆
+// GetProceduralMemory 获取程序层记忆
+func (e *EvolverEngine) GetProceduralMemory() *ProceduralMemory {
+	return e.procedural
+}
+
+// GetExperienceMemory 获取经验记忆
 func (e *EvolverEngine) GetExperienceMemory() *ExperienceMemory {
 	return e.experience
 }

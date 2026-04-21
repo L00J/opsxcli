@@ -85,7 +85,7 @@
 
 | 任务 | 说明 | 预估工时 | 状态 |
 |------|------|----------|------|
-| **三层记忆架构** | 事实层(MEMORY.md+USER.md) + 程序层(SKILL_xxx.md) + 历史层(events.jsonl) | 3天 | 📋 规划中 |
+|| **三层记忆架构** | 事实层(MEMORY.md+USER.md) ✅ + 程序层(SKILL_xxx.md) + 历史层(events.jsonl) | 3天 | 🔧 进行中 |
 | **种子Skill内置** | local_common_ops, install_software, risk_approval, network_diagnosis, basic_recovery | 3天 | 📋 规划中 |
 | **Skill自动提炼** | 复杂任务后(≥5次工具调用)自动提炼 SKILL.md | 2天 | 📋 规划中 |
 | **10步循环优化** | 仅复杂任务触发进化，简单任务跳过以节省Token | 1天 | 📋 规划中 |

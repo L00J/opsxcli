@@ -15,7 +15,8 @@ import (
 type MemoryInjector struct {
 	envMemory   *evolver.EnvironmentMemory
 	expMemory   *evolver.ExperienceMemory
-	factMemory  *evolver.FactualMemory // v0.5.0: 事实层 (MEMORY.md + USER.md)
+	factMemory  *evolver.FactualMemory     // v0.5.0: 事实层 (MEMORY.md + USER.md)
+	procMemory  *evolver.ProceduralMemory  // v0.5.0: 程序层 (SKILL_xxx.md)
 }
 
 // NewMemoryInjector 创建记忆注入器
@@ -35,6 +36,16 @@ func NewMemoryInjectorWithFacts(envMem *evolver.EnvironmentMemory, expMem *evolv
 	}
 }
 
+// NewMemoryInjectorFull 创建完整三层记忆注入器（v0.5.0: 事实+程序+经验+环境）
+func NewMemoryInjectorFull(envMem *evolver.EnvironmentMemory, expMem *evolver.ExperienceMemory, factMem *evolver.FactualMemory, procMem *evolver.ProceduralMemory) *MemoryInjector {
+	return &MemoryInjector{
+		envMemory:  envMem,
+		expMemory:  expMem,
+		factMemory: factMem,
+		procMemory: procMem,
+	}
+}
+
 // ═══════════════════════════════════════════════════════════════
 // BuildMemoryContext 构建完整的记忆上下文（三层融合）
 // 这是 Layer 5 动态记忆层的核心数据源
@@ -44,7 +55,7 @@ func (m *MemoryInjector) BuildMemoryContext(query string) string {
 		return ""
 	}
 
-	parts := make([]string, 0, 4)
+	parts := make([]string, 0, 5)
 
 	// Layer 5.0: 事实层记忆（MEMORY.md + USER.md 持久化事实）
 	if facts := m.buildFactualContext(query); facts != "" {
@@ -54,6 +65,11 @@ func (m *MemoryInjector) BuildMemoryContext(query string) string {
 	// Layer 5.1: 经验提示（基于查询匹配）
 	if hint := m.buildExperienceHints(query); hint != "" {
 		parts = append(parts, hint)
+	}
+
+	// Layer 5.1.5: 程序层技能匹配（v0.5.0: SKILL_xxx.md 匹配）
+	if skills := m.buildProceduralContext(query); skills != "" {
+		parts = append(parts, skills)
 	}
 
 	// Layer 5.2: 环境上下文（已知服务器 + 常用路径）
@@ -98,6 +114,58 @@ func (m *MemoryInjector) buildFactualContext(query string) string {
 // ═══════════════════════════════════════════════════════════════
 // Layer 5.1: 经验提示注入
 // 根据查询内容匹配相关经验，生成最佳实践提示
+// ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// Layer 5.1.5: 程序层技能注入（v0.5.0 三层记忆架构）
+// 从 SKILL_xxx.md 中匹配相关技能，注入操作步骤和注意事项
+// ═══════════════════════════════════════════════════════════════
+func (m *MemoryInjector) buildProceduralContext(query string) string {
+	if m.procMemory == nil {
+		return ""
+	}
+
+	// 查找匹配的技能
+	skills := m.procMemory.FindMatchingSkills(query)
+	if len(skills) == 0 {
+		return ""
+	}
+
+	// 最多注入前 2 个最相关技能
+	if len(skills) > 2 {
+		skills = skills[:2]
+	}
+
+	var sb strings.Builder
+	sb.WriteString("📚 已习得技能:\n")
+
+	for _, skill := range skills {
+		sb.WriteString(fmt.Sprintf("   🔹 %s (v%d, 成功率%.0f%%, 使用%d次)\n",
+			skill.Name, skill.Version, skill.SuccessRate*100, skill.UsageCount))
+		if skill.Description != "" {
+			sb.WriteString(fmt.Sprintf("      %s\n", skill.Description))
+		}
+		if len(skill.Steps) > 0 {
+			sb.WriteString("      步骤:\n")
+			maxSteps := 5
+			if len(skill.Steps) < maxSteps {
+				maxSteps = len(skill.Steps)
+			}
+			for i := 0; i < maxSteps; i++ {
+				sb.WriteString(fmt.Sprintf("      %d. %s\n", i+1, skill.Steps[i]))
+			}
+			if len(skill.Steps) > 5 {
+				sb.WriteString(fmt.Sprintf("      ... (共%d步)\n", len(skill.Steps)))
+			}
+		}
+		if len(skill.Pitfalls) > 0 {
+			sb.WriteString(fmt.Sprintf("      ⚠️ 注意: %s\n", skill.Pitfalls[0]))
+		}
+	}
+
+	return sb.String()
+}
+
 // ═══════════════════════════════════════════════════════════════
 func (m *MemoryInjector) buildExperienceHints(query string) string {
 	if m.expMemory == nil {
