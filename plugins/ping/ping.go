@@ -13,42 +13,116 @@ const (
 	DefaultTimeout  = 3 * time.Second
 )
 
-// Ping 执行ping操作
-func Ping(host string, count int, interval, timeout time.Duration) error {
+// resolveIPv4 解析主机名并返回第一个 IPv4 地址
+func resolveIPv4(host string) (net.IP, error) {
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return nil, fmt.Errorf("无法解析主机: %v", err)
+	}
+
+	for _, candidate := range ips {
+		if candidate.To4() != nil {
+			return candidate, nil
+		}
+	}
+
+	return nil, fmt.Errorf("无法找到IPv4地址")
+}
+
+// calcPacketLoss 计算丢包率百分比
+func calcPacketLoss(sent, received int) float64 {
+	if sent == 0 {
+		return 0.0
+	}
+	return float64(sent-received) / float64(sent) * 100
+}
+
+// timeStats 时间统计结果
+type timeStats struct {
+	Min time.Duration
+	Max time.Duration
+	Avg time.Duration
+}
+
+// calcTimeStats 从一组时间中计算 min/max/avg
+func calcTimeStats(times []time.Duration) timeStats {
+	if len(times) == 0 {
+		return timeStats{}
+	}
+
+	minTime := times[0]
+	maxTime := times[0]
+	total := time.Duration(0)
+
+	for _, d := range times {
+		if d < minTime {
+			minTime = d
+		}
+		if d > maxTime {
+			maxTime = d
+		}
+		total += d
+	}
+
+	return timeStats{
+		Min: minTime,
+		Max: maxTime,
+		Avg: total / time.Duration(len(times)),
+	}
+}
+
+// toMillis 将 time.Duration 转换为毫秒（float64）
+func toMillis(d time.Duration) float64 {
+	return float64(d.Nanoseconds()) / 1e6
+}
+
+// formatResultLine 格式化单次 ping 结果行
+func formatResultLine(ip string, seq int, elapsed time.Duration) string {
+	return fmt.Sprintf("%d bytes from %s: seq=%d time=%.3f ms",
+		64, ip, seq, toMillis(elapsed))
+}
+
+// formatStatsSummary 格式化统计摘要
+func formatStatsSummary(host string, sent, received int, minTime, avgTime, maxTime time.Duration) string {
+	loss := calcPacketLoss(sent, received)
+
+	result := fmt.Sprintf("\n--- %s ping statistics ---\n", host)
+	result += fmt.Sprintf("%d packets transmitted, %d received, %.1f%% packet loss\n",
+		sent, received, loss)
+	if received > 0 {
+		result += fmt.Sprintf("rtt min/avg/max = %.3f/%.3f/%.3f ms\n",
+			toMillis(minTime), toMillis(avgTime), toMillis(maxTime))
+	}
+	return result
+}
+
+// normalizeDurations 将零值的 interval 和 timeout 替换为默认值
+func normalizeDurations(interval, timeout time.Duration) (time.Duration, time.Duration) {
 	if interval == 0 {
 		interval = DefaultInterval
 	}
 	if timeout == 0 {
 		timeout = DefaultTimeout
 	}
+	return interval, timeout
+}
+
+// Ping 执行ping操作
+func Ping(host string, count int, interval, timeout time.Duration) error {
+	interval, timeout = normalizeDurations(interval, timeout)
 
 	// 解析主机地址
-	ips, err := net.LookupIP(host)
+	ip, err := resolveIPv4(host)
 	if err != nil {
 		logger.Error("Ping无法解析主机 %s: %v", host, err)
-		return fmt.Errorf("无法解析主机: %v", err)
-	}
-
-	var ip net.IP
-	for _, candidate := range ips {
-		if candidate.To4() != nil {
-			ip = candidate
-			break
-		}
-	}
-
-	if ip == nil {
-		logger.Error("Ping无法找到 %s 的IPv4地址", host)
-		return fmt.Errorf("无法找到IPv4地址")
+		return err
 	}
 
 	fmt.Printf("PING %s (%s):\n", host, ip.String())
 
 	sent := 0
 	received := 0
-	minTime := time.Duration(0)
-	maxTime := time.Duration(0)
-	totalTime := time.Duration(0)
+	var elapsedTimes []time.Duration
 
 	for {
 		sent++
@@ -72,17 +146,9 @@ func Ping(host string, count int, interval, timeout time.Duration) error {
 
 		elapsed := time.Since(start)
 		received++
+		elapsedTimes = append(elapsedTimes, elapsed)
 
-		if minTime == 0 || elapsed < minTime {
-			minTime = elapsed
-		}
-		if elapsed > maxTime {
-			maxTime = elapsed
-		}
-		totalTime += elapsed
-
-		fmt.Printf("%d bytes from %s: seq=%d time=%.3f ms\n",
-			64, ip.String(), sent, float64(elapsed.Nanoseconds())/1e6)
+		fmt.Println(formatResultLine(ip.String(), sent, elapsed))
 
 		if count > 0 && sent >= count {
 			break
@@ -92,18 +158,8 @@ func Ping(host string, count int, interval, timeout time.Duration) error {
 	}
 
 	// 统计信息
-	loss := float64(sent-received) / float64(sent) * 100
-	avgTime := totalTime / time.Duration(received)
-
-	fmt.Printf("\n--- %s ping statistics ---\n", host)
-	fmt.Printf("%d packets transmitted, %d received, %.1f%% packet loss\n",
-		sent, received, loss)
-	if received > 0 {
-		fmt.Printf("rtt min/avg/max = %.3f/%.3f/%.3f ms\n",
-			float64(minTime.Nanoseconds())/1e6,
-			float64(avgTime.Nanoseconds())/1e6,
-			float64(maxTime.Nanoseconds())/1e6)
-	}
+	stats := calcTimeStats(elapsedTimes)
+	fmt.Print(formatStatsSummary(host, sent, received, stats.Min, stats.Avg, stats.Max))
 
 	return nil
 }
