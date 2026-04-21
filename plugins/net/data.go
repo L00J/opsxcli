@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/v3/net"
+
+	"opsxcli/plugins/netstat"
 )
 
 // DataCollector 数据收集器(重新设计,专注流量监控)
@@ -190,6 +192,17 @@ func (dc *DataCollector) collect() *NetworkData {
 			PacketsRecv: v.PacketsRecv,
 			Timestamp:   v.Timestamp,
 		}
+	}
+
+	// 采集连接数据（每次 tick 采集一次，而非每帧调用 lsof）
+	data.CachedConnections = make([]netstat.SsConnection, 0)
+	data.CachedConnections = append(data.CachedConnections, netstat.ReadTCPConnectionsWithPrograms(false, true, false)...)
+	data.CachedConnections = append(data.CachedConnections, netstat.ReadUDPConnectionsWithPrograms(false, true, false)...)
+
+	// 统计连接状态
+	data.ConnectionStats = make(map[string]int)
+	for _, conn := range data.CachedConnections {
+		data.ConnectionStats[conn.State]++
 	}
 
 	return data

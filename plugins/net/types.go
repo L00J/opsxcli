@@ -2,6 +2,8 @@ package net
 
 import (
 	"time"
+
+	"opsxcli/plugins/netstat"
 )
 
 // TabType 标签页类型
@@ -97,6 +99,10 @@ type NetworkData struct {
 	TotalPacketsRecv uint64
 	TotalErrors      uint64
 	TotalDrops       uint64
+
+	// 连接数据缓存（由 DataCollector 定时采集，而非每帧调用）
+	CachedConnections []netstat.SsConnection
+	ConnectionStats   map[string]int // 按状态统计的连接数
 
 	// 时间戳
 	UpdateTime time.Time

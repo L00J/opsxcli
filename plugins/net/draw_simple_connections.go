@@ -11,7 +11,7 @@ import (
 )
 
 // drawSimpleConnections 绘制连接追踪界面(使用ss模块，高性能)
-func drawSimpleConnections(screen tcell.Screen, tracker *SimpleConnectionTracker, width, height int) {
+func drawSimpleConnections(screen tcell.Screen, tracker *SimpleConnectionTracker, connections []netstat.SsConnection, width, height int) {
 	y := 4
 
 	// 绘制边框
@@ -19,10 +19,10 @@ func drawSimpleConnections(screen tcell.Screen, tracker *SimpleConnectionTracker
 
 	contentY := y + 2
 
-	// 使用ss模块获取连接（显示所有TCP和UDP连接，不包括LISTEN状态）
-	connections := getActiveConnectionsFromSS()
+	// 使用缓存的连接数据
+	activeConnections := getActiveConnectionsFromSS(connections)
 
-	if len(connections) == 0 {
+	if len(activeConnections) == 0 {
 		drawText(screen, 4, contentY, "暂无活跃连接...", ui.ColorMuted)
 		return
 	}
@@ -42,13 +42,13 @@ func drawSimpleConnections(screen tcell.Screen, tracker *SimpleConnectionTracker
 
 	// 显示连接列表
 	maxRows := height - contentY - 2
-	displayCount := len(connections)
+	displayCount := len(activeConnections)
 	if displayCount > maxRows {
 		displayCount = maxRows
 	}
 
 	for i := 0; i < displayCount; i++ {
-		conn := connections[i]
+		conn := activeConnections[i]
 
 		// 格式化本地地址
 		localAddr := fmt.Sprintf("%s:%d", conn.LocalAddr, conn.LocalPort)
@@ -90,25 +90,15 @@ func drawSimpleConnections(screen tcell.Screen, tracker *SimpleConnectionTracker
 	ui.DrawDoubleHorizontalLine(screen, 3, statsY-1, width-6, ui.ColorSecondary)
 
 	stats := fmt.Sprintf(" 活跃连接: %d | 提示: 使用ss模块高性能读取 /proc/net (无需root权限)",
-		len(connections))
+		len(activeConnections))
 	drawText(screen, 4, statsY, stats, ui.ColorInfo)
 }
 
-// getActiveConnectionsFromSS 使用ss模块获取活跃连接
-func getActiveConnectionsFromSS() []netstat.SsConnection {
-	// 读取TCP和UDP连接，排除LISTEN状态（只显示活跃连接）
-	// listen=false, all=true 表示显示所有非LISTEN状态的连接
-	tcpConns := netstat.ReadTCPConnectionsWithPrograms(false, true, false)
-	udpConns := netstat.ReadUDPConnectionsWithPrograms(false, true, false)
-
-	// 合并连接
-	connections := make([]netstat.SsConnection, 0, len(tcpConns)+len(udpConns))
-	connections = append(connections, tcpConns...)
-	connections = append(connections, udpConns...)
-
+// getActiveConnectionsFromSS 从缓存的连接数据中过滤活跃连接
+func getActiveConnectionsFromSS(allConnections []netstat.SsConnection) []netstat.SsConnection {
 	// 过滤掉LISTEN状态的连接，只显示活跃连接
 	activeConnections := make([]netstat.SsConnection, 0)
-	for _, conn := range connections {
+	for _, conn := range allConnections {
 		if conn.State != "LISTEN" {
 			activeConnections = append(activeConnections, conn)
 		}

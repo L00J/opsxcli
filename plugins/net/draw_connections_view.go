@@ -29,13 +29,8 @@ type TrafficStat struct {
 }
 
 // drawConnectionsDashboard 绘制连接综合仪表板
-func drawConnectionsDashboard(screen tcell.Screen, width, height int, trafficHistory map[string]*TrafficHistoryEntry, updateFunc func([]*TrafficHistoryEntry)) {
+func drawConnectionsDashboard(screen tcell.Screen, width, height int, connections []netstat.SsConnection, trafficHistory map[string]*TrafficHistoryEntry, updateFunc func([]*TrafficHistoryEntry)) {
 	y := 4
-
-	// 获取所有连接数据
-	var connections []netstat.SsConnection
-	connections = append(connections, netstat.ReadTCPConnectionsWithPrograms(false, true, false)...)
-	connections = append(connections, netstat.ReadUDPConnectionsWithPrograms(false, true, false)...)
 
 	if len(connections) == 0 {
 		ui.DrawBox(screen, 2, y, width-4, height-y-2, " 连接监控 ", ui.ColorSecondary)

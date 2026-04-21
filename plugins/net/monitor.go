@@ -52,6 +52,7 @@ func NewNetMonitor() *NetMonitor {
 			InterfaceTraffic: make(map[string]*InterfaceTraffic),
 			LastStats:        make(map[string]*NetStats),
 			CurrentStats:     make(map[string]*NetStats),
+			ConnectionStats:  make(map[string]int),
 		},
 		ctx:            ctx,
 		cancel:         cancel,
@@ -117,10 +118,11 @@ func (n *NetMonitor) Draw(screen tcell.Screen) error {
 		drawRealtime(screen, data, selectedIf, n.width, n.height)
 	case TabConnections:
 		// 连接综合仪表板(TIME_WAIT TOP + 并发IP TOP + 流量TOP)
+		activeConns := getActiveConnectionsFromSS(data.CachedConnections)
 		n.mu.RLock()
 		trafficHistory := n.trafficHistory
 		n.mu.RUnlock()
-		drawConnectionsDashboard(screen, n.width, n.height, trafficHistory, n.updateTrafficHistory)
+		drawConnectionsDashboard(screen, n.width, n.height, activeConns, trafficHistory, n.updateTrafficHistory)
 	case TabStatistics:
 		// 流量统计(累计统计、质量指标)
 		drawStatistics(screen, data, selectedIf, n.width, n.height)

@@ -85,10 +85,15 @@ func (dc *DataCollector) collectCPUData() cpuDataResult {
 	// 保存当前数据作为下次的基准
 	dc.lastCPUTimes = currentTimes
 
+	cores, _ := cpu.Counts(true)
+	if cores == 0 {
+		cores = len(currentTimes)
+	}
+
 	return cpuDataResult{
 		cpuTimes:   stats,
 		cpuPercent: percentages,
-		cpuCores:   len(percentages),
+		cpuCores:   cores,
 	}
 }
 

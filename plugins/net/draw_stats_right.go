@@ -7,7 +7,6 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"opsxcli/internal/ui"
-	"opsxcli/plugins/netstat"
 )
 
 // drawRightPanel 绘制右侧面板(所有接口流量TOP)
@@ -103,15 +102,4 @@ func formatNumber(n uint64) string {
 		return fmt.Sprintf("%.1fM", float64(n)/1000000)
 	}
 	return fmt.Sprintf("%.1fG", float64(n)/1000000000)
-}
-
-// getConnectionStats 获取实时连接统计
-func getConnectionStats() map[string]int {
-	stats := make(map[string]int)
-	connections := []netstat.SsConnection{}
-	connections = append(connections, netstat.ReadTCPConnectionsWithPrograms(false, true, false)...)
-	for _, conn := range connections {
-		stats[conn.State]++
-	}
-	return stats
 }

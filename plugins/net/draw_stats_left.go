@@ -39,7 +39,7 @@ func drawLeftPanel(screen tcell.Screen, data *NetworkData, x, y, width, height i
 	}
 
 	contentY = drawSpeedSection(screen, data, x, contentY, width, totalSendRate, totalRecvRate, peakSendRate, peakRecvRate)
-	contentY = drawConnectionSection(screen, x, contentY, width)
+	contentY = drawConnectionSection(screen, x, contentY, width, data.ConnectionStats)
 	contentY = drawCumulativeSection(screen, data, x, contentY, width, uptime)
 	contentY = drawQualitySection(screen, data, x, contentY, width)
 }
@@ -82,15 +82,13 @@ func drawSpeedSection(screen tcell.Screen, data *NetworkData, x, contentY, width
 }
 
 // drawConnectionSection 绘制连接统计区域
-func drawConnectionSection(screen tcell.Screen, x, contentY, width int) int {
+func drawConnectionSection(screen tcell.Screen, x, contentY, width int, connectionStats map[string]int) int {
 	drawText(screen, x+2, contentY, "连接统计:", ui.ColorAccent)
 	contentY++
 
-	connections := getConnectionStats()
-
 	// 活跃连接
 	drawText(screen, x+2, contentY, "活跃连接:", ui.ColorAccent)
-	establishedCount := connections["ESTABLISHED"]
+	establishedCount := connectionStats["ESTABLISHED"]
 	connColor := ui.ColorText
 	if establishedCount > 1000 {
 		connColor = ui.ColorDanger
@@ -102,7 +100,7 @@ func drawConnectionSection(screen tcell.Screen, x, contentY, width int) int {
 
 	// TIME_WAIT
 	drawText(screen, x+2, contentY, "TIME_WAIT:", ui.ColorAccent)
-	timewaitCount := connections["TIME_WAIT"]
+	timewaitCount := connectionStats["TIME_WAIT"]
 	twColor := ui.ColorText
 	if timewaitCount > 5000 {
 		twColor = ui.ColorDanger
@@ -114,7 +112,7 @@ func drawConnectionSection(screen tcell.Screen, x, contentY, width int) int {
 
 	// 监听端口
 	drawText(screen, x+2, contentY, "监听端口:", ui.ColorAccent)
-	drawText(screen, x+14, contentY, formatNumber(uint64(connections["LISTEN"])), ui.ColorText)
+	drawText(screen, x+14, contentY, formatNumber(uint64(connectionStats["LISTEN"])), ui.ColorText)
 	contentY += 2
 
 	ui.DrawHorizontalLine(screen, x, contentY, width, ui.ColorSecondary)
