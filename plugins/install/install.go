@@ -19,6 +19,90 @@ type OSInfo struct {
 	PrettyName string // 如: CentOS Linux 7 (Core)
 }
 
+// parseOSReleaseLines 解析 os-release/redhat-release/debian_version 文件内容为 OSInfo
+// 纯函数，不依赖文件系统，可单元测试
+func parseOSReleaseLines(content, filePath string) (*OSInfo, error) {
+	info := &OSInfo{}
+
+	// 处理 /etc/redhat-release (旧版 CentOS/RHEL)
+	if strings.Contains(filePath, "redhat-release") {
+		lines := strings.Split(content, "\n")
+		if len(lines) == 0 {
+			return nil, fmt.Errorf("无法识别操作系统类型")
+		}
+		line := lines[0]
+		if strings.Contains(strings.ToLower(line), "centos") {
+			info.ID = "centos"
+			// 尝试提取版本号
+			if strings.Contains(line, "7") {
+				info.VersionID = "7"
+			} else if strings.Contains(line, "6") {
+				info.VersionID = "6"
+			}
+			info.PrettyName = line
+			return info, nil
+		}
+		if strings.Contains(strings.ToLower(line), "red hat") {
+			info.ID = "rhel"
+			info.PrettyName = line
+			return info, nil
+		}
+		return nil, fmt.Errorf("无法识别操作系统类型")
+	}
+
+	// 处理 /etc/debian_version (Debian)
+	if strings.Contains(filePath, "debian_version") {
+		version := strings.TrimSpace(content)
+		if version == "" {
+			return nil, fmt.Errorf("无法识别操作系统类型")
+		}
+		// 取第一行
+		if idx := strings.Index(version, "\n"); idx >= 0 {
+			version = version[:idx]
+		}
+		info.ID = "debian"
+		info.VersionID = version
+		info.PrettyName = fmt.Sprintf("Debian %s", version)
+		return info, nil
+	}
+
+	// 处理 /etc/os-release 或 /usr/lib/os-release (标准格式)
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		// 移除引号
+		value = strings.Trim(value, `"`)
+
+		switch key {
+		case "ID":
+			info.ID = strings.ToLower(value)
+		case "VERSION_ID":
+			info.VersionID = value
+		case "NAME":
+			info.Name = value
+		case "PRETTY_NAME":
+			info.PrettyName = value
+		}
+	}
+
+	if info.ID == "" {
+		return nil, fmt.Errorf("无法识别操作系统类型")
+	}
+
+	return info, nil
+}
+
 // DetectOS 检测操作系统类型
 func DetectOS() (*OSInfo, error) {
 	// 支持 Linux 和 macOS
@@ -60,75 +144,18 @@ func DetectOS() (*OSInfo, error) {
 	}
 	defer file.Close()
 
-	info := &OSInfo{}
+	// 读取文件内容
+	var content strings.Builder
 	scanner := bufio.NewScanner(file)
-
-	// 处理 /etc/redhat-release (旧版 CentOS/RHEL)
-	if strings.Contains(osReleasePath, "redhat-release") {
-		scanner.Scan()
-		line := scanner.Text()
-		if strings.Contains(strings.ToLower(line), "centos") {
-			info.ID = "centos"
-			// 尝试提取版本号
-			if strings.Contains(line, "7") {
-				info.VersionID = "7"
-			} else if strings.Contains(line, "6") {
-				info.VersionID = "6"
-			}
-			info.PrettyName = line
-			return info, nil
-		}
-		if strings.Contains(strings.ToLower(line), "red hat") {
-			info.ID = "rhel"
-			info.PrettyName = line
-			return info, nil
-		}
-	}
-
-	// 处理 /etc/debian_version (Debian)
-	if strings.Contains(osReleasePath, "debian_version") {
-		scanner.Scan()
-		version := strings.TrimSpace(scanner.Text())
-		info.ID = "debian"
-		info.VersionID = version
-		info.PrettyName = fmt.Sprintf("Debian %s", version)
-		return info, nil
-	}
-
-	// 处理 /etc/os-release (标准格式)
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-		// 移除引号
-		value = strings.Trim(value, `"`)
-
-		switch key {
-		case "ID":
-			info.ID = strings.ToLower(value)
-		case "VERSION_ID":
-			info.VersionID = value
-		case "NAME":
-			info.Name = value
-		case "PRETTY_NAME":
-			info.PrettyName = value
-		}
+		content.WriteString(scanner.Text())
+		content.WriteString("\n")
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("读取系统版本信息失败: %v", err)
 	}
 
-	if info.ID == "" {
-		return nil, fmt.Errorf("无法识别操作系统类型")
-	}
-
-	return info, nil
+	return parseOSReleaseLines(content.String(), osReleasePath)
 }
 
 // GetPackageManager 根据操作系统获取包管理器命令
