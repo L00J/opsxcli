@@ -443,3 +443,209 @@ func TestNewControllerWithAudit_emptyPath(t *testing.T) {
 		t.Error("auditLog should be nil when path is empty")
 	}
 }
+
+// mockDynamicRiskTool 实现 DynamicRiskTool 接口的 mock 工具
+type mockDynamicRiskTool struct {
+	mockTool
+	riskForArgs func(args map[string]interface{}) tools.RiskLevel
+}
+
+func (m *mockDynamicRiskTool) RiskLevelForArgs(args map[string]interface{}) tools.RiskLevel {
+	if m.riskForArgs != nil {
+		return m.riskForArgs(args)
+	}
+	return m.riskLevel
+}
+
+// TestController_Check_dynamicRisk 测试 DynamicRiskTool 接口动态风险评估
+func TestController_Check_dynamicRisk(t *testing.T) {
+	tests := []struct {
+		name      string
+		mode      SafetyMode
+		riskFn    func(args map[string]interface{}) tools.RiskLevel
+		args      map[string]interface{}
+		wantApproved bool
+	}{
+		{
+			name: "balanced模式_只读命令_自动通过",
+			mode: SafetyModeBalanced,
+			riskFn: func(args map[string]interface{}) tools.RiskLevel {
+				return tools.RiskSafe
+			},
+			args:      map[string]interface{}{"command": "ls -la"},
+			wantApproved: true,
+		},
+		{
+			name: "balanced模式_中等风险_自动通过",
+			mode: SafetyModeBalanced,
+			riskFn: func(args map[string]interface{}) tools.RiskLevel {
+				return tools.RiskMedium
+			},
+			args:      map[string]interface{}{"command": "echo hello"},
+			wantApproved: true,
+		},
+		{
+			name: "balanced模式_高风险_需要确认",
+			mode: SafetyModeBalanced,
+			riskFn: func(args map[string]interface{}) tools.RiskLevel {
+				return tools.RiskHigh
+			},
+			args:      map[string]interface{}{"command": "rm file.txt"},
+			wantApproved: true, // confirmFn 返回 true
+		},
+		{
+			name: "balanced模式_危险操作_需要确认",
+			mode: SafetyModeBalanced,
+			riskFn: func(args map[string]interface{}) tools.RiskLevel {
+				return tools.RiskCritical
+			},
+			args:      map[string]interface{}{"command": "rm -rf /data"},
+			wantApproved: true, // confirmFn 返回 true
+		},
+		{
+			name: "strict模式_中等风险_需要确认",
+			mode: SafetyModeStrict,
+			riskFn: func(args map[string]interface{}) tools.RiskLevel {
+				return tools.RiskMedium
+			},
+			args:      map[string]interface{}{"command": "echo hello"},
+			wantApproved: true, // confirmFn 返回 true
+		},
+		{
+			name: "strict模式_安全操作_自动通过",
+			mode: SafetyModeStrict,
+			riskFn: func(args map[string]interface{}) tools.RiskLevel {
+				return tools.RiskSafe
+			},
+			args:      map[string]interface{}{"command": "ls"},
+			wantApproved: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := NewController(tt.mode)
+			defer c.Close()
+
+			confirmCalled := false
+			c.SetConfirmFn(func(toolName string, args map[string]interface{}, risk tools.RiskLevel) (bool, error) {
+				confirmCalled = true
+				return true, nil
+			})
+
+			tool := &mockDynamicRiskTool{
+				mockTool:    mockTool{name: "dynamic_test", riskLevel: tools.RiskMedium},
+				riskForArgs: tt.riskFn,
+			}
+
+			approved, err := c.Check(tool, tt.args)
+			if err != nil {
+				t.Fatalf("Check() error: %v", err)
+			}
+			if approved != tt.wantApproved {
+				t.Errorf("approved = %v, want %v", approved, tt.wantApproved)
+			}
+
+			// 验证高风险/严格模式中等风险确实触发了确认
+			risk := tt.riskFn(tt.args)
+			shouldConfirm := c.needsConfirmation(risk)
+			if shouldConfirm && !confirmCalled {
+				t.Error("confirmFn should have been called for risk needing confirmation")
+			}
+			if !shouldConfirm && confirmCalled {
+				t.Error("confirmFn should NOT have been called for safe operations")
+			}
+		})
+	}
+}
+
+// TestController_Check_dynamicRiskVsStatic 测试动态风险评估覆盖静态风险等级
+func TestController_Check_dynamicRiskVsStatic(t *testing.T) {
+	c := NewController(SafetyModeBalanced)
+	defer c.Close()
+	c.SetAutoApprove(true)
+
+	// 工具的静态 RiskLevel 返回 RiskCritical，但动态评估返回 RiskSafe
+	tool := &mockDynamicRiskTool{
+		mockTool:    mockTool{name: "override_test", riskLevel: tools.RiskCritical},
+		riskForArgs: func(args map[string]interface{}) tools.RiskLevel { return tools.RiskSafe },
+	}
+
+	approved, err := c.Check(tool, map[string]interface{}{"command": "ls"})
+	if err != nil {
+		t.Fatalf("Check() error: %v", err)
+	}
+	if !approved {
+		t.Error("should be approved — dynamic RiskSafe overrides static RiskCritical")
+	}
+
+	// 验证历史记录使用的是动态风险等级
+	history := c.GetHistory()
+	if len(history) != 1 {
+		t.Fatalf("expected 1 history record, got %d", len(history))
+	}
+	if history[0].RiskLevel != tools.RiskSafe {
+		t.Errorf("history risk = %v, want %v (dynamic should override static)",
+			history[0].RiskLevel, tools.RiskSafe)
+	}
+}
+
+// TestController_Check_staticToolFallback 测试不实现 DynamicRiskTool 的工具仍使用静态风险
+func TestController_Check_staticToolFallback(t *testing.T) {
+	c := NewController(SafetyModeBalanced)
+	defer c.Close()
+	c.SetAutoApprove(true)
+
+	// 普通 mockTool（不实现 DynamicRiskTool）
+	tool := &mockTool{name: "static_test", riskLevel: tools.RiskHigh}
+
+	approved, err := c.Check(tool, map[string]interface{}{"command": "anything"})
+	if err != nil {
+		t.Fatalf("Check() error: %v", err)
+	}
+	if !approved {
+		t.Error("should be approved with autoApprove")
+	}
+
+	history := c.GetHistory()
+	if len(history) != 1 {
+		t.Fatalf("expected 1 history record, got %d", len(history))
+	}
+	if history[0].RiskLevel != tools.RiskHigh {
+		t.Errorf("history risk = %v, want %v", history[0].RiskLevel, tools.RiskHigh)
+	}
+}
+
+// TestController_Check_dynamicRisk_rejection 测试动态风险评估拒绝操作
+func TestController_Check_dynamicRisk_rejection(t *testing.T) {
+	c := NewController(SafetyModeBalanced)
+	defer c.Close()
+
+	c.SetConfirmFn(func(toolName string, args map[string]interface{}, risk tools.RiskLevel) (bool, error) {
+		return false, nil // 用户拒绝
+	})
+
+	tool := &mockDynamicRiskTool{
+		mockTool:    mockTool{name: "reject_test", riskLevel: tools.RiskMedium},
+		riskForArgs: func(args map[string]interface{}) tools.RiskLevel { return tools.RiskHigh },
+	}
+
+	approved, err := c.Check(tool, map[string]interface{}{"command": "rm -rf /data"})
+	if err != nil {
+		t.Fatalf("Check() error: %v", err)
+	}
+	if approved {
+		t.Error("should be rejected when confirmFn returns false")
+	}
+
+	history := c.GetHistory()
+	if len(history) != 1 {
+		t.Fatalf("expected 1 history record, got %d", len(history))
+	}
+	if history[0].Approved {
+		t.Error("history record should show not approved")
+	}
+	if history[0].RiskLevel != tools.RiskHigh {
+		t.Errorf("history risk = %v, want %v", history[0].RiskLevel, tools.RiskHigh)
+	}
+}

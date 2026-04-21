@@ -112,9 +112,16 @@ func (c *Controller) GetMode() SafetyMode {
 
 // Check 检查工具执行是否需要用户确认
 // 根据工具的风险等级和当前安全模式决定是否拦截
+// v0.5.0: 优先使用 DynamicRiskTool 接口进行动态风险评估
 // 返回 (approved bool, err error)
 func (c *Controller) Check(tool tools.Tool, args map[string]interface{}) (bool, error) {
-	riskLevel := tool.RiskLevel()
+	// 动态风险评估：如果工具实现了 DynamicRiskTool 接口，使用基于参数的风险等级
+	var riskLevel tools.RiskLevel
+	if dynamicTool, ok := tool.(tools.DynamicRiskTool); ok {
+		riskLevel = dynamicTool.RiskLevelForArgs(args)
+	} else {
+		riskLevel = tool.RiskLevel()
+	}
 
 	// 创建执行记录
 	record := ExecutionRecord{

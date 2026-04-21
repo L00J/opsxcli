@@ -397,3 +397,72 @@ func TestUnifiedTransferTool_CancelledContext(t *testing.T) {
 		assert.False(t, result.Success)
 	}
 }
+
+// ===================== UnifiedExecuteTool 动态风险评估测试 =====================
+
+func TestUnifiedExecuteTool_RiskLevelForArgs(t *testing.T) {
+	tool := NewUnifiedExecuteTool()
+	defer tool.Close()
+
+	tests := []struct {
+		name string
+		args map[string]interface{}
+		want RiskLevel
+	}{
+		{
+			name: "本地安全命令_ls",
+			args: map[string]interface{}{"command": "ls -la"},
+			want: RiskSafe, // ls 匹配 readOnlyPatterns → RiskSafe
+		},
+		{
+			name: "本地安全命令_cat",
+			args: map[string]interface{}{"command": "cat /etc/passwd"},
+			want: RiskSafe, // cat 匹配 readOnlyPatterns → RiskSafe
+		},
+		{
+			name: "本地危险命令_rm",
+			args: map[string]interface{}{"command": "rm -rf /tmp/test"},
+			want: RiskCritical, // rm -rf 匹配 dangerousPatterns → RiskCritical
+		},
+		{
+			name: "本地危险命令_mkfs",
+			args: map[string]interface{}{"command": "mkfs.ext4 /dev/sda1"},
+			want: RiskCritical,
+		},
+		{
+			name: "本地空命令_默认中风险",
+			args: map[string]interface{}{"command": ""},
+			want: RiskMedium,
+		},
+		{
+			name: "远程安全命令_最低高风险",
+			args: map[string]interface{}{"command": "ls", "host": "server1"},
+			want: RiskHigh,
+		},
+		{
+			name: "远程危险命令_保持危险等级",
+			args: map[string]interface{}{"command": "rm -rf /", "host": "server1"},
+			want: RiskCritical,
+		},
+		{
+			name: "远程空命令_默认高风险",
+			args: map[string]interface{}{"command": "", "host": "server1"},
+			want: RiskHigh,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tool.RiskLevelForArgs(tt.args)
+			assert.Equal(t, tt.want, got, "RiskLevelForArgs() = %v, want %v", got, tt.want)
+		})
+	}
+}
+
+// 测试 UnifiedExecuteTool 实现了 DynamicRiskTool 接口
+func TestUnifiedExecuteTool_ImplementsDynamicRiskTool(t *testing.T) {
+	tool := NewUnifiedExecuteTool()
+	defer tool.Close()
+
+	var _ DynamicRiskTool = tool
+}

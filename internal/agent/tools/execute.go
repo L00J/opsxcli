@@ -74,10 +74,38 @@ func (t *UnifiedExecuteTool) Parameters() map[string]interface{} {
 	}
 }
 
-// RiskLevel 返回风险等级
-// 无 host → 中风险（动态评估），有 host → 高风险
+// RiskLevel 返回默认风险等级（向后兼容）
 func (t *UnifiedExecuteTool) RiskLevel() RiskLevel {
-	return RiskMedium // 默认中风险，实际风险在 Execute 中动态确定
+	return RiskMedium // 默认中风险，实际风险通过 RiskLevelForArgs 动态确定
+}
+
+// RiskLevelForArgs 根据参数动态评估风险等级（实现 DynamicRiskTool 接口）
+// 无 host → 使用 BashCommandAnalyzer 分析命令内容
+// 有 host → 远程执行提升一级风险（最低 RiskHigh）
+func (t *UnifiedExecuteTool) RiskLevelForArgs(args map[string]interface{}) RiskLevel {
+	host := parseStringParam(args, "host")
+
+	if host == "" {
+		// 本地执行 — 根据命令内容动态评估
+		command := parseStringParam(args, "command")
+		if command == "" {
+			return RiskMedium
+		}
+		return t.localBash.GetAnalyzer().AnalyzeRisk(command)
+	}
+
+	// 远程执行 — 基础风险不低于 RiskHigh
+	command := parseStringParam(args, "command")
+	if command == "" {
+		return RiskHigh
+	}
+	commandRisk := t.localBash.GetAnalyzer().AnalyzeRisk(command)
+
+	// 远程执行至少 RiskHigh
+	if commandRisk < RiskHigh {
+		return RiskHigh
+	}
+	return commandRisk
 }
 
 // Execute 执行命令，自动路由本地/远程

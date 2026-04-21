@@ -65,8 +65,28 @@ func (t *UnifiedTransferTool) Parameters() map[string]interface{} {
 	}
 }
 
-// RiskLevel 返回风险等级
+// RiskLevel 返回默认风险等级（向后兼容）
 func (t *UnifiedTransferTool) RiskLevel() RiskLevel {
+	return RiskMedium
+}
+
+// RiskLevelForArgs 根据参数动态评估风险等级（实现 DynamicRiskTool 接口）
+// 无 host → 本地复制，低风险
+// 有 host + direction → 远程传输，高风险
+func (t *UnifiedTransferTool) RiskLevelForArgs(args map[string]interface{}) RiskLevel {
+	host := parseStringParam(args, "host")
+
+	if host == "" {
+		// 本地文件复制 — 低风险
+		return RiskLow
+	}
+
+	// 远程传输 — 高风险
+	// 上传（写入远程）比下载风险更高
+	direction := parseStringParam(args, "direction")
+	if direction == "upload" {
+		return RiskHigh
+	}
 	return RiskMedium
 }
 

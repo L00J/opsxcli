@@ -18,6 +18,11 @@ type LocalBashTool struct {
 	analyzer *BashCommandAnalyzer
 }
 
+// GetAnalyzer 获取命令分析器（供统一工具动态风险评估使用）
+func (t *LocalBashTool) GetAnalyzer() *BashCommandAnalyzer {
+	return t.analyzer
+}
+
 // NewLocalBashTool 创建本地 Bash 工具
 func NewLocalBashTool() *LocalBashTool {
 	return &LocalBashTool{

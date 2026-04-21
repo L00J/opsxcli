@@ -62,6 +62,14 @@ type Closer interface {
 	Close() error
 }
 
+// DynamicRiskTool 动态风险评估接口（v0.5.0 风险审批集成）
+// 工具可额外实现此接口，根据参数动态计算风险等级
+// 安全控制器在 Check 时会优先使用此接口而非静态 RiskLevel()
+type DynamicRiskTool interface {
+	Tool
+	RiskLevelForArgs(args map[string]interface{}) RiskLevel
+}
+
 // Registry 工具注册中心
 type Registry struct {
 	tools map[string]Tool
