@@ -2,9 +2,12 @@ package sys
 
 import (
 	"context"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -333,4 +336,191 @@ func TestDiskIOStat_Fields(t *testing.T) {
 	assert.Equal(t, "sda", stat.Name)
 	assert.Equal(t, 100.0, stat.ReadIOPS)
 	assert.Equal(t, 85.5, stat.UtilPercent)
+}
+
+// === collector_disk.go 纯函数测试 ===
+
+func TestShouldSkipFilesystem(t *testing.T) {
+	tests := []struct {
+		name   string
+		fstype string
+		want   bool
+	}{
+		{"proc", "proc", true},
+		{"sysfs", "sysfs", true},
+		{"devtmpfs", "devtmpfs", true},
+		{"tmpfs", "tmpfs", true},
+		{"cgroup", "cgroup", true},
+		{"overlay", "overlay", true},
+		{"overlay2", "overlay2", true}, // HasPrefix match
+		{"ext4", "ext4", false},
+		{"xfs", "xfs", false},
+		{"ntfs", "ntfs", false},
+		{"", "", false},
+		{"proc_custom", "proc_custom", true}, // HasPrefix match
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, shouldSkipFilesystem(tt.fstype))
+		})
+	}
+}
+
+// macOS-specific filesystem skip tests
+func TestShouldSkipFilesystem_MacOS(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS only")
+	}
+	assert.True(t, shouldSkipFilesystem("autofs"))
+	assert.True(t, shouldSkipFilesystem("devfs"))
+	assert.False(t, shouldSkipFilesystem("apfs"))
+}
+
+func TestExtractDeviceName(t *testing.T) {
+	tests := []struct {
+		name   string
+		device string
+		want   string
+	}{
+		{"无/dev/前缀", "sda", "sda"},
+		{"标准分区", "/dev/sda1", "sda"},
+		{"无分区号", "/dev/sda", "sda"},
+		{"NVMe设备", "/dev/nvme0n1", "nvme0n"},
+		{"空字符串", "", ""},
+		{"仅/dev/", "/dev/", ""},
+		{"多级路径", "/dev/mapper/root", "mapper/root"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractDeviceName(tt.device)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+func TestExtractDeviceName_MacOS(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS only")
+	}
+	// macOS: disk0s1 -> disk0
+	assert.Equal(t, "disk0", extractDeviceName("/dev/disk0s1"))
+	assert.Equal(t, "disk0", extractDeviceName("/dev/disk0s2"))
+	assert.Equal(t, "disk1", extractDeviceName("/dev/disk1"))
+}
+
+func TestDetectDiskType(t *testing.T) {
+	tests := []struct {
+		name   string
+		device string
+		fstype string
+		want   string
+	}{
+		{"NVMe设备", "/dev/nvme0n1p1", "ext4", "NVMe SSD"},
+		{"MD RAID", "/dev/md0", "ext4", "RAID"},
+		{"普通设备", "/dev/sda1", "ext4", "HDD"},
+		{"空设备", "", "", "HDD"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := detectDiskType(tt.device, tt.fstype)
+			// macOS will return "APFS SSD" for devices containing "disk"
+			if runtime.GOOS == "darwin" && strings.Contains(tt.device, "disk") {
+				assert.Equal(t, "APFS SSD", result)
+			} else {
+				assert.Equal(t, tt.want, result)
+			}
+		})
+	}
+}
+
+func TestDetectDiskType_MacOS(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS only")
+	}
+	assert.Equal(t, "APFS SSD", detectDiskType("/dev/disk0", "apfs"))
+}
+
+// === collector_cpu.go 纯函数测试 ===
+
+func TestCpuTotalTime(t *testing.T) {
+	ts := cpu.TimesStat{
+		CPU:       "cpu0",
+		User:      100.0,
+		Nice:      10.0,
+		System:    50.0,
+		Idle:      800.0,
+		Iowait:    5.0,
+		Irq:       3.0,
+		Softirq:   2.0,
+		Steal:     1.0,
+		Guest:     0.5,
+		GuestNice: 0.5,
+	}
+	total := cpuTotalTime(ts)
+	assert.InDelta(t, 972.0, total, 0.01)
+}
+
+func TestCpuTotalTime_Zero(t *testing.T) {
+	ts := cpu.TimesStat{CPU: "cpu0"}
+	total := cpuTotalTime(ts)
+	assert.Equal(t, 0.0, total)
+}
+
+func TestCpuAverage(t *testing.T) {
+	stats := []CPUTimesStat{
+		{CPU: "cpu0", User: 10.0, System: 5.0, Idle: 85.0},
+		{CPU: "cpu1", User: 20.0, System: 10.0, Idle: 70.0},
+	}
+	avg := cpuAverage(stats)
+	assert.Equal(t, "all", avg.CPU)
+	assert.InDelta(t, 15.0, avg.User, 0.01)
+	assert.InDelta(t, 7.5, avg.System, 0.01)
+	assert.InDelta(t, 77.5, avg.Idle, 0.01)
+}
+
+func TestCpuAverage_Empty(t *testing.T) {
+	stats := []CPUTimesStat{}
+	avg := cpuAverage(stats)
+	// Empty slice: count=0, division by zero yields NaN
+	assert.Equal(t, "all", avg.CPU)
+}
+
+func TestCpuAverage_SingleCore(t *testing.T) {
+	stats := []CPUTimesStat{
+		{CPU: "cpu0", User: 50.0, System: 25.0, Idle: 25.0},
+	}
+	avg := cpuAverage(stats)
+	assert.InDelta(t, 50.0, avg.User, 0.01)
+	assert.InDelta(t, 25.0, avg.System, 0.01)
+}
+
+// === types.go 构造测试 ===
+
+func TestDiskUsageInfo(t *testing.T) {
+	info := DiskUsageInfo{
+		Device:     "/dev/sda1",
+		MountPoint: "/",
+		Total:      100000000000,
+		Used:       50000000000,
+		Free:       50000000000,
+		Fstype:     "ext4",
+	}
+	assert.Equal(t, "/dev/sda1", info.Device)
+	assert.Equal(t, "/", info.MountPoint)
+	assert.Equal(t, "ext4", info.Fstype)
+}
+
+func TestProcessInfo(t *testing.T) {
+	info := ProcessInfo{
+		PID:     1234,
+		Name:    "nginx",
+		CPU:     5.5,
+		Mem:     2.3,
+		MemRSS:  1024000,
+		MemVMS:  2048000,
+		Threads: 4,
+	}
+	assert.Equal(t, int32(1234), info.PID)
+	assert.Equal(t, "nginx", info.Name)
+	assert.InDelta(t, 5.5, info.CPU, 0.01)
 }

@@ -10,7 +10,7 @@
 - 📦 **网络工具**: 替代 iproute、net-tools 等常用包
 - 🐳 **容器加速**: Docker 镜像自动加速、多源极速、断点续传
 - ☸️ **K8s 集成**: kubectl 代理、服务发现、资源管理
-- 🔧 **Busybox 兼容**: 支持 70+ 常用 Linux 命令
+- 🔧 **Builtin 内置**: 支持 70+ 常用 Linux 命令
 
 ## 🛠️ 主要功能
 
@@ -47,7 +47,7 @@
 - **ps**, **top**, **kill**, **free**, **df**: 进程和资源管理
 - **tar**, **gzip**, **unzip**: 压缩和解压
 
-### 📁 文件操作 (Busybox 兼容)
+### 📁 文件操作 (Builtin 内置)
 - **ls**, **cat**, **grep**, **vi**, **vim**, **tree**: 文件查看
 - **cp**, **mv**, **rm**, **mkdir**, **chmod**: 文件管理
 - **awk**, **sed**: 文本处理

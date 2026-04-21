@@ -407,3 +407,57 @@ func TestTrafficHistoryEntry(t *testing.T) {
 	assert.Equal(t, uint32(12345), entry.SrcPort)
 	assert.Equal(t, float64(1536.5), entry.TotalKB)
 }
+
+// === formatDuration 测试 ===
+
+func TestFormatDuration_Hours(t *testing.T) {
+	result := formatDuration(2*time.Hour + 30*time.Minute + 45*time.Second)
+	assert.Equal(t, "2时30分45秒", result)
+}
+
+func TestFormatDuration_MinutesOnly(t *testing.T) {
+	result := formatDuration(5*time.Minute + 30*time.Second)
+	assert.Equal(t, "5分30秒", result)
+}
+
+func TestFormatDuration_SecondsOnly(t *testing.T) {
+	result := formatDuration(45 * time.Second)
+	assert.Equal(t, "45秒", result)
+}
+
+func TestFormatDuration_ExactHour(t *testing.T) {
+	result := formatDuration(2 * time.Hour)
+	assert.Equal(t, "2时0分0秒", result)
+}
+
+func TestFormatDuration_Zero(t *testing.T) {
+	result := formatDuration(0)
+	assert.Equal(t, "0秒", result)
+}
+
+func TestFormatDuration_LargeHours(t *testing.T) {
+	result := formatDuration(100*time.Hour + 59*time.Minute + 59*time.Second)
+	assert.Equal(t, "100时59分59秒", result)
+}
+
+// === formatNumber (draw_stats_right.go) 测试 ===
+
+func TestFormatNumber_Small(t *testing.T) {
+	assert.Equal(t, "0", formatNumber(0))
+	assert.Equal(t, "999", formatNumber(999))
+}
+
+func TestFormatNumber_K(t *testing.T) {
+	assert.Equal(t, "1.0K", formatNumber(1000))
+	assert.Equal(t, "999.9K", formatNumber(999900))
+}
+
+func TestFormatNumber_M(t *testing.T) {
+	assert.Equal(t, "1.0M", formatNumber(1000000))
+	assert.Equal(t, "999.9M", formatNumber(999900000))
+}
+
+func TestFormatNumber_G(t *testing.T) {
+	assert.Equal(t, "1.0G", formatNumber(1000000000))
+	assert.Equal(t, "5.5G", formatNumber(5500000000))
+}

@@ -2,7 +2,7 @@
 
 ## 📋 目标
 
-将 busybox 常用基础命令集成到 opsxcli，使其成为更全面的运维工具箱。
+将内置基础命令用 Go 原生实现，集成到 opsxcli，使其成为更全面的运维工具箱。
 
 ## 🎯 集成策略
 
@@ -37,7 +37,7 @@
 
 ## 📦 Builtin 命令分析
 
-根据 `/root/busybox命令.txt` 的内容：
+根据 `基础命令清单` 的内容：
 
 ### ✅ 已实现 (网络相关)
 
@@ -105,7 +105,7 @@ date, time, sleep, watch, hwclock
 // cmd/builtin.go
 func NewBuiltinCmd() *cobra.Command {
     cmd := &cobra.Command{
-        Use:   "busybox [command] [args...]",
+        Use:   "builtin [command] [args...]",
         Short: "Builtin内置命令（转发到系统命令）",
         RunE: func(cmd *cobra.Command, args []string) error {
             if len(args) == 0 {
@@ -121,8 +121,8 @@ func NewBuiltinCmd() *cobra.Command {
 
 **支持方式**:
 ```bash
-opsxcli busybox ls -la
-opsxcli busybox cat /etc/hosts
+opsxcli ls -la
+opsxcli cat /etc/hosts
 ```
 
 ### 阶段 2: 直接命令别名（用户友好）
@@ -181,7 +181,7 @@ Commands:
   监控:  系统监控(htop风格), 网络监控(iftop风格)
     sys, net
 
-  文件:  文件和目录操作 (busybox兼容)
+  文件:  文件和目录操作 (builtin 内置)
     ls, cp, mv, rm, cat, grep, tree
 
   系统:  进程和系统信息
@@ -245,7 +245,7 @@ opsxcli vim /etc/hosts
 2. ✅ **已完成**: 帮助信息优化
 3. ✅ **已完成**: 文档更新
 4. ✅ **已完成**: 架构重组
-   - [x] 创建 plugins/busybox/ 目录
+   - [x] 创建 plugins/builtin/ 目录
    - [x] 实现命令转发框架
    - [x] 添加常用命令别名
    - [x] 实现 ifconfig/route/ip 原生版本

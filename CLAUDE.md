@@ -76,7 +76,7 @@ opsxcli/
 │   ├── redis.go           # Redis 命令
 │   ├── ssh.go             # SSH 命令
 │   ├── kubectl.go         # Kubernetes 命令
-│   ├── busybox.go         # Busybox 兼容命令集合
+│   ├── builtin.go         # Builtin 内置命令集合
 │   └── ...                # 其他命令入口
 │
 ├── internal/              # 内部核心模块(不可外部导入)
@@ -122,7 +122,7 @@ opsxcli/
     ├── kubernetes/       # Kubernetes 资源管理
     ├── net/              # 网络监控 TUI
     ├── sys/              # 系统监控 TUI
-    └── busybox/          # Busybox 兼容工具
+    └── builtin/          # Builtin 内置工具
         ├── file.go       # 文件操作(ls/cat/cp/mv)
         ├── process.go    # 进程管理(ps/top/kill)
         └── system.go     # 系统信息(df/free/uname)
@@ -578,11 +578,11 @@ func TestNewClient(t *testing.T) {
    go build
    ```
 
-### Busybox 兼容层
+### Builtin 内置层
 
-项目提供了大量 Busybox 兼容命令，实现在：
-- `cmd/busybox.go` - 命令定义和注册
-- `plugins/busybox/` - 具体实现
+项目提供了大量 Builtin 内置命令，实现在：
+- `cmd/builtin.go` - 命令定义和注册
+- `plugins/builtin/` - 具体实现
 
 支持的命令包括：
 - 文件操作: ls, cat, cp, mv, rm, mkdir, chmod, grep
