@@ -3,6 +3,7 @@ package sys
 import (
 	"context"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -17,10 +18,12 @@ type DataCollector struct {
 	ctx            context.Context
 	updateInterval time.Duration
 	lastNetStats   map[string]*NetStatSnapshot     // 用于计算网络速率
-	lastProcIO     map[int32]*ProcessIO            // 用于计算进程磁盘 I/O 速率
-	lastCPUTimes   []cpu.TimesStat                 // 用于计算 CPU 详细统计
-	lastDiskIO     map[string]*disk.IOCountersStat // 用于计算磁盘 I/O 详细统计
-	firstCollect   bool                            // 标记是否是首次收集
+	lastProcIO     map[int32]*ProcessIO             // 用于计算进程磁盘 I/O 速率
+	lastCPUTimes   []cpu.TimesStat                  // 用于计算 CPU 详细统计
+	lastDiskIO     map[string]*disk.IOCountersStat  // 用于计算磁盘 I/O 详细统计
+	firstCollect   bool                             // 标记是否是首次收集
+	maxUserProcs   int                              // 缓存 ulimit -u 结果
+	maxProcsOnce   sync.Once                        // 确保 ulimit 只执行一次
 }
 
 // ProcessIO 进程 I/O 快照
@@ -40,6 +43,15 @@ func NewDataCollector(ctx context.Context, interval time.Duration) *DataCollecto
 		lastDiskIO:     make(map[string]*disk.IOCountersStat),
 		firstCollect:   true,
 	}
+}
+
+// getCachedMaxUserProcesses 获取缓存的用户最大进程数限制
+// ulimit -u 在会话期间不会变化，只需执行一次
+func (dc *DataCollector) getCachedMaxUserProcesses() int {
+	dc.maxProcsOnce.Do(func() {
+		dc.maxUserProcs = getMaxUserProcesses()
+	})
+	return dc.maxUserProcs
 }
 
 // Start 启动数据收集循环
@@ -74,7 +86,8 @@ func (dc *DataCollector) Start(callback func(*SystemData)) {
 	}()
 }
 
-// collect 收集系统数据
+// collect 并行收集系统数据
+// 所有独立数据源通过 goroutine 并行采集，大幅缩短 collect 总耗时
 func (dc *DataCollector) collect() *SystemData {
 	data := &SystemData{
 		UpdateTime: time.Now(),
@@ -85,32 +98,67 @@ func (dc *DataCollector) collect() *SystemData {
 	data.ProcessIOUnsupported = runtime.GOOS == "darwin"
 	data.DiskIOLimited = runtime.GOOS == "darwin"
 
-	// 收集 CPU 详细时间统计（类似 mpstat）
-	data.CPUTimes = dc.collectCPUTimes()
+	var wg sync.WaitGroup
 
-	// 基于 CPUTimes 计算 CPU 使用率
-	data.CPUPercent = dc.calculateCPUPercentFromTimes()
+	// 并行组 1: CPU 数据（单次 cpu.Times 调用 → 同时计算 CPUTimes + CPUPercent）
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		result := dc.collectCPUData()
+		data.CPUTimes = result.cpuTimes
+		data.CPUPercent = result.cpuPercent
+		data.CPUCores = result.cpuCores
+		if data.CPUCores == 0 {
+			cores, _ := cpu.Counts(true)
+			data.CPUCores = cores
+		}
+	}()
 
-	// 收集 CPU 核心数
-	data.CPUCores = len(data.CPUPercent)
-	if data.CPUCores == 0 {
-		cores, _ := cpu.Counts(true)
-		data.CPUCores = cores
-	}
+	// 并行组 2: 内存 + 负载
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		data.MemInfo, _ = mem.VirtualMemory()
+		data.LoadAvg, _ = load.Avg()
+	}()
 
-	data.MemInfo, _ = mem.VirtualMemory()
-	data.LoadAvg, _ = load.Avg()
-	data.DiskInfo, _ = disk.Usage("/")
+	// 并行组 3: 磁盘（IO 统计 → 使用信息，内部顺序执行避免重复 IO 查询）
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		diskIOStats := dc.collectDiskIO()
+		data.DiskIOStats = diskIOStats
+		data.DiskInfo, _ = disk.Usage("/")
+		data.DiskUsageList = dc.collectDiskUsage(diskIOStats)
+	}()
 
-	// 收集所有挂载点的磁盘使用信息
-	data.DiskUsageList = dc.collectDiskUsage()
+	// 并行组 4: 网络
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		data.NetStats, _ = netutil.IOCounters(true)
+	}()
 
-	// 收集磁盘 I/O 详细统计（类似 iostat）
-	data.DiskIOStats = dc.collectDiskIO()
+	// 并行组 5: 进程（最重的采集任务，独立 goroutine 并行）
+	isFirst := dc.firstCollect
+	dc.firstCollect = false
+	var procs []*ProcessInfo
+	var totalProcCount int
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		procs, totalProcCount = dc.collectProcesses(isFirst)
+	}()
 
-	data.NetStats, _ = netutil.IOCounters(true)
+	// 等待所有并行采集完成
+	wg.Wait()
 
-	// 保存网络统计快照用于计算速率
+	// 组装进程相关数据
+	data.Processes = procs
+	data.TotalProcesses = getTotalProcesses(totalProcCount)
+	data.MaxUserProcesses = dc.getCachedMaxUserProcesses()
+
+	// 保存网络统计快照用于下次计算速率
 	data.LastNetStats = dc.lastNetStats
 	dc.lastNetStats = make(map[string]*NetStatSnapshot)
 	for _, stat := range data.NetStats {
@@ -120,17 +168,6 @@ func (dc *DataCollector) collect() *SystemData {
 			Timestamp: time.Now(),
 		}
 	}
-
-	// 收集进程信息（优化：首次收集时减少数量，加快速度）
-	// 同时获取系统总进程数，避免重复调用 process.Processes()
-	isFirst := dc.firstCollect
-	dc.firstCollect = false
-	procs, totalProcCount := dc.collectProcesses(isFirst)
-	data.Processes = procs
-
-	// 收集进程数量统计（直接使用 collectProcesses 返回的总数，不再重复查询）
-	data.TotalProcesses = getTotalProcesses(totalProcCount)
-	data.MaxUserProcesses = getMaxUserProcesses()
 
 	return data
 }

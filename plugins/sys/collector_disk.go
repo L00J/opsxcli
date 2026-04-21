@@ -138,15 +138,15 @@ func calcDiskIOLinux(stat *DiskIOStat, current, last disk.IOCountersStat, deltaT
 }
 
 // collectDiskUsage 收集所有挂载点的磁盘使用信息
-func (dc *DataCollector) collectDiskUsage() []DiskUsageInfo {
+// 接受已采集的 DiskIOStats，避免重复调用 disk.IOCounters()
+func (dc *DataCollector) collectDiskUsage(ioStats []DiskIOStat) []DiskUsageInfo {
 	partitions, err := disk.Partitions(false)
 	if err != nil {
 		return []DiskUsageInfo{}
 	}
 
-	// 获取磁盘 I/O 统计（用于计算 I/O 利用率）
-	ioStats := dc.collectDiskIO()
-	ioStatsMap := make(map[string]float64)
+	// 使用已采集的磁盘 I/O 统计构建查找表（不再重复调用 collectDiskIO）
+	ioStatsMap := make(map[string]float64, len(ioStats))
 	for _, ioStat := range ioStats {
 		ioStatsMap[ioStat.Name] = ioStat.UtilPercent
 	}

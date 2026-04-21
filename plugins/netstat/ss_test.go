@@ -399,6 +399,126 @@ func TestGetProgramName_InvalidPID(t *testing.T) {
 	assert.Equal(t, "", getProgramName(-100))
 }
 
+// === darwin lsof 解析测试 ===
+
+func TestParseAddrPort_IPv4(t *testing.T) {
+	addr, port := parseAddrPort("127.0.0.1:443")
+	assert.Equal(t, "127.0.0.1", addr)
+	assert.Equal(t, uint32(443), port)
+}
+
+func TestParseAddrPort_Wildcard(t *testing.T) {
+	addr, port := parseAddrPort("*:80")
+	assert.Equal(t, "0.0.0.0", addr)
+	assert.Equal(t, uint32(80), port)
+}
+
+func TestParseAddrPort_IPv6(t *testing.T) {
+	addr, port := parseAddrPort("[::1]:8080")
+	assert.Equal(t, "[::1]", addr)
+	assert.Equal(t, uint32(8080), port)
+}
+
+func TestParseAddrPort_NoColon(t *testing.T) {
+	addr, port := parseAddrPort("justhost")
+	assert.Equal(t, "justhost", addr)
+	assert.Equal(t, uint32(0), port)
+}
+
+func TestParseAddrPort_Empty(t *testing.T) {
+	addr, port := parseAddrPort("")
+	assert.Equal(t, "", addr)
+	assert.Equal(t, uint32(0), port)
+}
+
+func TestBuildLsofEntry_ESTABLISHED(t *testing.T) {
+	entries := buildLsofEntry(1234, "nginx", "TCP", "IPv4", "192.168.1.1:80->10.0.0.1:54321", "TCP")
+	assert.Len(t, entries, 1)
+	e := entries[0]
+	assert.Equal(t, int32(1234), e.pid)
+	assert.Equal(t, "nginx", e.command)
+	assert.Equal(t, "TCP", e.proto)
+	assert.Equal(t, "192.168.1.1", e.localAddr)
+	assert.Equal(t, uint32(80), e.localPort)
+	assert.Equal(t, "10.0.0.1", e.foreignAddr)
+	assert.Equal(t, uint32(54321), e.foreignPort)
+	assert.Equal(t, "ESTABLISHED", e.state)
+}
+
+func TestBuildLsofEntry_LISTEN(t *testing.T) {
+	entries := buildLsofEntry(5678, "node", "TCP", "IPv4", "*:3000", "TCP")
+	assert.Len(t, entries, 1)
+	e := entries[0]
+	assert.Equal(t, "0.0.0.0", e.localAddr)
+	assert.Equal(t, uint32(3000), e.localPort)
+	assert.Equal(t, "0.0.0.0", e.foreignAddr)
+	assert.Equal(t, uint32(0), e.foreignPort)
+	assert.Equal(t, "LISTEN", e.state)
+}
+
+func TestBuildLsofEntry_IPv6(t *testing.T) {
+	entries := buildLsofEntry(9999, "app", "TCP", "IPv6", "*:443", "TCP")
+	assert.Len(t, entries, 1)
+	assert.Equal(t, "TCP6", entries[0].proto)
+}
+
+func TestBuildLsofEntry_ProtoFilter(t *testing.T) {
+	// TCP entry should be filtered when protoFilter is UDP
+	entries := buildLsofEntry(1234, "test", "TCP", "IPv4", "*:80", "UDP")
+	assert.Empty(t, entries)
+}
+
+func TestBuildLsofEntry_UDP(t *testing.T) {
+	entries := buildLsofEntry(1234, "dns", "UDP", "IPv4", "127.0.0.1:5353", "UDP")
+	assert.Len(t, entries, 1)
+	assert.Equal(t, "UDP", entries[0].proto)
+	assert.Equal(t, "127.0.0.1", entries[0].localAddr)
+	assert.Equal(t, uint32(5353), entries[0].localPort)
+}
+
+func TestParseLsofFields_SingleProcess(t *testing.T) {
+	input := "p1234\ncnginx\ntIPv4\nPTCP\nn*:80\n"
+	entries := parseLsofFields(input, "TCP")
+	assert.Len(t, entries, 1)
+	assert.Equal(t, int32(1234), entries[0].pid)
+	assert.Equal(t, "nginx", entries[0].command)
+	assert.Equal(t, "LISTEN", entries[0].state)
+}
+
+func TestParseLsofFields_MultipleFDs(t *testing.T) {
+	input := "p1234\ncnginx\ntIPv4\nPTCP\nn*:80\nf11\ntIPv4\nPTCP\nn192.168.1.1:80->10.0.0.1:54321\n"
+	entries := parseLsofFields(input, "TCP")
+	assert.Len(t, entries, 2)
+	assert.Equal(t, "LISTEN", entries[0].state)
+	assert.Equal(t, "ESTABLISHED", entries[1].state)
+}
+
+func TestParseLsofFields_MultipleProcesses(t *testing.T) {
+	input := "p100\ncapp1\nPTCP\ntIPv4\nn*:3000\np200\ncapp2\nPTCP\ntIPv4\nn*:4000\n"
+	entries := parseLsofFields(input, "TCP")
+	assert.Len(t, entries, 2)
+	assert.Equal(t, int32(100), entries[0].pid)
+	assert.Equal(t, "app1", entries[0].command)
+	assert.Equal(t, int32(200), entries[1].pid)
+	assert.Equal(t, "app2", entries[1].command)
+}
+
+func TestParseLsofFields_ProtoFilter(t *testing.T) {
+	input := "p100\ncapp\nPTCP\ntIPv4\nn*:80\n"
+	entries := parseLsofFields(input, "UDP")
+	assert.Empty(t, entries)
+}
+
+func TestParseLsofFields_EmptyInput(t *testing.T) {
+	entries := parseLsofFields("", "TCP")
+	assert.Empty(t, entries)
+}
+
+func TestParseLsofFields_ShortLines(t *testing.T) {
+	entries := parseLsofFields("x\np\n", "TCP")
+	assert.Empty(t, entries)
+}
+
 // === captureOutput 辅助函数 ===
 
 func captureOutput(f func()) string {

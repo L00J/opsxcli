@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -90,6 +92,10 @@ func Ss(listen, all, tcp, udp, numeric, programs, stats, timewait bool, top int)
 
 // ReadTCPConnectionsWithPrograms 读取TCP连接（直接读取/proc/net/tcp和tcp6）（导出函数）
 func ReadTCPConnectionsWithPrograms(listen, all, programs bool) []SsConnection {
+	if runtime.GOOS == "darwin" {
+		return readTCPConnectionsDarwin(listen, all, programs)
+	}
+
 	var connections []SsConnection
 
 	// 读取IPv4 TCP
@@ -105,6 +111,10 @@ func ReadTCPConnectionsWithPrograms(listen, all, programs bool) []SsConnection {
 
 // ReadUDPConnectionsWithPrograms 读取UDP连接（直接读取/proc/net/udp和udp6）（导出函数）
 func ReadUDPConnectionsWithPrograms(listen, all, programs bool) []SsConnection {
+	if runtime.GOOS == "darwin" {
+		return readUDPConnectionsDarwin(listen, all, programs)
+	}
+
 	var connections []SsConnection
 
 	// 读取IPv4 UDP
@@ -116,6 +126,285 @@ func ReadUDPConnectionsWithPrograms(listen, all, programs bool) []SsConnection {
 	connections = append(connections, conns6...)
 
 	return connections
+}
+
+// === macOS (darwin) 实现：使用 lsof 获取连接数据 ===
+
+// lsofEntry 表示解析一条 lsof -F 输出后得到的连接信息
+type lsofEntry struct {
+	pid         int32
+	command     string
+	proto       string // TCP / UDP
+	ipType      string // IPv4 / IPv6
+	localAddr   string
+	localPort   uint32
+	foreignAddr string
+	foreignPort uint32
+	state       string // ESTABLISHED, LISTEN, UNCONN 等
+}
+
+// readTCPConnectionsDarwin 使用 lsof 获取 macOS 上的 TCP 连接
+func readTCPConnectionsDarwin(listen, all, programs bool) []SsConnection {
+	entries := parseLsofOutput("TCP")
+	var connections []SsConnection
+
+	for _, e := range entries {
+		// 状态过滤
+		if listen && e.state != "LISTEN" {
+			continue
+		}
+		if !all && !listen && e.state == "LISTEN" {
+			continue
+		}
+
+		conn := SsConnection{
+			Proto:       e.proto,
+			LocalAddr:   e.localAddr,
+			LocalPort:   e.localPort,
+			ForeignAddr: e.foreignAddr,
+			ForeignPort: e.foreignPort,
+			State:       e.state,
+		}
+
+		if programs {
+			conn.PID = e.pid
+			conn.ProcessName = e.command
+		}
+
+		connections = append(connections, conn)
+	}
+
+	return connections
+}
+
+// readUDPConnectionsDarwin 使用 lsof 获取 macOS 上的 UDP 连接
+func readUDPConnectionsDarwin(listen, all, programs bool) []SsConnection {
+	entries := parseLsofOutput("UDP")
+	var connections []SsConnection
+
+	for _, e := range entries {
+		// UDP 没有传统意义上的 LISTEN/ESTABLISHED，
+		// 统一用 UNCONN 表示绑定本地端口的 UDP socket
+		state := "UNCONN"
+
+		// 状态过滤
+		if listen && state != "UNCONN" {
+			continue
+		}
+		if !all && !listen && state == "UNCONN" {
+			continue
+		}
+
+		conn := SsConnection{
+			Proto:       e.proto,
+			LocalAddr:   e.localAddr,
+			LocalPort:   e.localPort,
+			ForeignAddr: e.foreignAddr,
+			ForeignPort: e.foreignPort,
+			State:       state,
+		}
+
+		if programs {
+			conn.PID = e.pid
+			conn.ProcessName = e.command
+		}
+
+		connections = append(connections, conn)
+	}
+
+	return connections
+}
+
+// parseLsofOutput 调用 lsof 并解析 -F 输出格式
+// protoFilter: "TCP" 或 "UDP"
+func parseLsofOutput(protoFilter string) []lsofEntry {
+	// 构建 lsof 命令
+	// -iTCP/UDP: 过滤协议
+	// -n: 不解析主机名
+	// -P: 不解析端口号
+	// -F Ppctfn: 输出字段（协议、PID、命令名、类型、fd、地址）
+	args := []string{
+		"-i" + protoFilter,
+		"-n", "-P",
+		"-F", "Ppctfn",
+	}
+
+	cmd := exec.Command("lsof", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		// lsof 不可用或执行失败，返回空切片
+		return nil
+	}
+
+	return parseLsofFields(string(output), protoFilter)
+}
+
+// parseLsofFields 解析 lsof -F 输出
+//
+// lsof -F Ppctfn 输出格式：
+//
+//	每个字段以单个字母前缀标识：
+//	p  PID
+//	c  命令名
+//	t  类型 (IPv4/IPv6)
+//	f  文件描述符
+//	P  协议名 (TCP/UDP)
+//	n  地址信息
+//
+// 同一个进程可以有多个文件描述符（多个连接），格式示例：
+//
+//	p1234
+//	cnginx
+//	f10
+//	tIPv4
+//	PTCP
+//	n*:80
+//	f11
+//	tIPv4
+//	PTCP
+//	n192.168.1.1:80->10.0.0.1:54321
+func parseLsofFields(output, protoFilter string) []lsofEntry {
+	var entries []lsofEntry
+
+	// 当前进程的 PID 和命令名
+	var curPID int32
+	var curCmd string
+
+	// 当前文件描述符的字段
+	var curProto, curType string
+	var curAddr string
+
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) < 2 {
+			continue
+		}
+
+		prefix := line[0]
+		value := line[1:]
+
+		switch prefix {
+		case 'p':
+			// 新进程开始，先保存之前的连接（如果有）
+			if curProto != "" && curAddr != "" {
+				entries = append(entries, buildLsofEntry(curPID, curCmd, curProto, curType, curAddr, protoFilter)...)
+			}
+			// 重置 fd 级别字段
+			curProto = ""
+			curType = ""
+			curAddr = ""
+			pid, _ := strconv.ParseInt(value, 10, 32)
+			curPID = int32(pid)
+
+		case 'c':
+			curCmd = value
+
+		case 'f':
+			// 新 fd 开始，保存上一个 fd 的连接
+			if curProto != "" && curAddr != "" {
+				entries = append(entries, buildLsofEntry(curPID, curCmd, curProto, curType, curAddr, protoFilter)...)
+			}
+			curProto = ""
+			curType = ""
+			curAddr = ""
+
+		case 'P':
+			curProto = value
+
+		case 't':
+			curType = value
+
+		case 'n':
+			curAddr = value
+		}
+	}
+
+	// 处理最后一条记录
+	if curProto != "" && curAddr != "" {
+		entries = append(entries, buildLsofEntry(curPID, curCmd, curProto, curType, curAddr, protoFilter)...)
+	}
+
+	return entries
+}
+
+// buildLsofEntry 根据解析的字段构建 lsofEntry
+func buildLsofEntry(pid int32, cmd, proto, ipType, addr, protoFilter string) []lsofEntry {
+	// 只保留匹配协议的条目
+	if !strings.EqualFold(proto, protoFilter) {
+		return nil
+	}
+
+	// 确定协议标签（TCP/UDP/TCP6/UDP6）
+	protoLabel := strings.ToUpper(proto)
+	if ipType == "IPv6" {
+		protoLabel += "6"
+	}
+
+	// 解析地址
+	// 格式1（LISTEN）: *:port 或 addr:port
+	// 格式2（ESTABLISHED）: localaddr:localport->remoteaddr:remoteport
+	var localAddr, foreignAddr string
+	var localPort, foreignPort uint32
+	var state string
+
+	if strings.Contains(addr, "->") {
+		// ESTABLISHED 连接：local->remote
+		parts := strings.SplitN(addr, "->", 2)
+		localAddr, localPort = parseAddrPort(parts[0])
+		foreignAddr, foreignPort = parseAddrPort(parts[1])
+		state = "ESTABLISHED"
+	} else {
+		// LISTEN / UNCONN
+		localAddr, localPort = parseAddrPort(addr)
+		foreignAddr = "0.0.0.0"
+		foreignPort = 0
+		state = "LISTEN"
+	}
+
+	return []lsofEntry{{
+		pid:         pid,
+		command:     cmd,
+		proto:       protoLabel,
+		ipType:      ipType,
+		localAddr:   localAddr,
+		localPort:   localPort,
+		foreignAddr: foreignAddr,
+		foreignPort: foreignPort,
+		state:       state,
+	}}
+}
+
+// parseAddrPort 解析 "addr:port" 格式的地址
+// 例如: "*:80", "127.0.0.1:443", "[::1]:8080"
+func parseAddrPort(addrPort string) (string, uint32) {
+	// 处理 IPv6 格式 [addr]:port
+	if strings.HasPrefix(addrPort, "[") {
+		closeBracket := strings.LastIndex(addrPort, "]")
+		if closeBracket < 0 {
+			return "[::]", 0
+		}
+		addr := addrPort[:closeBracket+1] // 包含方括号
+		portStr := addrPort[closeBracket+1:]
+		if strings.HasPrefix(portStr, ":") {
+			port, _ := strconv.ParseUint(portStr[1:], 10, 32)
+			return addr, uint32(port)
+		}
+		return addr, 0
+	}
+
+	// IPv4 格式 addr:port 或 *:port
+	lastColon := strings.LastIndex(addrPort, ":")
+	if lastColon < 0 {
+		return addrPort, 0
+	}
+	addr := addrPort[:lastColon]
+	port, _ := strconv.ParseUint(addrPort[lastColon+1:], 10, 32)
+	// * 表示通配地址
+	if addr == "*" {
+		return "0.0.0.0", uint32(port)
+	}
+	return addr, uint32(port)
 }
 
 // readTCPFileWithPrograms 读取TCP文件（/proc/net/tcp或tcp6）
