@@ -3,6 +3,8 @@ package evolver
 import (
 	"testing"
 	"time"
+
+	"opsxcli/internal/agent/tools"
 )
 
 // TestClassifyTaskType 测试任务类型分类器
@@ -233,5 +235,163 @@ func TestStepFeedback(t *testing.T) {
 	feedback = e.stepFeedback(resultWithExp)
 	if feedback == "" {
 		t.Error("stepFeedback() with experience should return non-empty string")
+	}
+}
+
+// --- 新增纯函数测试 (2026-04-22) ---
+
+// TestExtractJSON 测试从文本中提取 JSON
+func TestExtractJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected string
+	}{
+		{"正常JSON", `some text {"key": "value"} more text`, `{"key": "value"}`},
+		{"嵌套JSON", `result: {"a": {"b": 1}} end`, `{"a": {"b": 1}}`},
+		{"无JSON_无大括号", "plain text", ""},
+		{"无JSON_只有开头", "text { no close", ""},
+		{"空字符串", "", ""},
+		{"仅大括号", "{}", "{}"},
+		{"多段JSON取最外层", `aaa {"x":1} bbb {"y":2} ccc`, `{"x":1} bbb {"y":2}`},
+		{"带markdown代码块", "```json\n{\"status\": \"ok\"}\n```", `{"status": "ok"}`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := extractJSON(tc.content)
+			if result != tc.expected {
+				t.Errorf("extractJSON(%q) = %q, want %q", tc.content, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestRecordToolCallFromResult 测试工具调用记录生成
+func TestRecordToolCallFromResult(t *testing.T) {
+	t.Run("成功_短输出", func(t *testing.T) {
+		result := &tools.Result{Output: "hello", Success: true}
+		record := RecordToolCallFromResult("bash", map[string]interface{}{"cmd": "ls"}, result, 100*time.Millisecond)
+		if record.ToolName != "bash" {
+			t.Errorf("ToolName = %q, want %q", record.ToolName, "bash")
+		}
+		if record.Output != "hello" {
+			t.Errorf("Output = %q, want %q", record.Output, "hello")
+		}
+		if !record.Success {
+			t.Error("Success should be true")
+		}
+		if record.Duration != 100*time.Millisecond {
+			t.Errorf("Duration = %v, want %v", record.Duration, 100*time.Millisecond)
+		}
+	})
+
+	t.Run("成功_长输出截断", func(t *testing.T) {
+		longOutput := ""
+		for i := 0; i < 300; i++ {
+			longOutput += "x"
+		}
+		result := &tools.Result{Output: longOutput, Success: true}
+		record := RecordToolCallFromResult("bash", nil, result, time.Second)
+		if len(record.Output) != 203 { // 200 + "..."
+			t.Errorf("Output length = %d, want 203 (200 chars + '...')", len(record.Output))
+		}
+		if record.Output[len(record.Output)-3:] != "..." {
+			t.Error("Long output should end with '...'")
+		}
+	})
+
+	t.Run("失败结果", func(t *testing.T) {
+		result := &tools.Result{Output: "error: connection refused", Success: false}
+		record := RecordToolCallFromResult("ssh", nil, result, 5*time.Second)
+		if record.Success {
+			t.Error("Success should be false")
+		}
+	})
+
+	t.Run("空输出", func(t *testing.T) {
+		result := &tools.Result{Output: "", Success: true}
+		record := RecordToolCallFromResult("file_read", nil, result, 50*time.Millisecond)
+		if record.Output != "" {
+			t.Errorf("Output = %q, want empty", record.Output)
+		}
+	})
+}
+
+// TestSortExperiencesBySuccessRate 测试经验按成功率排序
+func TestSortExperiencesBySuccessRate(t *testing.T) {
+	exps := []*Experience{
+		{Hint: "low", SuccessRate: 0.3, UsageCount: 5},
+		{Hint: "high", SuccessRate: 0.9, UsageCount: 10},
+		{Hint: "mid", SuccessRate: 0.6, UsageCount: 8},
+	}
+	SortExperiencesBySuccessRate(exps)
+	if exps[0].Hint != "high" {
+		t.Errorf("First should be 'high', got %q", exps[0].Hint)
+	}
+	if exps[1].Hint != "mid" {
+		t.Errorf("Second should be 'mid', got %q", exps[1].Hint)
+	}
+	if exps[2].Hint != "low" {
+		t.Errorf("Third should be 'low', got %q", exps[2].Hint)
+	}
+}
+
+// TestSortExperiencesBySuccessRate_Empty 测试空切片排序
+func TestSortExperiencesBySuccessRate_Empty(t *testing.T) {
+	exps := []*Experience{}
+	SortExperiencesBySuccessRate(exps) // 不应 panic
+}
+
+// TestSortExperiencesBySuccessRate_Single 测试单元素排序
+func TestSortExperiencesBySuccessRate_Single(t *testing.T) {
+	exps := []*Experience{{Hint: "only", SuccessRate: 0.5}}
+	SortExperiencesBySuccessRate(exps)
+	if len(exps) != 1 || exps[0].Hint != "only" {
+		t.Error("Single element should remain unchanged")
+	}
+}
+
+// TestNewEvolverEngine 测试创建引擎
+func TestNewEvolverEngine(t *testing.T) {
+	dir := t.TempDir()
+	e, err := NewEvolverEngine(dir)
+	if err != nil {
+		t.Fatalf("NewEvolverEngine failed: %v", err)
+	}
+	if e == nil {
+		t.Fatal("NewEvolverEngine returned nil")
+	}
+	if !e.IsEnabled() {
+		t.Error("New engine should be enabled by default")
+	}
+	if e.baseDir != dir {
+		t.Errorf("baseDir = %q, want %q", e.baseDir, dir)
+	}
+}
+
+// TestSetEnabled 测试启用/禁用
+func TestSetEnabled(t *testing.T) {
+	e := &EvolverEngine{}
+	if e.IsEnabled() {
+		t.Error("Should be disabled by default")
+	}
+	e.SetEnabled(true)
+	if !e.IsEnabled() {
+		t.Error("Should be enabled after SetEnabled(true)")
+	}
+	e.SetEnabled(false)
+	if e.IsEnabled() {
+		t.Error("Should be disabled after SetEnabled(false)")
+	}
+}
+
+// TestGetHintForQuery_NoExperience 测试无经验时返回空
+func TestGetHintForQuery_NoExperience(t *testing.T) {
+	e := &EvolverEngine{
+		experience: NewExperienceMemory(t.TempDir()),
+	}
+	hint := e.GetHintForQuery("查看磁盘使用情况")
+	if hint != "" {
+		t.Errorf("Expected empty hint with no experience, got %q", hint)
 	}
 }
