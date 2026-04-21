@@ -1,8 +1,20 @@
-# Cp 工具
+# cp
 
-文件复制工具。
+opsxcli cp — 复制文件或目录
 
-## 使用
+## 用法
+
+`opsxcli cp [flags] <源路径> <目标路径>`
+
+## 说明
+
+复制文件或目录到指定目标路径。复制目录时需要使用 `-r` 选项。
+
+## 选项
+
+- `-r, --recursive`：递归复制目录及其内容
+
+## 示例
 
 ```bash
 # 复制文件
@@ -14,16 +26,6 @@ opsxcli cp source.txt /path/to/newfile.txt
 # 复制目录
 opsxcli cp -r sourcedir/ destdir/
 
-# 保留文件属性
-opsxcli cp -p source.txt dest.txt
-
-# 强制覆盖
-opsxcli cp -f source.txt dest.txt
+# 复制文件到指定目录
+opsxcli cp config.yaml /etc/app/
 ```
-
-## 参数
-
-- `-r, --recursive`: 递归复制目录
-- `-p, --preserve`: 保留文件属性
-- `-f, --force`: 强制覆盖
-- `-v, --verbose`: 显示详细输出

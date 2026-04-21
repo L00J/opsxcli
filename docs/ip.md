@@ -1,41 +1,34 @@
-# IP 工具
+# ip
 
-网络配置工具（iproute2）。
+opsxcli ip — 显示网络信息
 
-## 使用
+## 用法
 
-```bash
-# 显示所有接口
-opsxcli ip addr
+`opsxcli ip <子命令>`
 
-# 显示接口详情
-opsxcli ip addr show eth0
+## 说明
 
-# 启用接口
-opsxcli ip link set eth0 up
-
-# 禁用接口
-opsxcli ip link set eth0 down
-
-# 设置 IP 地址
-opsxcli ip addr add 192.168.1.100/24 dev eth0
-
-# 删除 IP 地址
-opsxcli ip addr del 192.168.1.100/24 dev eth0
-
-# 显示路由表
-opsxcli ip route
-
-# 添加默认网关
-opsxcli ip route add default via 192.168.1.1
-
-# 显示网络邻居
-opsxcli ip neigh
-```
+显示网络配置信息，包括 IP 地址、网络接口和路由表。此命令为只读显示，不支持 set/add/del 等修改操作。
 
 ## 子命令
 
-- `addr`: IP 地址管理
-- `link`: 网络接口管理
-- `route`: 路由表管理
-- `neigh`: 邻居 ARP 表
+- `addr`：显示 IP 地址信息
+- `link`：显示网络接口信息
+- `route`：显示路由表信息
+
+## 选项
+
+无。
+
+## 示例
+
+```bash
+# 显示 IP 地址
+opsxcli ip addr
+
+# 显示网络接口
+opsxcli ip link
+
+# 显示路由表
+opsxcli ip route
+```

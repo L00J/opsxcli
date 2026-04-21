@@ -1,8 +1,20 @@
-# Top 工具
+# top
 
-实时进程监控工具。
+opsxcli top — 实时进程监控（转发到系统命令）
 
-## 使用
+## 用法
+
+`opsxcli top [参数...]`
+
+## 说明
+
+此命令直接转发到系统的 `top` 命令执行，无自定义选项。禁用了命令行参数解析（DisableFlagParsing），所有参数将原样传递给系统 `top`。
+
+## 选项
+
+无自定义选项。可使用系统 `top` 命令支持的任何参数。
+
+## 示例
 
 ```bash
 # 启动实时监控
@@ -12,23 +24,8 @@ opsxcli top
 opsxcli top -d 5
 
 # 显示特定用户进程
-opsxcli top -u username
+opsxcli top -u root
 
-# 显示特定进程
-opsxcli top -p 1234
+# 批处理模式输出
+opsxcli top -b -n 1
 ```
-
-## 操作
-
-- `q`: 退出
-- `P`: 按 CPU 排序
-- `M`: 按内存排序
-- `T`: 按时间排序
-- `k`: 杀死进程
-- `r`: 调整优先级
-
-## 参数
-
-- `-d, --delay`: 刷新间隔（秒）
-- `-u, --user`: 显示指定用户进程
-- `-p, --pid`: 显示指定 PID

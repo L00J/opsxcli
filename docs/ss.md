@@ -1,53 +1,45 @@
-# Ss 工具
+# ss
 
-网络连接状态查看工具（高性能替代 netstat）。
+opsxcli ss — 网络连接状态查看工具
 
-## 使用
+## 用法
 
-```bash
-# 显示所有连接
-opsxcli ss
+`opsxcli ss [flags]`
 
-# 显示监听端口
-opsxcli ss -l
+## 说明
 
-# 显示 TCP 连接
-opsxcli ss -t
+查看网络连接状态，支持过滤 TCP/UDP 连接、监听端口、进程信息、TCP 状态统计、TIME_WAIT 分析和目标地址 TOP 统计。
 
-# 显示 UDP 连接
-opsxcli ss -u
+## 选项
 
-# 显示进程信息
-opsxcli ss -p
-
-# 显示概要统计
-opsxcli ss -s
-
-# 显示计时器信息
-opsxcli ss -o
-
-# 目标地址 TOP
-opsxcli ss -ant --top 10
-```
-
-## 参数
-
-- `-l, --listen`: 显示监听端口
-- `-t, --tcp`: TCP 连接
-- `-u, --udp`: UDP 连接
-- `-p, --processes`: 显示进程
-- `-n, --numeric`: 数字格式
-- `-a, --all`: 所有连接
-- `-s, --summary`: 概要统计
-- `-o, --options`: 计时器信息
-- `--top N`: 显示 TOP N 连接
+- `-l, --listen`：只显示监听状态的连接
+- `-a, --all`：显示所有连接（包括监听的和非监听的）
+- `-t, --tcp`：只显示 TCP 连接
+- `-u, --udp`：只显示 UDP 连接
+- `-n, --numeric`：以数字格式显示地址和端口（不解析域名）
+- `-p, --programs`：显示进程 PID 和程序名
+- `-s, --stats`：统计各 TCP 状态的连接数量
+- `-w, --timewait`：显示 TIME_WAIT 状态 TOP 10
+- `--top N`：显示目标地址 TOP N 连接数
 
 ## 示例
 
 ```bash
-# TIME_WAIT 状态分析
-opsxcli ss -tan --timewait
+# 显示所有 TCP 连接
+opsxcli ss -t
+
+# 显示所有监听端口
+opsxcli ss -l
+
+# 显示 TCP 监听端口及进程信息
+opsxcli ss -tlp
 
 # TCP 状态统计
-opsxcli ss -ant --stats
+opsxcli ss -s
+
+# TIME_WAIT TOP 10 分析
+opsxcli ss -tw
+
+# 目标地址 TOP 20
+opsxcli ss -tan --top 20
 ```

@@ -37,7 +37,7 @@
 | `golangci-lint` | 静态分析 |
 | `go test -cover` | 覆盖率统计 |
 | `go test -race` | 竞态检测 |
-| GitHub Actions | CI 自动化 |
+| Gitee Go | CI 自动化 |
 
 ### 测试分类
 
@@ -344,14 +344,14 @@ TestE2EAgentQuery          — Agent 单次查询全流程（mock LLM）
 
 ### 当前 CI 配置
 
-- **平台**: GitHub Actions (.github/workflows/ci.yml)
+- **平台**: Gitee Go (.gitee/pipelines/ci.yml)
 - **Go 版本**: 1.24
 - **当前门禁**: 15% 覆盖率
 
 ### 门禁提升计划
 
 ```yaml
-# .github/workflows/ci.yml 门禁调整时间线
+# .gitee/pipelines/ci.yml 门禁调整时间线
 # v0.4.x: threshold: 30% (从15%提升)
 # v0.5.0: threshold: 20% (新基准)
 # v0.6.0: threshold: 35%

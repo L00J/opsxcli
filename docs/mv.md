@@ -1,8 +1,20 @@
-# Mv 工具
+# mv
 
-文件移动/重命名工具。
+opsxcli mv — 移动或重命名文件
 
-## 使用
+## 用法
+
+`opsxcli mv <源路径> <目标路径>`
+
+## 说明
+
+将文件或目录从源路径移动到目标路径，也可用于重命名。此命令无任何选项，仅接受两个参数。
+
+## 选项
+
+无。
+
+## 示例
 
 ```bash
 # 移动文件
@@ -13,12 +25,4 @@ opsxcli mv oldname.txt newname.txt
 
 # 移动目录
 opsxcli mv sourcedir/ destdir/
-
-# 强制覆盖
-opsxcli mv -f source.txt dest.txt
 ```
-
-## 参数
-
-- `-f, --force`: 强制覆盖
-- `-v, --verbose`: 显示详细输出

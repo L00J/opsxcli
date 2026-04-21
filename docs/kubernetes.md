@@ -1,59 +1,45 @@
-# Kubernetes 工具
+# kubernetes
 
-K8s 资源管理工具。
+opsxcli kubernetes — Kubernetes 集群管理工具
 
-## 使用
+## 用法
 
-```bash
-# 生成 YAML
-opsxcli kubernetes gen deployment --name nginx --image nginx:latest
+`opsxcli kubernetes <子命令> [flags]`
 
-# 生成 Service
-opsxcli kubernetes gen service --name nginx --port 80
+## 说明
 
-# 资源操作
-opsxcli kubernetes apply -f nginx.yaml
-opsxcli kubernetes delete -f nginx.yaml
+提供 Kubernetes 集群的健康检查、资源管理和 YAML 操作功能。
 
-# 查看资源
-opsxcli kubernetes list pods
-opsxcli kubernetes list services
-```
+## 选项
+
+- `-k, --kubeconfig <路径>`：指定 kubeconfig 文件路径
 
 ## 子命令
 
-### gen - 生成 YAML
+### check — 健康检查
+
+对 Kubernetes 集群执行健康检查。
+
+### resource — 资源管理
+
+管理 Kubernetes 集群资源。
+
+### yaml — YAML 操作
+
+处理 Kubernetes YAML 资源文件。
+
+## 示例
 
 ```bash
-# 生成 Deployment
-opsxcli kubernetes gen deployment --name nginx --image nginx:latest
+# 集群健康检查
+opsxcli kubernetes check
 
-# 生成 ConfigMap
-opsxcli kubernetes gen configmap --name app-config --from-file=config.yaml
+# 指定 kubeconfig 进行健康检查
+opsxcli kubernetes check -k /path/to/kubeconfig
 
-# 生成 Secret
-opsxcli kubernetes gen secret --name db-credentials --from-literal=password=xxx
-```
+# 资源管理
+opsxcli kubernetes resource
 
-### apply - 应用资源
-
-```bash
-opsxcli kubernetes apply -f deployment.yaml
-opsxcli kubernetes apply -f .  # 应用目录下所有 YAML
-```
-
-### delete - 删除资源
-
-```bash
-opsxcli kubernetes delete deployment nginx
-opsxcli kubernetes delete -f deployment.yaml
-```
-
-### list - 列出资源
-
-```bash
-opsxcli kubernetes list pods
-opsxcli kubernetes list services
-opsxcli kubernetes list deployments
-opsxcli kubernetes list all
+# YAML 操作
+opsxcli kubernetes yaml
 ```

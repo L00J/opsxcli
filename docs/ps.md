@@ -1,34 +1,31 @@
-# Ps 工具
+# ps
 
-进程查看工具。
+opsxcli ps — 查看进程信息（转发到系统命令）
 
-## 使用
+## 用法
+
+`opsxcli ps [参数...]`
+
+## 说明
+
+此命令直接转发到系统的 `ps` 命令执行，无自定义选项。所有参数将原样传递给系统 `ps`。
+
+## 选项
+
+无自定义选项。可使用系统 `ps` 命令支持的任何参数。
+
+## 示例
 
 ```bash
-# 显示所有进程
+# 显示当前终端进程
 opsxcli ps
 
-# 显示所有进程（详细）
+# 显示所有进程（完整格式）
 opsxcli ps -ef
 
 # 显示进程树
 opsxcli ps -ejH
 
-# 按 CPU 使用排序
-opsxcli ps --sort=-cpu
-
-# 按内存使用排序
-opsxcli ps --sort=-mem
-
 # 查看特定用户进程
-opsxcli ps -u username
+opsxcli ps -u root
 ```
-
-## 参数
-
-- `-e`: 显示所有进程
-- `-f`: 显示完整格式
-- `-u`: 按用户显示
-- `-j`: 显示作业格式
-- `-H`: 显示进程树
-- `--sort`: 排序（-cpu, -mem）
