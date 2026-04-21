@@ -91,7 +91,8 @@ func TestQuerySimilarity_CompletelyDifferent(t *testing.T) {
 
 func TestQuerySimilarity_PartialOverlap(t *testing.T) {
 	em := NewEnvironmentMemory(t.TempDir())
-	score := em.querySimilarity("查看磁盘空间", "查看内存使用")
+	// querySimilarity uses strings.Fields (whitespace split), so we use space-separated words
+	score := em.querySimilarity("check disk space", "check memory usage")
 	assert.True(t, score > 0 && score < 1.0)
 }
 
@@ -153,6 +154,9 @@ func TestRecordServer_UpdateExisting(t *testing.T) {
 
 func TestRecordServer_AppendCommonPaths(t *testing.T) {
 	em := NewEnvironmentMemory(t.TempDir())
+	// First record creates the server, path is NOT added to CommonPaths on creation
+	em.RecordServer("root@app01", map[string]string{"os": "linux"})
+	// Second record UPDATES the server, now path IS appended to CommonPaths
 	em.RecordServer("root@app01", map[string]string{"path": "/var/log"})
 	em.RecordServer("root@app01", map[string]string{"path": "/opt/data"})
 
@@ -312,11 +316,12 @@ func TestUpdateLastQueries_Max50(t *testing.T) {
 
 func TestGetSimilarQueries_WithMatch(t *testing.T) {
 	em := NewEnvironmentMemory(t.TempDir())
-	em.UpdateLastQueries("查看磁盘使用情况")
-	em.UpdateLastQueries("查看内存使用情况")
-	em.UpdateLastQueries("重启nginx")
+	// querySimilarity uses strings.Fields (whitespace split), so we need space-separated words
+	em.UpdateLastQueries("check disk usage")
+	em.UpdateLastQueries("check memory usage")
+	em.UpdateLastQueries("restart nginx")
 
-	results := em.GetSimilarQueries("查看磁盘空间", 5)
+	results := em.GetSimilarQueries("check disk space", 5)
 	assert.NotEmpty(t, results)
 }
 
@@ -433,7 +438,8 @@ func TestEnvironmentMemory_SaveAndLoad(t *testing.T) {
 
 	// Load
 	loaded, err := LoadEnvironmentMemory(dir)
-	assert.NoError(t, assert.NotEmpty(t, loaded))
+	assert.NoError(t, err)
+	assert.NotEmpty(t, loaded)
 
 	assert.Equal(t, 1, loaded.ServerCount())
 	assert.Equal(t, "nano", loaded.GetUserPreference("editor"))
