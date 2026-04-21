@@ -49,7 +49,7 @@ func TestBuilderV2_BuildSystemMessage(t *testing.T) {
 	if msg.Content == "" {
 		t.Error("Content should not be empty")
 	}
-	if !strings.Contains(msg.Content, "opsxcli Agent V2") {
+	if !strings.Contains(msg.Content, "opsxcli") {
 		t.Error("Content should contain agent identity")
 	}
 }
@@ -273,7 +273,7 @@ func TestGetStaticSystemPrompt(t *testing.T) {
 	if prompt == "" {
 		t.Error("GetStaticSystemPrompt() returned empty string")
 	}
-	if !strings.Contains(prompt, "opsxcli Agent V2") {
+	if !strings.Contains(prompt, "opsxcli") {
 		t.Error("System Prompt should contain agent identity")
 	}
 }
@@ -286,7 +286,7 @@ func TestBuildSystemPrompt(t *testing.T) {
 	if !strings.Contains(prompt, memoryContext) {
 		t.Error("BuildSystemPrompt() should inject memory context")
 	}
-	if !strings.Contains(prompt, "opsxcli Agent V2") {
+	if !strings.Contains(prompt, "opsxcli") {
 		t.Error("BuildSystemPrompt() should contain base system prompt")
 	}
 }
@@ -294,7 +294,7 @@ func TestBuildSystemPrompt(t *testing.T) {
 // TestBuildSystemPrompt_empty 测试空记忆上下文
 func TestBuildSystemPrompt_empty(t *testing.T) {
 	prompt := BuildSystemPrompt("")
-	if !strings.Contains(prompt, "opsxcli Agent V2") {
+	if !strings.Contains(prompt, "opsxcli") {
 		t.Error("BuildSystemPrompt() should still contain base prompt with empty memory")
 	}
 }

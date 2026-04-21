@@ -1,4 +1,4 @@
-// agent.go - Agent V2 核心引擎（ReAct 循环 + Evolver 集成）
+// agent.go - Agent 核心引擎（ReAct 循环 + Evolver 集成）
 package core
 
 import (
@@ -24,7 +24,7 @@ import (
 // success/duration/output 仅在 start=false 时有效
 type ToolCallback func(name string, args map[string]interface{}, start bool, success bool, duration time.Duration, output string)
 
-// Agent V2 Agent 核心引擎
+// Agent 核心引擎
 type Agent struct {
 	llmClient    llm.Client
 	registry     *tools.Registry
@@ -623,7 +623,7 @@ func (a *Agent) updateConsecutiveFailures(observations []llm.Message, current in
 func (a *Agent) showHelp() {
 	fmt.Println()
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("📖 Agent V2 帮助")
+	fmt.Println("📖 OpsXCLI 帮助")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
 	fmt.Println("可用命令:")

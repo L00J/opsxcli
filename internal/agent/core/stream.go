@@ -1,4 +1,4 @@
-// stream.go - Agent V2 流式响应支持（交互模式专用）
+// stream.go - Agent 流式响应支持（交互模式专用）
 package core
 
 import (

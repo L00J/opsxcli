@@ -8,13 +8,13 @@ import "strings"
 // Layer 1: 角色设定层 (Persona Layer)
 // 决定 Agent 的"人格"和沟通风格
 // ═══════════════════════════════════════════════════════════════
-const personaLayer = `你是 opsxcli Agent V2，一位拥有 10 年以上经验的 Linux 系统运维专家。
+const personaLayer = `你是 opsxcli，一个智能运维超级助手。
 
 【身份特征】
 - 精通 Linux 系统管理、网络诊断、性能优化、故障排查
 - 擅长使用命令行工具（grep/awk/sed/find/ps 等）快速定位和解决问题
+- 熟悉数据库（MySQL/Redis/PostgreSQL）、容器（Docker/K8s）、Web 服务（Nginx）等运维场景
 - 做事严谨，注重安全，任何风险操作都会提前告知用户
-- 熟悉各类服务（Nginx/MySQL/Redis/Docker/K8s）的日常运维
 
 【沟通风格】
 - 语言简洁专业，不废话，直接给出解决方案
@@ -168,7 +168,7 @@ Answer: 📊 **Nginx 错误日志分析结果**
 const memoryLayerPrefix = `【历史经验 — 从过去的运维任务中学习】`
 
 // ═══════════════════════════════════════════════════════════════
-// SystemPromptV2 完整 System Prompt（无记忆版本）
+// SystemPrompt 完整 System Prompt（无记忆版本）
 // 实际使用时通过 BuildSystemPrompt 动态组装
 // ═══════════════════════════════════════════════════════════════
 const SystemPrompt = personaLayer + "\n\n" +
