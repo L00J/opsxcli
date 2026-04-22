@@ -26,16 +26,27 @@ type reflectionClient interface {
 }
 
 // EvolverEngine 进化引擎核心
+// TaskComplexity 任务复杂度级别
+type TaskComplexity int
+
+const (
+	ComplexitySimple    TaskComplexity = iota // 简单: 1-3步工具调用
+	ComplexityModerate                        // 中等: 4-6步工具调用
+	ComplexityComplex                         // 复杂: 7+步工具调用
+)
+
 type EvolverEngine struct {
-	experience  *ExperienceMemory    // 经验记忆层
-	environment *EnvironmentMemory   // 环境记忆层
-	factual     *FactualMemory       // v0.5.0: 事实层 (MEMORY.md + USER.md)
-	procedural  *ProceduralMemory    // v0.5.0: 程序层 (SKILL_xxx.md)
-	mu          sync.RWMutex
-	baseDir     string               // 存储目录
-	minSteps    int                  // 触发 Evolver 的最小步数
-	enabled     bool                 // 是否启用
-	llmClient   reflectionClient     // 可选的 LLM 客户端，用于反射分析
+	experience    *ExperienceMemory    // 经验记忆层
+	environment   *EnvironmentMemory   // 环境记忆层
+	factual       *FactualMemory       // v0.5.0: 事实层 (MEMORY.md + USER.md)
+	procedural    *ProceduralMemory    // v0.5.0: 程序层 (SKILL_xxx.md)
+	mu            sync.RWMutex
+	baseDir       string               // 存储目录
+	minSteps      int                  // 触发 Evolver 的最小步数
+	enabled       bool                 // 是否启用
+	llmClient     reflectionClient     // 可选的 LLM 客户端，用于反射分析
+	simpleThresh  int                  // 简单任务阈值（≤此值为简单）
+	moderateThresh int                 // 中等任务阈值（≤此值为中等）
 }
 
 // TaskExecution 一次完整的任务执行记录（Evolver 的输入）
@@ -123,14 +134,16 @@ func NewEvolverEngine(baseDir string) (*EvolverEngine, error) {
 	procMemory.SeedBuiltinSkills()
 
 	return &EvolverEngine{
-		experience:  expMemory,
-		environment: envMemory,
-		factual:     factMemory,
-		procedural:  procMemory,
-		baseDir:     baseDir,
-		minSteps:    2,      // 至少 2 步才触发 Evolver
-		enabled:     true,   // 默认启用
-		llmClient:   nil,
+		experience:     expMemory,
+		environment:    envMemory,
+		factual:        factMemory,
+		procedural:     procMemory,
+		baseDir:        baseDir,
+		minSteps:       2,      // 至少 2 步才触发 Evolver
+		simpleThresh:   3,      // ≤3步为简单任务
+		moderateThresh: 6,      // ≤6步为中等任务
+		enabled:        true,   // 默认启用
+		llmClient:      nil,
 	}, nil
 }
 
@@ -142,6 +155,20 @@ func NewEvolverEngineWithLLM(baseDir string, llmClient reflectionClient) (*Evolv
 	}
 	engine.llmClient = llmClient
 	return engine, nil
+}
+
+// classifyComplexity 根据工具调用次数判断任务复杂度
+// 简单(≤3步): 只做基本经验记录，跳过LLM反思和Skill提炼
+// 中等(4-6步): 经验记录+Skill提炼，跳过LLM反思
+// 复杂(7+步): 完整10步循环+LLM反思+Skill提炼
+func (e *EvolverEngine) classifyComplexity(toolCallCount int) TaskComplexity {
+	if toolCallCount <= e.simpleThresh {
+		return ComplexitySimple
+	}
+	if toolCallCount <= e.moderateThresh {
+		return ComplexityModerate
+	}
+	return ComplexityComplex
 }
 
 // SetEnabled 设置是否启用进化
@@ -158,8 +185,12 @@ func (e *EvolverEngine) IsEnabled() bool {
 	return e.enabled
 }
 
-// Evolve 执行完整的 10 步进化循环（异步）
+// Evolve 执行进化循环（异步）
 // 在任务完成后调用，后台运行不阻塞用户
+// 根据任务复杂度分级执行不同深度的进化，节省Token开销：
+//   - 简单(≤3步): 仅经验记录 + 环境适应
+//   - 中等(4-6步): 经验记录 + 环境适应 + Skill提炼
+//   - 复杂(7+步): 完整10步循环 + LLM反思 + Skill提炼
 func (e *EvolverEngine) Evolve(ctx context.Context, exec *TaskExecution) *EvolveResult {
 	if !e.IsEnabled() {
 		return &EvolveResult{ExperienceAdded: false}
@@ -170,7 +201,34 @@ func (e *EvolverEngine) Evolve(ctx context.Context, exec *TaskExecution) *Evolve
 		return &EvolveResult{ExperienceAdded: false}
 	}
 
+	complexity := e.classifyComplexity(len(exec.ToolCalls))
 	result := &EvolveResult{}
+
+	// ═══ 简单任务快速路径：仅经验记录 + 环境适应 ═══
+	if complexity == ComplexitySimple {
+		observation := e.stepObserve(exec)
+		toolScores := e.stepScore(exec)
+		keyDecisions := e.stepExtract(exec)
+		newExp := e.stepLearn(exec, observation, keyDecisions, toolScores, nil, nil)
+		if newExp != nil {
+			e.experience.AddExperience(newExp)
+			if err := e.experience.Save(); err == nil {
+				result.ExperienceAdded = true
+				result.LearnedHint = newExp.Hint
+				result.TaskType = newExp.TaskType
+			}
+		}
+		result.ToolSequence = e.extractToolSequence(exec)
+		envUpdated := e.stepAdapt(exec)
+		result.EnvironmentUpdated = envUpdated
+		if envUpdated {
+			e.environment.Save()
+		}
+		result.UserFeedback = e.stepFeedback(result)
+		return result
+	}
+
+	// ═══ 中等/复杂任务：完整循环 ═══
 
 	// Step 1: OBSERVE - 观察本次任务执行
 	observation := e.stepObserve(exec)
@@ -178,9 +236,9 @@ func (e *EvolverEngine) Evolve(ctx context.Context, exec *TaskExecution) *Evolve
 	// Step 2: EXTRACT - 提取关键决策点
 	keyDecisions := e.stepExtract(exec)
 
-	// Step 2.5: REFLECT - LLM-assisted reflection
+	// Step 2.5: REFLECT - LLM-assisted reflection（仅复杂任务触发）
 	var reflection *Reflection
-	if e.llmClient != nil {
+	if complexity == ComplexityComplex && e.llmClient != nil {
 		reflection = e.stepReflectWithLLM(ctx, exec)
 	}
 
@@ -223,8 +281,8 @@ func (e *EvolverEngine) Evolve(ctx context.Context, exec *TaskExecution) *Evolve
 		e.stepMemorize(exec, result)
 	}
 
-	// Step 9.7: DISTILL - Skill 自动提炼（复杂任务 ≥5 次工具调用时触发）
-	if e.procedural != nil && len(exec.ToolCalls) >= 5 && exec.Success {
+	// Step 9.7: DISTILL - Skill 自动提炼（中等及以上 + ≥5次工具调用 + 成功）
+	if e.procedural != nil && complexity >= ComplexityModerate && len(exec.ToolCalls) >= 5 && exec.Success {
 		skillID := e.stepDistill(exec, result)
 		if skillID != "" {
 			result.SkillDistilled = true
@@ -622,6 +680,8 @@ func (e *EvolverEngine) GetStats() map[string]interface{} {
 		"total_queries":       len(e.environment.LastQueries),
 		"enabled":             e.enabled,
 		"min_steps_to_evolve": e.minSteps,
+		"complexity_simple_thresh":  e.simpleThresh,
+		"complexity_moderate_thresh": e.moderateThresh,
 	}
 	if e.factual != nil {
 		stats["factual_facts"] = e.factual.Count()

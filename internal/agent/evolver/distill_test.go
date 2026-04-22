@@ -4,6 +4,8 @@
 package evolver
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -463,3 +465,162 @@ func TestEvolveResult_SkillDistilled(t *testing.T) {
 }
 
 // contains 和 containsSubstr 已在 procedural_test.go 中定义
+
+// ─── classifyComplexity 测试 ───
+
+func TestClassifyComplexity(t *testing.T) {
+	e := &EvolverEngine{
+		simpleThresh:   3,
+		moderateThresh: 6,
+	}
+	tests := []struct {
+		name          string
+		toolCallCount int
+		want          TaskComplexity
+	}{
+		{"0步-简单", 0, ComplexitySimple},
+		{"1步-简单", 1, ComplexitySimple},
+		{"2步-简单", 2, ComplexitySimple},
+		{"3步-简单", 3, ComplexitySimple},
+		{"4步-中等", 4, ComplexityModerate},
+		{"5步-中等", 5, ComplexityModerate},
+		{"6步-中等", 6, ComplexityModerate},
+		{"7步-复杂", 7, ComplexityComplex},
+		{"10步-复杂", 10, ComplexityComplex},
+		{"20步-复杂", 20, ComplexityComplex},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := e.classifyComplexity(tt.toolCallCount)
+			if got != tt.want {
+				t.Errorf("classifyComplexity(%d) = %v, want %v", tt.toolCallCount, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClassifyComplexity_CustomThresholds(t *testing.T) {
+	e := &EvolverEngine{
+		simpleThresh:   5,
+		moderateThresh: 10,
+	}
+	if e.classifyComplexity(5) != ComplexitySimple {
+		t.Error("自定义阈值5应为简单")
+	}
+	if e.classifyComplexity(6) != ComplexityModerate {
+		t.Error("自定义阈值6应为中等")
+	}
+	if e.classifyComplexity(11) != ComplexityComplex {
+		t.Error("自定义阈值11应为复杂")
+	}
+}
+
+// ─── Evolve 快速路径测试 ───
+
+func TestEvolve_SimpleTask_FastPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	e, err := NewEvolverEngine(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.SetEnabled(true)
+
+	exec := &TaskExecution{
+		Query:       "查看磁盘使用",
+		TotalSteps:  2,
+		ToolCalls:   []ToolCallRecord{
+			{ToolName: "execute", Args: map[string]interface{}{"command": "df -h"}, Success: true, Duration: time.Second},
+			{ToolName: "execute", Args: map[string]interface{}{"command": "du -sh /var"}, Success: true, Duration: time.Second},
+		},
+		Success: true,
+		Duration: 2 * time.Second,
+	}
+
+	result := e.Evolve(context.Background(), exec)
+	// 简单任务应完成但不做Skill提炼
+	if result == nil {
+		t.Fatal("Evolve 不应返回 nil")
+	}
+	// 2个工具调用 < 5，不应提炼Skill
+	if result.SkillDistilled {
+		t.Error("简单任务不应提炼Skill")
+	}
+}
+
+func TestEvolve_ModerateTask_NoLLM(t *testing.T) {
+	tmpDir := t.TempDir()
+	e, err := NewEvolverEngine(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.SetEnabled(true)
+
+	// 5个工具调用 - 中等任务
+	toolCalls := make([]ToolCallRecord, 5)
+	for i := range toolCalls {
+		toolCalls[i] = ToolCallRecord{
+			ToolName: "execute",
+			Args:     map[string]interface{}{"command": fmt.Sprintf("cmd_%d", i)},
+			Success:  true,
+			Duration: time.Second,
+		}
+	}
+	exec := &TaskExecution{
+		Query:      "排查网络问题",
+		TotalSteps: 5,
+		ToolCalls:  toolCalls,
+		Success:    true,
+		Duration:   5 * time.Second,
+	}
+
+	result := e.Evolve(context.Background(), exec)
+	if result == nil {
+		t.Fatal("Evolve 不应返回 nil")
+	}
+	// 中等任务(5工具调用>=5)且成功，应提炼Skill
+	if !result.SkillDistilled {
+		t.Error("中等任务(5步)成功时应提炼Skill")
+	}
+}
+
+func TestEvolve_Disabled(t *testing.T) {
+	tmpDir := t.TempDir()
+	e, err := NewEvolverEngine(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.SetEnabled(false)
+
+	exec := &TaskExecution{
+		Query:      "test",
+		TotalSteps: 5,
+		ToolCalls:  []ToolCallRecord{{ToolName: "execute", Args: map[string]interface{}{"command": "ls"}, Success: true}},
+		Success:    true,
+	}
+
+	result := e.Evolve(context.Background(), exec)
+	if result.ExperienceAdded {
+		t.Error("禁用时不应添加经验")
+	}
+}
+
+func TestEvolve_TooFewSteps(t *testing.T) {
+	tmpDir := t.TempDir()
+	e, err := NewEvolverEngine(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.SetEnabled(true)
+
+	exec := &TaskExecution{
+		Query:      "test",
+		TotalSteps: 1, // 低于 minSteps(2)
+		ToolCalls:  []ToolCallRecord{{ToolName: "execute", Success: true}},
+	}
+
+	result := e.Evolve(context.Background(), exec)
+	if result.ExperienceAdded {
+		t.Error("步数太少不应添加经验")
+	}
+}
