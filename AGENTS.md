@@ -72,24 +72,24 @@
     72|| `ARCHITECTURE.md` | 域和包分层的完整地图 | 修改任何包结构时 |
     73|| `docs/01-项目概述与设计哲学.md` | 设计哲学、Agent 全景图 | 首次参与项目 |
     74|| `docs/02-整体架构设计.md` | 三层架构详解 | 理解模块边界 |
-    75|| `docs/03-插件架构设计.md` | 插件分类、注册机制 | 新增插件时 |
-    76|| `docs/04-Builtin内置命令.md` | 内置命令实现策略 | 修改 builtin 时 |
-    77|| `docs/05-Agent核心引擎设计.md` | ReAct 主循环、16 轮迭代 | 修改 Agent 核心时 |
-    78|| `docs/06-Prompt构建与记忆注入.md` | 五层 System Prompt | 修改 Prompt 构建时 |
-    79|| `docs/07-Evolver自进化引擎.md` | 经验学习与进化 | 修改 Evolver 时 |
-    80|| `docs/08-安全系统与工具注册.md` | 风险评估、安全模式 | 修改安全逻辑时 |
-| `docs/09-会话管理.md` | JSONL 持久化 | 修改会话管理时 |
-| `docs/10-TUI终端界面设计.md` | Bubble Tea 界面 | 修改 TUI 时 |
-| `docs/11-Agent工程化与反馈回路.md` | Harness 理论、前馈/反馈、Steering Loop | 理解 Agent 工程化框架时 |
+| `docs/03-Harness工程化与反馈回路.md` | Harness 理论、前馈/反馈、Steering Loop | 理解 Agent 工程化框架时 |
+| `docs/04-插件架构设计.md` | 插件分类、注册机制 | 新增插件时 |
+| `docs/05-Builtin内置命令.md` | 内置命令实现策略 | 修改 builtin 时 |
+| `docs/06-Agent核心引擎设计.md` | ReAct 主循环、16 轮迭代 | 修改 Agent 核心时 |
+| `docs/07-Prompt构建与记忆注入.md` | 五层 System Prompt | 修改 Prompt 构建时 |
+| `docs/08-Evolver自进化引擎.md` | 经验学习与进化 | 修改 Evolver 时 |
+| `docs/09-安全系统与工具注册.md` | 风险评估、安全模式 | 修改安全逻辑时 |
+| `docs/10-会话管理.md` | JSONL 持久化 | 修改会话管理时 |
+| `docs/11-TUI终端界面设计.md` | Bubble Tea 界面 | 修改 TUI 时 |
 
 ### 参考文档（按需阅读）
     85|
     86|| 路径 | 内容 | 何时阅读 |
     87||------|------|---------|
     88|| `TASTE.md` | 编码规范（中文注释、错误处理） | 编写新代码时 |
-    89|| `docs/03-插件架构设计.md` | 添加新插件的完整步骤 | 新增插件时 |
+    89|| `docs/04-插件架构设计.md` | 添加新插件的完整步骤 | 新增插件时 |
     90|| `docs/*.md（命令帮助文档）` | 50+ 命令的使用文档 | 了解命令用法 |
-    91|| `docs/05-Agent核心引擎设计.md（配置部分）` | 配置文件格式和加载机制 | 修改配置系统时 |
+    91|| `docs/06-Agent核心引擎设计.md（配置部分）` | 配置文件格式和加载机制 | 修改配置系统时 |
     92|
     93|### 产品规范与计划
     94|
@@ -175,9 +175,9 @@
    174|
    175|## 快速导航
    176|
-   177|- **新增插件**: `docs/03-插件架构设计.md` → `plugins/<name>/` → `cmd/<name>.go`
-   178|- **修改 Agent**: `docs/05-Agent核心引擎设计.md` → `internal/agent/core/`
-   179|- **新增 LLM Provider**: `internal/llm/factory.go` → `internal/llm/<provider>.go`
-   180|- **修改安全策略**: `docs/08-安全系统与工具注册.md` → `internal/agent/safety/`
-   181|- **修改 TUI**: `docs/10-TUI终端界面设计.md` → `internal/tui/`
+- **新增插件**: `docs/04-插件架构设计.md` → `plugins/<name>/` → `cmd/<name>.go`
+- **修改 Agent**: `docs/06-Agent核心引擎设计.md` → `internal/agent/core/`
+- **新增 LLM Provider**: `internal/llm/factory.go` → `internal/llm/<provider>.go`
+- **修改安全策略**: `docs/09-安全系统与工具注册.md` → `internal/agent/safety/`
+- **修改 TUI**: `docs/11-TUI终端界面设计.md` → `internal/tui/`
    182|

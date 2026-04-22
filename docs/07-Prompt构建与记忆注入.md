@@ -1,6 +1,6 @@
-# 06 - Prompt 构建与记忆注入
+# 07 - Prompt 构建与记忆注入
 
-> 前置阅读：[03 - Agent 核心引擎设计](03-Agent核心引擎设计.md) | [07 - Evolver 自进化引擎](07-Evolver自进化引擎.md)
+> 前置阅读：[06 - Agent 核心引擎设计](06-Agent核心引擎设计.md) | [08 - Evolver 自进化引擎](08-Evolver自进化引擎.md)
 
 ## 设计理念
 
