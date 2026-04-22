@@ -1,0 +1,121 @@
+# =============================================================================
+# Codecov Configuration
+# =============================================================================
+# 覆盖率报告配置，支持 L3 Feedback Loop
+
+codecov:
+  require_ci_to_pass: true
+  notify:
+    wait_for_ci: true
+    after_n_builds: 1
+
+coverage:
+  precision: 1
+  round: down
+  range: "30...80"
+  status:
+    project:
+      default:
+        target: 40%
+        threshold: 2%
+        if_ci_failed: error
+        informational: false
+        removed_code_behavior: adjust_base
+        flags:
+          - unit
+        paths:
+          - "cmd/"
+          - "internal/"
+      agent:
+        target: 50%
+        paths:
+          - "internal/agent/"
+      cmd:
+        target: 30%
+        paths:
+          - "cmd/"
+      core:
+        target: 60%
+        paths:
+          - "internal/core/"
+          - "internal/logger/"
+          - "internal/config/"
+      plugins:
+        target: 25%
+        paths:
+          - "internal/"
+          - "plugins/"
+    patch:
+      default:
+        target: 60%
+        threshold: 5%
+        if_ci_failed: error
+        only_pulls: true
+
+# 忽略不需要测试的文件
+ignore:
+  - "**/*_test.go"
+  - "**/vendor/**"
+  - "**/mocks/**"
+  - "**/mock_*.go"
+  - "**/testdata/**"
+  - "docker/**"
+  - "docs/**"
+  - "scripts/**"
+  - "*.sh"
+  - "*.py"
+  - "*.md"
+
+# 组件映射，用于详细报告
+component_management:
+  default_rules:
+    statuses:
+      - type: project
+        target: auto
+  individual_components:
+    - component_id: module_cmd
+      name: Commands
+      paths:
+        - cmd/
+    - component_id: module_core
+      name: Core Engine
+      paths:
+        - internal/core/
+    - component_id: module_llm
+      name: LLM Integration
+      paths:
+        - internal/llm/
+    - component_id: module_agent
+      name: Agent System
+      paths:
+        - internal/agent/
+    - component_id: module_db
+      name: Database
+      paths:
+        - internal/db/
+    - component_id: module_security
+      name: Security
+      paths:
+        - internal/security/
+    - component_id: module_tui
+      name: TUI
+      paths:
+        - internal/tui/
+        - internal/ui/
+
+# PR 评论配置
+comment:
+  layout: "reach,diff,flags,files,footer"
+  behavior: default
+  require_changes: false
+  require_base: true
+  require_head: true
+  hide_project_coverage: false
+
+# 通知配置
+slack:
+  default:
+    url: "${{ secrets.CODECOV_SLACK_WEBHOOK }}"
+    only_pulls: true
+    branches:
+      - main

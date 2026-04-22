@@ -46,8 +46,9 @@ const (
 type viewState int
 
 const (
-	viewChat viewState = iota // 聊天视图（默认）
-	viewSessionList           // 会话列表视图
+	viewChat        viewState = iota // 聊天视图（默认）
+	viewSessionList                  // 会话列表视图
+	viewDashboard                    // 仪表板视图
 )
 
 // AgentRunner 定义 Agent 的流式执行接口，避免循环导入
@@ -99,6 +100,12 @@ type Model struct {
 
 	// 当前执行的工具
 	currentTool string
+
+	// 仪表板 (v0.6.0)
+	dashTab           dashboardTab
+	dashCursor        int
+	dashboardData     DashboardData
+	memoryStatsLoader func() (map[string]interface{}, error)
 }
 
 // NewModel 创建 TUI Model
@@ -201,6 +208,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleSessionListKeys(msg)
 		}
 
+		if m.viewState == viewDashboard {
+			return m.handleDashboardKeys(msg)
+		}
+
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
@@ -209,6 +220,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewState = viewSessionList
 				m.deleteConfirm = false
 				return m, m.loadSessionList()
+			}
+		case tea.KeyCtrlD:
+			if m.viewState == viewChat {
+				m.viewState = viewDashboard
+				m.dashTab = tabOverview
+				m.dashCursor = 0
+				return m, m.loadDashboardCmd()
 			}
 		case tea.KeyEnter:
 			if m.state != stateIdle && m.state != stateCompleted && m.state != stateError {
@@ -224,7 +242,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if query == "/help" {
 				m.messages = append(m.messages, ChatMessage{
 					Role:      "system",
-					Content:   "命令: /exit, /quit - 退出 | /new - 新建会话 | /sessions - 会话列表 | Enter - 发送 | ESC - 退出 | Ctrl+O - 切换会话列表",
+					Content:   "命令: /exit, /quit - 退出 | /new - 新建会话 | /sessions - 会话列表 | /dashboard, /skills, /memory - 仪表板 | Enter - 发送 | ESC - 退出 | Ctrl+O - 会话列表 | Ctrl+M - 仪表板",
 					Timestamp: time.Now(),
 				})
 				m.textarea.Reset()
@@ -237,6 +255,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewState = viewSessionList
 				m.deleteConfirm = false
 				return m, m.loadSessionList()
+			}
+			if query == "/dashboard" || query == "/skills" || query == "/memory" {
+				m.textarea.Reset()
+				m.viewState = viewDashboard
+				m.dashTab = tabOverview
+				if query == "/skills" {
+					m.dashTab = tabSkills
+				}
+				m.dashCursor = 0
+				return m, m.loadDashboardCmd()
 			}
 			if query == "/new" {
 				m.textarea.Reset()
@@ -420,6 +448,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = stateReviewing
 		return m, nil
 
+	case dashboardLoadedMsg:
+		m.dashboardData = msg.data
+		return m, nil
+
 	case sessionCreatedMsg:
 		m.deleteConfirm = false
 		if msg.err != nil {
@@ -554,6 +586,10 @@ func (m Model) View() string {
 
 	if m.viewState == viewSessionList {
 		return m.renderSessionList()
+	}
+
+	if m.viewState == viewDashboard {
+		return m.renderDashboard()
 	}
 
 	title := titleStyle.Render("🤖 opsxcli 智能运维助手")

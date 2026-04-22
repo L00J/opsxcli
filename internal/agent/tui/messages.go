@@ -64,3 +64,8 @@ type confirmModalMsg struct {
 	args     map[string]interface{}
 	resultCh chan bool
 }
+
+// dashboardLoadedMsg 仪表板数据加载完成
+type dashboardLoadedMsg struct {
+	data DashboardData
+}

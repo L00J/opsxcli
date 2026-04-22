@@ -79,7 +79,7 @@ test-coverage:
 	@echo "📊 覆盖率报告:"
 	@go tool cover -func=coverage.out | tail -1
 	@echo ""
-	@THRESHOLD=30; \
+	@THRESHOLD=50; \
 	COVERAGE=$$(go tool cover -func=coverage.out | tail -1 | awk '{print $$NF}' | sed 's/%//'); \
 	echo "门禁: $${THRESHOLD}% | 实际: $${COVERAGE}%"; \
 	if [ "$$(echo "$$COVERAGE < $$THRESHOLD" | bc -l 2>/dev/null)" = "1" ] || \

@@ -183,4 +183,50 @@ var (
 	modalRiskCriticalStyle = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(lipgloss.Color("#FF0000"))
+
+	// === 仪表板样式 (v0.6.0) ===
+
+	dashTitleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#7DC4E4")).
+			MarginLeft(2)
+
+	dashSectionStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#8AADF4")).
+				MarginLeft(2)
+
+	dashCardStyle = lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#363A4F")).
+			Background(lipgloss.Color("#181926")).
+			Foreground(lipgloss.Color("#CAD3F5")).
+			Padding(0, 1)
+
+	dashDetailStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6E738D")).
+			Italic(true)
+
+	dashDividerStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#363A4F"))
+
+	dashTabActiveStyle = lipgloss.NewStyle().
+				Bold(true).
+				Background(lipgloss.Color("#363A4F")).
+				Foreground(lipgloss.Color("#CAD3F5")).
+				Padding(0, 1)
+
+	dashTabInactiveStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#181926")).
+				Foreground(lipgloss.Color("#6E738D")).
+				Padding(0, 1)
+
+	dashBarNormalStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#A6DA95"))
+
+	dashBarWarnStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#F5A97F"))
+
+	dashBarDangerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ED8796"))
 )
