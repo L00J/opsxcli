@@ -39,6 +39,12 @@ func NewDockerCmd() *cobra.Command {
   - restart: 重启容器
   - rm:      删除容器
 
+监控与系统：
+  - stats:     查看容器资源使用统计
+  - top:       查看容器内进程
+  - events:    监听 Docker 事件
+  - system-df: 查看 Docker 磁盘使用
+
 使用 'opsxcli docker <command> --help' 查看具体命令的帮助信息。`,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
@@ -68,6 +74,12 @@ func NewDockerCmd() *cobra.Command {
 	cmd.AddCommand(NewDockerStopCmd())
 	cmd.AddCommand(NewDockerRestartCmd())
 	cmd.AddCommand(NewDockerRMCmd())
+
+	// 添加子命令 - 监控与系统
+	cmd.AddCommand(NewDockerStatsCmd())
+	cmd.AddCommand(NewDockerTopCmd())
+	cmd.AddCommand(NewDockerEventsCmd())
+	cmd.AddCommand(NewDockerSystemDFCmd())
 
 	return cmd
 }
@@ -645,6 +657,134 @@ func NewDockerPruneCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&all, "all", "a", false, "清理所有未使用的镜像（不仅仅是悬空的）")
+
+	return cmd
+}
+
+// --- 监控与系统命令 ---
+
+// NewDockerStatsCmd 创建 docker stats 命令
+func NewDockerStatsCmd() *cobra.Command {
+	var (
+		noStream bool
+		noTrunc  bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "stats [container...]",
+		Short: "查看容器资源使用统计",
+		Long: `显示容器的实时资源使用统计（CPU、内存、网络、磁盘 I/O）
+
+示例:
+  # 查看所有运行中容器的统计
+  opsxcli docker stats
+
+  # 查看指定容器的统计
+  opsxcli docker stats nginx redis
+
+  # 只显示一次（不实时刷新）
+  opsxcli docker stats --no-stream`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.StatsOptions{
+				Containers: args,
+				NoStream:   noStream,
+				NoTrunc:    noTrunc,
+			}
+			return docker.Stats(opts)
+		},
+	}
+
+	cmd.Flags().BoolVar(&noStream, "no-stream", false, "只显示一次统计（不实时刷新）")
+	cmd.Flags().BoolVar(&noTrunc, "no-trunc", false, "不截断容器 ID")
+
+	return cmd
+}
+
+// NewDockerTopCmd 创建 docker top 命令
+func NewDockerTopCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "top <container>",
+		Short: "查看容器内运行的进程",
+		Long: `显示指定容器内正在运行的进程
+
+示例:
+  opsxcli docker top nginx
+  opsxcli docker top abc123def456`,
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return docker.Top(args[0])
+		},
+	}
+
+	return cmd
+}
+
+// NewDockerEventsCmd 创建 docker events 命令
+func NewDockerEventsCmd() *cobra.Command {
+	var (
+		since    string
+		until    string
+		filter   string
+		duration int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "events",
+		Short: "监听 Docker 事件",
+		Long: `实时监听 Docker 引擎事件（容器启停、镜像拉取等）
+
+示例:
+  # 监听实时事件（默认 60 秒）
+  opsxcli docker events
+
+  # 监听最近 1 小时的事件
+  opsxcli docker events --since 1h
+
+  # 监听指定容器的事件
+  opsxcli docker events --filter container=nginx
+
+  # 监听 30 秒
+  opsxcli docker events --duration 30`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.EventsOptions{
+				Since:    since,
+				Until:    until,
+				Filters:  filter,
+				Duration: duration,
+			}
+			return docker.Events(opts)
+		},
+	}
+
+	cmd.Flags().StringVar(&since, "since", "", "显示指定时间之后的事件 (如 1h, 30m, 2024-01-01)")
+	cmd.Flags().StringVar(&until, "until", "", "显示指定时间之前的事件")
+	cmd.Flags().StringVarP(&filter, "filter", "f", "", "过滤条件 (container=xxx, type=container 等)")
+	cmd.Flags().IntVarP(&duration, "duration", "d", 0, "监听持续时间（秒），默认 60 秒")
+
+	return cmd
+}
+
+// NewDockerSystemDFCmd 创建 docker system-df 命令
+func NewDockerSystemDFCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "system-df",
+		Short: "查看 Docker 磁盘使用情况",
+		Long: `显示 Docker 使用的磁盘空间概览
+
+示例:
+  opsxcli docker system-df`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return docker.SystemDF()
+		},
+	}
 
 	return cmd
 }
