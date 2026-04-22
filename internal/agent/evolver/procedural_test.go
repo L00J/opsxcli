@@ -335,3 +335,145 @@ func containsSubstr(s, substr string) bool {
 	}
 	return false
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SeedBuiltinSkills 测试
+// ═══════════════════════════════════════════════════════════════
+
+func TestSeedBuiltinSkills_Populates(t *testing.T) {
+	dir := t.TempDir()
+	pm := NewProceduralMemory(dir)
+
+	// 初始为空
+	if pm.Count() != 0 {
+		t.Fatalf("初始技能数 = %d, 期望 0", pm.Count())
+	}
+
+	// 填充种子
+	pm.SeedBuiltinSkills()
+
+	// 应有 5 个种子技能
+	if pm.Count() != 5 {
+		t.Fatalf("种子技能数 = %d, 期望 5", pm.Count())
+	}
+
+	// 验证每个种子技能存在
+	expectedIDs := []string{"local_common_ops", "install_software", "risk_approval", "network_diagnosis", "basic_recovery"}
+	for _, id := range expectedIDs {
+		skill, ok := pm.GetSkill(id)
+		if !ok {
+			t.Errorf("缺少种子技能: %s", id)
+			continue
+		}
+		if skill.Source != "seed" {
+			t.Errorf("%s.Source = %q, 期望 seed", id, skill.Source)
+		}
+		if skill.Version != 1 {
+			t.Errorf("%s.Version = %d, 期望 1", id, skill.Version)
+		}
+		if len(skill.Steps) == 0 {
+			t.Errorf("%s.Steps 为空", id)
+		}
+		if len(skill.Triggers) == 0 {
+			t.Errorf("%s.Triggers 为空", id)
+		}
+		if len(skill.Pitfalls) == 0 {
+			t.Errorf("%s.Pitfalls 为空", id)
+		}
+		if skill.SuccessRate <= 0 || skill.SuccessRate > 1 {
+			t.Errorf("%s.SuccessRate = %f, 不在 (0,1] 范围", id, skill.SuccessRate)
+		}
+	}
+}
+
+func TestSeedBuiltinSkills_DoesNotOverwrite(t *testing.T) {
+	dir := t.TempDir()
+	pm := NewProceduralMemory(dir)
+
+	// 预设一个已有技能
+	pm.SetSkill(&SkillEntry{
+		ID:          "network_diagnosis",
+		Name:        "自定义网络诊断",
+		Category:    "network",
+		Version:     3,
+		Steps:       []string{"自定义步骤"},
+		Triggers:    []string{"自定义触发"},
+		Source:      "learned",
+		SuccessRate: 0.99,
+		UsageCount:  50,
+	})
+
+	// 填充种子
+	pm.SeedBuiltinSkills()
+
+	// 应有 5 个技能（4 新 + 1 已有）
+	if pm.Count() != 5 {
+		t.Fatalf("技能数 = %d, 期望 5", pm.Count())
+	}
+
+	// 已有技能应保留
+	got, ok := pm.GetSkill("network_diagnosis")
+	if !ok {
+		t.Fatal("应找到 network_diagnosis")
+	}
+	if got.Name != "自定义网络诊断" {
+		t.Errorf("Name = %q, 期望保留自定义名称", got.Name)
+	}
+	if got.Version != 3 { // SetSkill keeps version for new skills
+		t.Errorf("Version = %d, 期望 3", got.Version)
+	}
+	if got.UsageCount != 50 {
+		t.Errorf("UsageCount = %d, 期望 50", got.UsageCount)
+	}
+}
+
+func TestSeedBuiltinSkills_SaveAndReload(t *testing.T) {
+	dir := t.TempDir()
+	pm := NewProceduralMemory(dir)
+	pm.SeedBuiltinSkills()
+	pm.Save()
+
+	// 重新加载
+	pm2, err := LoadProceduralMemory(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 再次填充种子不应增加数量
+	pm2.SeedBuiltinSkills()
+	if pm2.Count() != 5 {
+		t.Fatalf("重载后种子数 = %d, 期望 5", pm2.Count())
+	}
+}
+
+func TestSeedBuiltinSkills_Matching(t *testing.T) {
+	dir := t.TempDir()
+	pm := NewProceduralMemory(dir)
+	pm.SeedBuiltinSkills()
+
+	// 测试网络相关查询
+	skills := pm.FindMatchingSkills("网络连接超时")
+	found := false
+	for _, s := range skills {
+		if s.ID == "network_diagnosis" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("查询'网络连接超时'应匹配 network_diagnosis")
+	}
+
+	// 测试高危操作查询
+	skills = pm.FindMatchingSkills("删除生产环境数据")
+	found = false
+	for _, s := range skills {
+		if s.ID == "risk_approval" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("查询'删除生产环境数据'应匹配 risk_approval")
+	}
+}

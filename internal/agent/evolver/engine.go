@@ -116,6 +116,8 @@ func NewEvolverEngine(baseDir string) (*EvolverEngine, error) {
 	if procErr != nil {
 		procMemory = NewProceduralMemory(baseDir)
 	}
+	// 填充内置种子技能（不覆盖已有技能）
+	procMemory.SeedBuiltinSkills()
 
 	return &EvolverEngine{
 		experience:  expMemory,

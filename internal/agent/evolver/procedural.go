@@ -55,6 +55,138 @@ func NewProceduralMemory(baseDir string) *ProceduralMemory {
 	}
 }
 
+// SeedBuiltinSkills 填充内置种子技能（v0.5.0: 5个运维种子Skill）
+// 仅在技能不存在时创建，不覆盖已有技能
+func (pm *ProceduralMemory) SeedBuiltinSkills() {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	now := time.Now()
+
+	seeds := []*SkillEntry{
+		{
+			ID:          "local_common_ops",
+			Name:        "常用本地操作",
+			Category:    "system",
+			Version:     1,
+			Description: "文件管理、进程管理、服务管理等常用本地运维操作的标准流程",
+			Steps: []string{
+				"确认操作目标（文件/进程/服务）",
+				"检查当前状态（ls/ps/systemctl status）",
+				"执行操作（cp/mv/kill/systemctl restart）",
+				"验证操作结果（再次检查状态）",
+				"记录操作日志",
+			},
+			ToolSeq:    []string{"execute"},
+			Triggers:   []string{"文件", "进程", "服务", "重启", "复制", "移动", "删除", "ls", "ps", "systemctl"},
+			Pitfalls:   []string{"删除文件前确认路径，避免误删", "杀进程前确认无关联服务", "重启服务前通知相关方"},
+			SuccessRate: 0.90,
+			UsageCount:  0,
+			Source:      "seed",
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		},
+		{
+			ID:          "install_software",
+			Name:        "软件安装标准化流程",
+			Category:    "deploy",
+			Version:     1,
+			Description: "通过 apt/yum/brew 等包管理器安装软件的标准化流程",
+			Steps: []string{
+				"确认目标系统类型（Ubuntu/CentOS/macOS）",
+				"更新包索引（apt update / yum makecache）",
+				"安装软件包（apt install / yum install / brew install）",
+				"验证安装（which/version检查）",
+				"配置环境变量（如需要）",
+			},
+			ToolSeq:    []string{"execute"},
+			Triggers:   []string{"安装", "install", "apt", "yum", "brew", "软件", "包管理"},
+			Pitfalls:   []string{"安装前先更新包索引避免依赖冲突", "注意区分系统版本选择正确包管理器", "安装后验证版本是否符合预期"},
+			SuccessRate: 0.85,
+			UsageCount:  0,
+			Source:      "seed",
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		},
+		{
+			ID:          "risk_approval",
+			Name:        "高危操作审批流程",
+			Category:    "security",
+			Version:     1,
+			Description: "执行高危操作（rm -rf、重启服务、修改配置）前的标准审批和回滚准备流程",
+			Steps: []string{
+				"评估操作风险等级（低/中/高/严重）",
+				"备份当前状态（配置备份/快照）",
+				"准备回滚方案（明确的撤销步骤）",
+				"通知相关方（如为生产环境）",
+				"执行操作并监控结果",
+				"确认操作成功或执行回滚",
+			},
+			ToolSeq:    []string{"execute", "file_read"},
+			Triggers:   []string{"rm", "删除", "重启", "restart", "修改配置", "高危", "危险", "生产环境", "reboot", "shutdown"},
+			Pitfalls:   []string{"永远先备份再操作", "确保回滚方案可行并已测试", "生产环境操作需要审批确认"},
+			SuccessRate: 0.95,
+			UsageCount:  0,
+			Source:      "seed",
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		},
+		{
+			ID:          "network_diagnosis",
+			Name:        "网络故障诊断",
+			Category:    "network",
+			Version:     1,
+			Description: "网络连接异常、DNS问题、防火墙排查的标准诊断流程",
+			Steps: []string{
+				"检查本地网络接口状态（ip addr/ifconfig）",
+				"测试基本连通性（ping 目标）",
+				"检查DNS解析（nslookup/dig）",
+				"测试端口连通性（telnet/nc）",
+				"追踪路由路径（traceroute）",
+				"检查防火墙规则（iptables/firewall-cmd）",
+				"检查服务端状态",
+			},
+			ToolSeq:    []string{"execute", "ping", "nc", "traceroute"},
+			Triggers:   []string{"网络", "连接", "ping", "DNS", "超时", "timeout", "拒绝", "refused", "防火墙", "端口", "不通"},
+			Pitfalls:   []string{"先确认本地网络正常再排查远程", "注意 ICMP 可能被禁用导致 ping 失败但端口仍可达", "检查双向防火墙规则"},
+			SuccessRate: 0.80,
+			UsageCount:  0,
+			Source:      "seed",
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		},
+		{
+			ID:          "basic_recovery",
+			Name:        "基础故障恢复",
+			Category:    "system",
+			Version:     1,
+			Description: "服务重启、日志清理、磁盘空间回收等基础故障恢复操作",
+			Steps: []string{
+				"识别故障类型（服务/磁盘/内存/网络）",
+				"收集故障信息（日志/状态/资源使用）",
+				"执行临时恢复（重启服务/清理空间/释放内存）",
+				"验证恢复效果（检查服务状态和资源使用）",
+				"分析根因并记录经验",
+			},
+			ToolSeq:    []string{"execute", "file_read", "file_search"},
+			Triggers:   []string{"故障", "恢复", "OOM", "磁盘满", "服务挂", "崩溃", "重启服务", "清理", "recovery", "crash"},
+			Pitfalls:   []string{"重启前确认不是系统性故障（如底层存储故障）", "清理日志前确认无需保留", "恢复后持续观察防止反复"},
+			SuccessRate: 0.75,
+			UsageCount:  0,
+			Source:      "seed",
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		},
+	}
+
+	for _, seed := range seeds {
+		if _, exists := pm.skills[seed.ID]; !exists {
+			pm.skills[seed.ID] = seed
+			pm.dirty = true
+		}
+	}
+}
+
 // LoadProceduralMemory 从磁盘加载程序层记忆
 // 读取 skills/ 目录下所有 SKILL_xxx.md 文件
 func LoadProceduralMemory(baseDir string) (*ProceduralMemory, error) {
