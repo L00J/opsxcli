@@ -649,3 +649,91 @@ func TestController_Check_dynamicRisk_rejection(t *testing.T) {
 		t.Errorf("history risk = %v, want %v", history[0].RiskLevel, tools.RiskHigh)
 	}
 }
+
+// === formatArgs 纯函数测试 ===
+
+func TestFormatArgs_空参数(t *testing.T) {
+	result := formatArgs(nil)
+	if result != "{}" {
+		t.Errorf("nil 参数应返回 '{}', 实际为 %s", result)
+	}
+	result = formatArgs(map[string]interface{}{})
+	if result != "{}" {
+		t.Errorf("空 map 应返回 '{}', 实际为 %s", result)
+	}
+}
+
+func TestFormatArgs_字符串类型(t *testing.T) {
+	args := map[string]interface{}{"name": "test_tool"}
+	result := formatArgs(args)
+	// 字符串值应使用 %q 格式化（带引号）
+	if !strings.Contains(result, `name="test_tool"`) {
+		t.Errorf("字符串值应使用引号格式化，实际为 %s", result)
+	}
+}
+
+func TestFormatArgs_字符串截断(t *testing.T) {
+	longVal := strings.Repeat("x", 150)
+	args := map[string]interface{}{"data": longVal}
+	result := formatArgs(args)
+	if !strings.Contains(result, "...") {
+		t.Error("超过 100 字符的字符串值应被截断并添加省略号")
+	}
+	// 截断后的值在引号内应只有 100 字符 + "..."
+	if !strings.Contains(result, `data="`) {
+		t.Errorf("应包含 data= 键，实际为 %s", result)
+	}
+}
+
+func TestFormatArgs_非字符串类型(t *testing.T) {
+	args := map[string]interface{}{
+		"count":  42,
+		"ratio":  3.14,
+		"enable": true,
+	}
+	result := formatArgs(args)
+	if !strings.Contains(result, "count=42") {
+		t.Error("应包含 count=42")
+	}
+	if !strings.Contains(result, "ratio=3.14") {
+		t.Error("应包含 ratio=3.14")
+	}
+	if !strings.Contains(result, "enable=true") {
+		t.Error("应包含 enable=true")
+	}
+}
+
+func TestFormatArgs_多参数格式(t *testing.T) {
+	args := map[string]interface{}{
+		"host": "server1",
+		"port": 8080,
+	}
+	result := formatArgs(args)
+	// 输出格式: "{ host="server1", port=8080 }"
+	if !strings.HasPrefix(result, "{ ") {
+		t.Errorf("应以 '{ ' 开头，实际为 %s", result)
+	}
+	if !strings.HasSuffix(result, " }") {
+		t.Errorf("应以 ' }' 结尾，实际为 %s", result)
+	}
+}
+
+func TestFormatArgs_字符串恰好100字符不截断(t *testing.T) {
+	val := strings.Repeat("a", 100)
+	args := map[string]interface{}{"data": val}
+	result := formatArgs(args)
+	// 恰好 100 字符不应被截断
+	if strings.Contains(result, "...") {
+		t.Error("恰好 100 字符不应被截断")
+	}
+}
+
+func TestFormatArgs_字符串101字符截断(t *testing.T) {
+	val := strings.Repeat("a", 101)
+	args := map[string]interface{}{"data": val}
+	result := formatArgs(args)
+	// 101 字符应被截断
+	if !strings.Contains(result, "...") {
+		t.Error("超过 100 字符应被截断")
+	}
+}

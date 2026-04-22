@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"opsxcli/internal/agent/session"
+	"opsxcli/internal/llm"
 )
 
 func TestNewModel(t *testing.T) {
@@ -728,5 +729,215 @@ func TestFormatArgs(t *testing.T) {
 	empty := formatArgs(map[string]interface{}{})
 	if empty != "{}" {
 		t.Errorf("空参数应返回 {}, 实际为 %s", empty)
+	}
+}
+
+// === convertLLMMessagesToChatMessages 测试 ===
+
+func TestConvertLLMMessagesToChatMessages_过滤System消息(t *testing.T) {
+	msgs := []llm.Message{
+		{Role: "system", Content: "你是助手"},
+		{Role: "user", Content: "你好"},
+		{Role: "assistant", Content: "你好！"},
+	}
+	result := convertLLMMessagesToChatMessages(msgs)
+	if len(result) != 2 {
+		t.Fatalf("应过滤 system 消息，期望 2 条，实际 %d 条", len(result))
+	}
+	if result[0].Role != "user" {
+		t.Errorf("第一条消息角色应为 user，实际为 %s", result[0].Role)
+	}
+	if result[1].Role != "assistant" {
+		t.Errorf("第二条消息角色应为 assistant，实际为 %s", result[1].Role)
+	}
+}
+
+func TestConvertLLMMessagesToChatMessages_空列表(t *testing.T) {
+	result := convertLLMMessagesToChatMessages(nil)
+	if len(result) != 0 {
+		t.Errorf("空输入应返回空切片，实际长度 %d", len(result))
+	}
+}
+
+func TestConvertLLMMessagesToChatMessages_ToolCalls附加到内容(t *testing.T) {
+	msgs := []llm.Message{
+		{
+			Role:    "assistant",
+			Content: "让我帮你查看",
+			ToolCalls: []llm.ToolCall{
+				{ID: "tc1", Type: "function", Function: llm.FunctionCall{Name: "local_bash", Arguments: `{"command":"ls"}`}},
+				{ID: "tc2", Type: "function", Function: llm.FunctionCall{Name: "ssh_execute", Arguments: `{"command":"uptime"}`}},
+			},
+		},
+	}
+	result := convertLLMMessagesToChatMessages(msgs)
+	if len(result) != 1 {
+		t.Fatalf("期望 1 条消息，实际 %d 条", len(result))
+	}
+	if !strings.Contains(result[0].Content, "让我帮你查看") {
+		t.Error("内容应包含原始文本")
+	}
+	if !strings.Contains(result[0].Content, "[工具调用: local_bash]") {
+		t.Error("内容应附加工具调用 local_bash")
+	}
+	if !strings.Contains(result[0].Content, "[工具调用: ssh_execute]") {
+		t.Error("内容应附加工具调用 ssh_execute")
+	}
+}
+
+func TestConvertLLMMessagesToChatMessages_Timestamp非零(t *testing.T) {
+	msgs := []llm.Message{
+		{Role: "user", Content: "test"},
+	}
+	result := convertLLMMessagesToChatMessages(msgs)
+	if result[0].Timestamp.IsZero() {
+		t.Error("Timestamp 不应为零值")
+	}
+}
+
+// === formatToolArgs 测试 ===
+
+func TestFormatToolArgs_空参数(t *testing.T) {
+	result := formatToolArgs("my_tool", nil)
+	if result != "my_tool" {
+		t.Errorf("空参数应只返回工具名，实际为 %s", result)
+	}
+	result = formatToolArgs("my_tool", map[string]interface{}{})
+	if result != "my_tool" {
+		t.Errorf("空 map 应只返回工具名，实际为 %s", result)
+	}
+}
+
+func TestFormatToolArgs_跳过内部字段(t *testing.T) {
+	args := map[string]interface{}{
+		"_i":      123,
+		"_intent": "query",
+		"command": "ls",
+	}
+	result := formatToolArgs("tool", args)
+	if strings.Contains(result, "_i=") {
+		t.Error("应跳过 _i 字段")
+	}
+	if strings.Contains(result, "_intent=") {
+		t.Error("应跳过 _intent 字段")
+	}
+	if !strings.Contains(result, "command=ls") {
+		t.Error("应包含 command 字段")
+	}
+}
+
+func TestFormatToolArgs_截断长值(t *testing.T) {
+	longVal := strings.Repeat("a", 80)
+	args := map[string]interface{}{"data": longVal}
+	result := formatToolArgs("tool", args)
+	if !strings.Contains(result, "...") {
+		t.Error("超过 60 字符的值应被截断并添加省略号")
+	}
+	// 格式: tool(data=aaa...aaa...)
+	if !strings.HasPrefix(result, "tool(") {
+		t.Errorf("结果应以 'tool(' 开头，实际为 %s", result)
+	}
+}
+
+func TestFormatToolArgs_正常格式(t *testing.T) {
+	args := map[string]interface{}{
+		"host": "server1",
+		"port": 8080,
+	}
+	result := formatToolArgs("ssh_execute", args)
+	if !strings.HasPrefix(result, "ssh_execute(") {
+		t.Errorf("结果应以 'ssh_execute(' 开头，实际为 %s", result)
+	}
+	if !strings.Contains(result, "host=server1") {
+		t.Error("应包含 host=server1")
+	}
+	if !strings.Contains(result, "port=8080") {
+		t.Error("应包含 port=8080")
+	}
+}
+
+// === truncateOutput 测试 ===
+
+func TestTruncateOutput_移除空行(t *testing.T) {
+	output := "line1\n\nline2\n\n\nline3"
+	result := truncateOutput(output, 10)
+	if strings.Contains(result, "\n\n") {
+		t.Error("应移除空行")
+	}
+	if !strings.Contains(result, "line1") || !strings.Contains(result, "line2") || !strings.Contains(result, "line3") {
+		t.Error("应保留所有非空行")
+	}
+}
+
+func TestTruncateOutput_超过MaxLines截断(t *testing.T) {
+	output := "line1\nline2\nline3\nline4\nline5"
+	result := truncateOutput(output, 3)
+	if !strings.Contains(result, "... (2 more lines)") {
+		t.Errorf("超过 maxLines 应显示剩余行数，实际为 %s", result)
+	}
+	if !strings.Contains(result, "line1") || !strings.Contains(result, "line2") || !strings.Contains(result, "line3") {
+		t.Error("应保留前 3 行")
+	}
+	if strings.Contains(result, "line4") {
+		t.Error("不应包含被截断的行")
+	}
+}
+
+func TestTruncateOutput_不超过MaxLines(t *testing.T) {
+	output := "line1\nline2"
+	result := truncateOutput(output, 5)
+	if result != "line1\nline2" {
+		t.Errorf("不超过 maxLines 应原样返回，实际为 %s", result)
+	}
+}
+
+func TestTruncateOutput_空输出(t *testing.T) {
+	result := truncateOutput("", 3)
+	if result != "" {
+		t.Errorf("空输入应返回空字符串，实际为 %s", result)
+	}
+}
+
+// === formatDuration 测试 ===
+
+func TestFormatDuration_毫秒(t *testing.T) {
+	result := formatDuration(500 * time.Millisecond)
+	if result != "500ms" {
+		t.Errorf("500ms 应返回 '500ms'，实际为 %s", result)
+	}
+}
+
+func TestFormatDuration_秒(t *testing.T) {
+	result := formatDuration(1500 * time.Millisecond)
+	if result != "1.5s" {
+		t.Errorf("1.5s 应返回 '1.5s'，实际为 %s", result)
+	}
+}
+
+func TestFormatDuration_整秒(t *testing.T) {
+	result := formatDuration(5 * time.Second)
+	if result != "5.0s" {
+		t.Errorf("5s 应返回 '5.0s'，实际为 %s", result)
+	}
+}
+
+func TestFormatDuration_分钟(t *testing.T) {
+	result := formatDuration(2 * time.Minute)
+	if result != "2.0m" {
+		t.Errorf("2m 应返回 '2.0m'，实际为 %s", result)
+	}
+}
+
+func TestFormatDuration_分钟秒(t *testing.T) {
+	result := formatDuration(90 * time.Second)
+	if result != "1.5m" {
+		t.Errorf("90s 应返回 '1.5m'，实际为 %s", result)
+	}
+}
+
+func TestFormatDuration_零(t *testing.T) {
+	result := formatDuration(0)
+	if result != "0ms" {
+		t.Errorf("0 应返回 '0ms'，实际为 %s", result)
 	}
 }

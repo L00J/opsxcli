@@ -1,6 +1,7 @@
 package prompt
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -297,4 +298,427 @@ func TestBuildSystemPrompt_empty(t *testing.T) {
 	if !strings.Contains(prompt, "opsxcli") {
 		t.Error("BuildSystemPrompt() should still contain base prompt with empty memory")
 	}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// V1 Builder 兼容层测试
+// ═══════════════════════════════════════════════════════════════
+
+// TestNewBuilder 测试创建 V1 Builder
+func TestNewBuilder(t *testing.T) {
+	b := NewBuilder()
+	if b == nil {
+		t.Fatal("NewBuilder() 返回 nil")
+	}
+}
+
+// TestV1Builder_BuildSystemMessage 测试 V1 系统消息构建
+func TestV1Builder_BuildSystemMessage(t *testing.T) {
+	b := NewBuilder()
+	msg := b.BuildSystemMessage()
+
+	if msg.Role != "system" {
+		t.Errorf("Role = %q, 期望 %q", msg.Role, "system")
+	}
+	if msg.Content == "" {
+		t.Error("Content 不应为空")
+	}
+	// V1 使用 SystemPrompt 常量
+	if !strings.Contains(msg.Content, "opsxcli") {
+		t.Error("Content 应包含 agent 身份标识")
+	}
+}
+
+// TestV1Builder_BuildUserMessage 测试 V1 用户消息构建
+func TestV1Builder_BuildUserMessage(t *testing.T) {
+	b := NewBuilder()
+	msg := b.BuildUserMessage("检查服务器状态")
+
+	if msg.Role != "user" {
+		t.Errorf("Role = %q, 期望 %q", msg.Role, "user")
+	}
+	if msg.Content != "检查服务器状态" {
+		t.Errorf("Content = %q, 期望 %q", msg.Content, "检查服务器状态")
+	}
+}
+
+// TestV1Builder_BuildObservationMessage 测试 V1 观察消息构建
+func TestV1Builder_BuildObservationMessage(t *testing.T) {
+	b := NewBuilder()
+
+	t.Run("成功_带摘要", func(t *testing.T) {
+		result := &tools.Result{
+			Success: true,
+			Output:  "total 128\ndrwxr-xr-x 5 root root 4096 Jan 1 .",
+			Summary: "共 5 个文件",
+		}
+		msg := b.BuildObservationMessage("local_bash", result)
+
+		if msg.Role != "user" {
+			t.Errorf("Role = %q, 期望 %q", msg.Role, "user")
+		}
+		if !strings.Contains(msg.Content, "工具 'local_bash' 执行成功") {
+			t.Errorf("Content 应包含成功前缀, 实际: %q", msg.Content)
+		}
+		if !strings.Contains(msg.Content, "total 128") {
+			t.Error("Content 应包含 output 内容")
+		}
+		if !strings.Contains(msg.Content, "共 5 个文件") {
+			t.Error("Content 应包含摘要")
+		}
+	})
+
+	t.Run("成功_无摘要", func(t *testing.T) {
+		result := &tools.Result{
+			Success: true,
+			Output:  "OK",
+		}
+		msg := b.BuildObservationMessage("local_bash", result)
+
+		if !strings.Contains(msg.Content, "工具 'local_bash' 执行成功") {
+			t.Errorf("Content 应包含成功前缀, 实际: %q", msg.Content)
+		}
+		if strings.Contains(msg.Content, "[摘要]") {
+			t.Error("Content 不应包含摘要部分")
+		}
+	})
+
+	t.Run("失败", func(t *testing.T) {
+		result := &tools.Result{
+			Success: false,
+			Error:   "连接超时",
+		}
+		msg := b.BuildObservationMessage("ssh_execute", result)
+
+		if !strings.Contains(msg.Content, "工具 'ssh_execute' 执行失败") {
+			t.Errorf("Content 应包含失败前缀, 实际: %q", msg.Content)
+		}
+		if !strings.Contains(msg.Content, "连接超时") {
+			t.Error("Content 应包含错误信息")
+		}
+	})
+}
+
+// TestV1Builder_BuildAssistantMessage 测试 V1 助手消息构建
+func TestV1Builder_BuildAssistantMessage(t *testing.T) {
+	b := NewBuilder()
+	msg := b.BuildAssistantMessage("我来帮你检查服务器")
+
+	if msg.Role != "assistant" {
+		t.Errorf("Role = %q, 期望 %q", msg.Role, "assistant")
+	}
+	if msg.Content != "我来帮你检查服务器" {
+		t.Errorf("Content = %q, 期望 %q", msg.Content, "我来帮你检查服务器")
+	}
+}
+
+// TestV1Builder_BuildToolCallMessage 测试 V1 工具调用消息构建
+func TestV1Builder_BuildToolCallMessage(t *testing.T) {
+	b := NewBuilder()
+	toolCalls := []llm.ToolCall{
+		{
+			ID:   "call_v1_1",
+			Type: "function",
+			Function: llm.FunctionCall{
+				Name:      "local_bash",
+				Arguments: `{"command":"df -h"}`,
+			},
+		},
+		{
+			ID:   "call_v1_2",
+			Type: "function",
+			Function: llm.FunctionCall{
+				Name:      "ssh_execute",
+				Arguments: `{"host":"192.168.1.100","command":"uptime"}`,
+			},
+		},
+	}
+	msg := b.BuildToolCallMessage(toolCalls)
+
+	if msg.Role != "assistant" {
+		t.Errorf("Role = %q, 期望 %q", msg.Role, "assistant")
+	}
+	if msg.Content != "" {
+		t.Errorf("Content 应为空, 实际: %q", msg.Content)
+	}
+	if len(msg.ToolCalls) != 2 {
+		t.Fatalf("ToolCalls 长度 = %d, 期望 2", len(msg.ToolCalls))
+	}
+	if msg.ToolCalls[0].ID != "call_v1_1" {
+		t.Errorf("ToolCalls[0].ID = %q, 期望 %q", msg.ToolCalls[0].ID, "call_v1_1")
+	}
+	if msg.ToolCalls[1].Function.Name != "ssh_execute" {
+		t.Errorf("ToolCalls[1].Function.Name = %q, 期望 %q", msg.ToolCalls[1].Function.Name, "ssh_execute")
+	}
+}
+
+// TestV1Builder_BuildToolResponseMessage 测试 V1 工具响应消息构建
+func TestV1Builder_BuildToolResponseMessage(t *testing.T) {
+	b := NewBuilder()
+
+	t.Run("成功_带摘要", func(t *testing.T) {
+		result := &tools.Result{
+			Success: true,
+			Output:  "Filesystem Size Used Avail Use%\n/dev/sda1 50G 20G 30G 40%",
+			Summary: "磁盘使用率 40%",
+		}
+		msg := b.BuildToolResponseMessage("tc_001", "local_bash", result)
+
+		if msg.Role != "tool" {
+			t.Errorf("Role = %q, 期望 %q", msg.Role, "tool")
+		}
+		if msg.ToolCallID != "tc_001" {
+			t.Errorf("ToolCallID = %q, 期望 %q", msg.ToolCallID, "tc_001")
+		}
+		if msg.Name != "local_bash" {
+			t.Errorf("Name = %q, 期望 %q", msg.Name, "local_bash")
+		}
+		if !strings.Contains(msg.Content, "成功:") {
+			t.Errorf("Content 应包含 '成功:', 实际: %q", msg.Content)
+		}
+		if !strings.Contains(msg.Content, "磁盘使用率 40%") {
+			t.Error("Content 应包含摘要")
+		}
+	})
+
+	t.Run("成功_无摘要", func(t *testing.T) {
+		result := &tools.Result{
+			Success: true,
+			Output:  "done",
+		}
+		msg := b.BuildToolResponseMessage("tc_002", "ssh_execute", result)
+
+		if !strings.Contains(msg.Content, "成功: done") {
+			t.Errorf("Content = %q, 期望包含 '成功: done'", msg.Content)
+		}
+		if strings.Contains(msg.Content, "摘要") {
+			t.Error("Content 不应包含摘要")
+		}
+	})
+
+	t.Run("失败", func(t *testing.T) {
+		result := &tools.Result{
+			Success: false,
+			Error:   "Permission denied",
+		}
+		msg := b.BuildToolResponseMessage("tc_003", "local_bash", result)
+
+		if !strings.Contains(msg.Content, "失败:") {
+			t.Errorf("Content 应包含 '失败:', 实际: %q", msg.Content)
+		}
+		if !strings.Contains(msg.Content, "Permission denied") {
+			t.Error("Content 应包含错误信息")
+		}
+	})
+}
+
+// TestV1Builder_BuildErrorObservationMessage 测试 V1 错误观察消息构建
+func TestV1Builder_BuildErrorObservationMessage(t *testing.T) {
+	b := NewBuilder()
+
+	t.Run("有错误", func(t *testing.T) {
+		err := fmt.Errorf("连接被拒绝")
+		msg := b.BuildErrorObservationMessage("ssh_execute", err)
+
+		if msg.Role != "user" {
+			t.Errorf("Role = %q, 期望 %q", msg.Role, "user")
+		}
+		if !strings.Contains(msg.Content, "工具 'ssh_execute' 执行异常") {
+			t.Errorf("Content 应包含异常前缀, 实际: %q", msg.Content)
+		}
+		if !strings.Contains(msg.Content, "连接被拒绝") {
+			t.Error("Content 应包含错误信息")
+		}
+	})
+
+	t.Run("nil错误", func(t *testing.T) {
+		msg := b.BuildErrorObservationMessage("local_bash", nil)
+
+		if !strings.Contains(msg.Content, "工具 'local_bash' 执行异常") {
+			t.Errorf("Content 应包含工具名, 实际: %q", msg.Content)
+		}
+	})
+}
+
+// TestSerializeToolCallArguments 测试 V1 工具调用参数序列化
+func TestSerializeToolCallArguments(t *testing.T) {
+	t.Run("空列表", func(t *testing.T) {
+		got := SerializeToolCallArguments([]llm.ToolCall{})
+		if got != "[]" {
+			t.Errorf("SerializeToolCallArguments(empty) = %q, 期望 %q", got, "[]")
+		}
+	})
+
+	t.Run("单个调用", func(t *testing.T) {
+		calls := []llm.ToolCall{
+			{
+				ID:       "call_args_1",
+				Function: llm.FunctionCall{Name: "local_bash", Arguments: `{"command":"ls -la"}`},
+			},
+		}
+		got := SerializeToolCallArguments(calls)
+		if !strings.Contains(got, "local_bash") {
+			t.Errorf("结果应包含 'local_bash', 实际: %q", got)
+		}
+		if !strings.Contains(got, "call_args_1") {
+			t.Errorf("结果应包含 ID, 实际: %q", got)
+		}
+	})
+
+	t.Run("多个调用", func(t *testing.T) {
+		calls := []llm.ToolCall{
+			{ID: "c1", Function: llm.FunctionCall{Name: "tool_a", Arguments: `{"x":1}`}},
+			{ID: "c2", Function: llm.FunctionCall{Name: "tool_b", Arguments: `{"y":2}`}},
+		}
+		got := SerializeToolCallArguments(calls)
+		if !strings.Contains(got, "tool_a") || !strings.Contains(got, "tool_b") {
+			t.Errorf("结果应包含两个工具名, 实际: %q", got)
+		}
+	})
+}
+
+// ═══════════════════════════════════════════════════════════════
+// V2 未覆盖函数测试
+// ═══════════════════════════════════════════════════════════════
+
+// TestBuilderV2_BuildSystemMessageWithMemory 测试带记忆注入的系统消息
+func TestBuilderV2_BuildSystemMessageWithMemory(t *testing.T) {
+	t.Run("未启用记忆_回退到BuildSystemMessage", func(t *testing.T) {
+		b := NewBuilderV2() // enableMemory = false
+		msg := b.BuildSystemMessageWithMemory("检查磁盘空间")
+
+		if msg.Role != "system" {
+			t.Errorf("Role = %q, 期望 %q", msg.Role, "system")
+		}
+		// 应与 BuildSystemMessage 结果一致
+		normalMsg := b.BuildSystemMessage()
+		if msg.Content != normalMsg.Content {
+			t.Error("未启用记忆时, Content 应与 BuildSystemMessage() 一致")
+		}
+	})
+
+	t.Run("nil注入器_回退到BuildSystemMessage", func(t *testing.T) {
+		b := &BuilderV2{
+			systemPrompt:     GetStaticSystemPrompt(),
+			memoryInjector:   nil,
+			enableMemory:     true, // 即使启用, injector 为 nil 也回退
+		}
+		msg := b.BuildSystemMessageWithMemory("检查内存")
+		normalMsg := b.BuildSystemMessage()
+
+		if msg.Content != normalMsg.Content {
+			t.Error("injector 为 nil 时, Content 应与 BuildSystemMessage() 一致")
+		}
+	})
+
+	t.Run("有记忆注入_包含记忆上下文", func(t *testing.T) {
+		injector := NewMemoryInjector(&evolver.EnvironmentMemory{}, &evolver.ExperienceMemory{})
+		b := NewBuilderV2WithMemory(injector)
+
+		msg := b.BuildSystemMessageWithMemory("查看服务器状态")
+
+		if msg.Role != "system" {
+			t.Errorf("Role = %q, 期望 %q", msg.Role, "system")
+		}
+		if msg.Content == "" {
+			t.Error("Content 不应为空")
+		}
+		// 应该包含基础 system prompt 的内容
+		if !strings.Contains(msg.Content, "opsxcli") {
+			t.Error("Content 应包含 agent 身份标识")
+		}
+	})
+}
+
+// TestBuilderV2_BuildToolResponseMessage 测试 V2 工具响应消息
+func TestBuilderV2_BuildToolResponseMessage(t *testing.T) {
+	b := NewBuilderV2()
+
+	t.Run("成功_带摘要", func(t *testing.T) {
+		result := &tools.Result{
+			Success: true,
+			Output:  "nginx is running",
+			Summary: "服务运行正常",
+		}
+		msg := b.BuildToolResponseMessage("tc_v2_1", "ssh_execute", result)
+
+		if msg.Role != "tool" {
+			t.Errorf("Role = %q, 期望 %q", msg.Role, "tool")
+		}
+		if msg.ToolCallID != "tc_v2_1" {
+			t.Errorf("ToolCallID = %q, 期望 %q", msg.ToolCallID, "tc_v2_1")
+		}
+		if msg.Name != "ssh_execute" {
+			t.Errorf("Name = %q, 期望 %q", msg.Name, "ssh_execute")
+		}
+		if !strings.Contains(msg.Content, "成功: nginx is running") {
+			t.Errorf("Content 应包含成功输出, 实际: %q", msg.Content)
+		}
+		if !strings.Contains(msg.Content, "摘要: 服务运行正常") {
+			t.Errorf("Content 应包含摘要, 实际: %q", msg.Content)
+		}
+	})
+
+	t.Run("成功_无摘要", func(t *testing.T) {
+		result := &tools.Result{
+			Success: true,
+			Output:  "OK",
+		}
+		msg := b.BuildToolResponseMessage("tc_v2_2", "local_bash", result)
+
+		if !strings.Contains(msg.Content, "成功: OK") {
+			t.Errorf("Content = %q, 期望包含 '成功: OK'", msg.Content)
+		}
+		if strings.Contains(msg.Content, "摘要") {
+			t.Error("Content 不应包含摘要")
+		}
+	})
+
+	t.Run("失败", func(t *testing.T) {
+		result := &tools.Result{
+			Success: false,
+			Error:   "command not found",
+		}
+		msg := b.BuildToolResponseMessage("tc_v2_3", "local_bash", result)
+
+		if !strings.Contains(msg.Content, "失败: command not found") {
+			t.Errorf("Content 应包含失败信息, 实际: %q", msg.Content)
+		}
+	})
+}
+
+// TestBuilderV2_BuildRetryObservationMessage 测试 V2 重试观察消息
+func TestBuilderV2_BuildRetryObservationMessage(t *testing.T) {
+	b := NewBuilderV2()
+
+	t.Run("重试消息格式", func(t *testing.T) {
+		msg := b.BuildRetryObservationMessage("ssh_execute", 3, "connection refused")
+
+		if msg.Role != "user" {
+			t.Errorf("Role = %q, 期望 %q", msg.Role, "user")
+		}
+		if !strings.Contains(msg.Content, "ssh_execute") {
+			t.Errorf("Content 应包含工具名, 实际: %q", msg.Content)
+		}
+		if !strings.Contains(msg.Content, "第 3 次") {
+			t.Errorf("Content 应包含重试次数, 实际: %q", msg.Content)
+		}
+		if !strings.Contains(msg.Content, "connection refused") {
+			t.Errorf("Content 应包含错误信息, 实际: %q", msg.Content)
+		}
+	})
+
+	t.Run("第一次重试", func(t *testing.T) {
+		msg := b.BuildRetryObservationMessage("local_bash", 1, "timeout")
+		if !strings.Contains(msg.Content, "第 1 次") {
+			t.Errorf("Content 应包含 '第 1 次', 实际: %q", msg.Content)
+		}
+	})
+
+	t.Run("包含策略建议", func(t *testing.T) {
+		msg := b.BuildRetryObservationMessage("tool", 2, "err")
+		if !strings.Contains(msg.Content, "重试") {
+			t.Errorf("Content 应包含重试提示, 实际: %q", msg.Content)
+		}
+	})
 }
