@@ -40,7 +40,7 @@
 ## 当前版本 v0.6.0 详细任务
 
 > **目标日期**: 2026-05底 | **主题**: 质量提升 + Agent增强  
-> **前提**: v0.5.0 已完成（三层记忆GEP、Skill自动提炼、统一工具、DynamicRiskTool）
+> **前提**: v0.5.0 已完成（四层记忆GEP、Skill自动提炼、统一工具、DynamicRiskTool）
 
 ### 🎯 版本目标
 
@@ -71,9 +71,9 @@
 
 | 任务 | 说明 | 预估工时 | 状态 |
 |------|------|----------|------|
-| **Evolver 进度面板** | 10步循环实时展示 (OBSERVE→ADAPT)，显示当前步骤/耗时/评分 | 2天 | ✅ 回调机制+ProgressCallback已完成 |
+|| **Evolver 进度面板** | 13步循环实时展示 (OBSERVE→ADAPT)，显示当前步骤/耗时/评分 | 2天 | ✅ 回调机制+ProgressCallback已完成 |
 | **Skill 库浏览器** | TUI中查看/搜索/管理已习得Skill，支持预览SKILL.md内容 | 1.5天 | ✅ dashboard.go tabSkills已实现 |
-| **记忆层状态面板** | 展示三层记忆当前状态：事实层条目数、程序层Skill数、历史层事件数 | 1天 | ✅ dashboard.go tabOverview已实现 |
+|| **记忆层状态面板** | 展示四层记忆当前状态：事实层条目数、程序层Skill数、历史层事件数、环境层配置数 | 1天 | ✅ dashboard.go tabOverview已实现 |
 
 ### 🔄 LLM 运行时热切换 (P1)
 
@@ -117,7 +117,7 @@ P1 LLM运行时热切换:    3天
 |------|------|----------|------|------|
 | **C1** | 命令注入漏洞 | `plugins/nc/nc.go:95` | 用户输入未转义，可执行任意命令 | ✅ 已修复 |
 | **C2** | 测试分类失败 | `internal/llm/factory_test.go` | glm/minimax提供商分类测试用例失败 | ✅ 已修复 |
-| **W4** | Evolver结果丢弃 | `agent.go:405` | 10步进化循环结果未被消费/反馈 | ✅ 已修复 |
+|| **W4** | Evolver结果丢弃 | `agent.go:405` | 13步进化循环结果未被消费/反馈 | ✅ 已修复 |
 
 **修复优先级**: C1(安全) > C2(测试) > W4(功能)
 
@@ -159,10 +159,10 @@ P1 LLM运行时热切换:    3天
 
 | 任务 | 说明 | 预估工时 | 状态 |
 |------|------|----------|------|
-| **三层记忆架构** | 事实层(MEMORY.md+USER.md) ✅ + 程序层(SKILL_xxx.md) ✅ + 历史层(events.jsonl) ✅ | 3天 | ✅ 已完成 |
+|| **四层记忆架构** | 事实层(MEMORY.md+USER.md) ✅ + 程序层(SKILL_xxx.md) ✅ + 历史层(events.jsonl) ✅ | 3天 | ✅ 已完成 |
 | **种子Skill内置** | local_common_ops, install_software, risk_approval, network_diagnosis, basic_recovery | 3天 | ✅ 已完成 |
 | **Skill自动提炼** | 复杂任务后(≥5次工具调用)自动提炼 SKILL.md | 2天 | ✅ 已完成 |
-| **10步循环优化** | 仅复杂任务触发进化，简单任务跳过以节省Token | 1天 | ✅ 已完成 |
+|| **13步循环优化** | 仅复杂任务触发进化，简单任务跳过以节省Token | 1天 | ✅ 已完成 |
 
 #### 📊 增强TUI进化展示 (P2) — 已提升至 v0.6.0
 
@@ -170,7 +170,7 @@ P1 LLM运行时热切换:    3天
 
 | 任务 | 说明 | 状态 |
 |------|------|------|
-| 进化过程可视化 | 10步循环状态实时展示 | → v0.6.0 |
+|| 进化过程可视化 | 13步循环状态实时展示 | → v0.6.0 |
 | Skill库浏览 | TUI中查看/搜索/管理已习得Skill | → v0.6.0 |
 | LLM插件切换 | 运行时切换LLM提供商 | → v0.6.0 |
 
@@ -245,7 +245,7 @@ OpsXCLI 是面向运维和开发的集成化命令行工具集，整合了 **70+
 
 > **已实现** — Agent 核心架构已完成，进入优化增强阶段
 
-### Evolver 10步进化循环
+### Evolver 13步进化循环
 
 ```
 OBSERVE → EXTRACT → REFLECT → SCORE → COMPARE → LEARN → STORE → CONSOLIDATE → PREDICT → ADAPT
@@ -262,7 +262,7 @@ OBSERVE → EXTRACT → REFLECT → SCORE → COMPARE → LEARN → STORE → CO
 - **PREDICT**: 预测后续步骤
 - **ADAPT**: 适应当前环境
 
-### 三层记忆系统
+### 四层记忆系统
 
 | 层级 | 存储 | 用途 |
 |------|------|------|
@@ -285,7 +285,7 @@ OBSERVE → EXTRACT → REFLECT → SCORE → COMPARE → LEARN → STORE → CO
 
 ```
 Layer 1: System Identity    — 身份与角色定义
-Layer 2: Memory Context     — 三层记忆注入
+Layer 2: Memory Context     — 四层记忆注入
 Layer 3: Skill Context      — 已习得技能加载
 Layer 4: Safety Rules       — 安全控制器规则
 Layer 5: Task Context       — 当前任务与工具描述
@@ -316,7 +316,7 @@ v0.4.x                        v0.5.0 (已完成)               v0.6.0 (当前)
 │ scp_transfer  │               │              │               │ 运行时热切换   │
 └──────────────┘               └──────────────┘               └──────────────┘
 ┌──────────────┐               ┌──────────────┐               ┌──────────────┐
-│ 三层记忆      │    ──→       │ 增强三层记忆   │    ──→       │ 质量提升      │
+│ 三层记忆      │    ──→       │ 增强四层记忆   │    ──→       │ 质量提升      │
 │ 经验JSONL    │               │ +事实层       │               │ 覆盖率>50%    │
 │ 环境JSON     │               │ +程序层(Skill)│               │ 消除低覆盖包  │
 │ 对话历史     │               │ +历史层       │               │ Token统计     │
@@ -335,7 +335,7 @@ v0.4.x                        v0.5.0 (已完成)               v0.6.0 (当前)
 - 远程：自动走 scp
 - 参数：`{src, dst, direction: "upload"|"download", host?: string}`
 
-### 增强三层记忆
+### 增强四层记忆
 
 | 层级 | 存储 | 内容 | 生命周期 |
 |------|------|------|----------|

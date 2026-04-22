@@ -235,7 +235,7 @@ func NewEvolverEngineWithLLM(baseDir string, llmClient reflectionClient) (*Evolv
 // classifyComplexity 根据工具调用次数判断任务复杂度
 // 简单(≤3步): 只做基本经验记录，跳过LLM反思和Skill提炼
 // 中等(4-6步): 经验记录+Skill提炼，跳过LLM反思
-// 复杂(7+步): 完整10步循环+LLM反思+Skill提炼
+// 复杂(7+步): 完整13步循环+LLM反思+Skill提炼
 func (e *EvolverEngine) classifyComplexity(toolCallCount int) TaskComplexity {
 	if toolCallCount <= e.simpleThresh {
 		return ComplexitySimple
@@ -304,7 +304,7 @@ func (e *EvolverEngine) IsEnabled() bool {
 // 根据任务复杂度分级执行不同深度的进化，节省Token开销：
 //   - 简单(≤3步): 仅经验记录 + 环境适应
 //   - 中等(4-6步): 经验记录 + 环境适应 + Skill提炼
-//   - 复杂(7+步): 完整10步循环 + LLM反思 + Skill提炼
+//   - 复杂(7+步): 完整13步循环 + LLM反思 + Skill提炼
 func (e *EvolverEngine) Evolve(ctx context.Context, exec *TaskExecution) *EvolveResult {
 	if !e.IsEnabled() {
 		return &EvolveResult{ExperienceAdded: false}
