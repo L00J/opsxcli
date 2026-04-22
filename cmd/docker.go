@@ -19,6 +19,16 @@ func NewDockerCmd() *cobra.Command {
 
 镜像管理：
   - pull:    拉取 Docker 镜像（支持多源极速、并发下载、断点续传）
+  - images:  列出镜像
+  - rmi:     删除镜像
+  - tag:     为镜像打标签
+  - push:    推送镜像
+  - inspect: 查看镜像详细信息
+  - search:  搜索 Docker Hub 镜像
+  - save:    导出镜像为 tar 文件
+  - load:    从 tar 文件导入镜像
+  - history: 查看镜像构建历史
+  - prune:   清理未使用的镜像
 
 容器管理：
   - ps:      列出容器
@@ -35,8 +45,22 @@ func NewDockerCmd() *cobra.Command {
 		},
 	}
 
-	// 添加子命令
+	// 添加子命令 - 镜像拉取
 	cmd.AddCommand(NewDockerPullCmd())
+
+	// 添加子命令 - 镜像管理
+	cmd.AddCommand(NewDockerImagesCmd())
+	cmd.AddCommand(NewDockerRMICmd())
+	cmd.AddCommand(NewDockerTagCmd())
+	cmd.AddCommand(NewDockerPushCmd())
+	cmd.AddCommand(NewDockerInspectImageCmd())
+	cmd.AddCommand(NewDockerSearchCmd())
+	cmd.AddCommand(NewDockerSaveCmd())
+	cmd.AddCommand(NewDockerLoadCmd())
+	cmd.AddCommand(NewDockerHistoryCmd())
+	cmd.AddCommand(NewDockerPruneCmd())
+
+	// 添加子命令 - 容器管理
 	cmd.AddCommand(NewDockerPSCmd())
 	cmd.AddCommand(NewDockerInspectCmd())
 	cmd.AddCommand(NewDockerLogsCmd())
@@ -335,6 +359,292 @@ func NewDockerRMCmd() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "强制删除运行中的容器")
 	cmd.Flags().BoolVarP(&volumes, "volumes", "v", false, "同时删除关联的匿名卷")
+
+	return cmd
+}
+
+// --- 镜像管理命令 ---
+
+// NewDockerImagesCmd 创建 docker images 命令
+func NewDockerImagesCmd() *cobra.Command {
+	var (
+		all     bool
+		filter  string
+		quiet   bool
+		noTrunc bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "images",
+		Short: "列出 Docker 镜像",
+		Long: `列出本地 Docker 镜像
+
+示例:
+  # 列出所有镜像
+  opsxcli docker images
+
+  # 包括中间层镜像
+  opsxcli docker images --all
+
+  # 只显示镜像 ID
+  opsxcli docker images -q
+
+  # 按条件过滤
+  opsxcli docker images --filter dangling=true`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.ImagesOptions{
+				All:     all,
+				Filters: filter,
+				Quiet:   quiet,
+				NoTrunc: noTrunc,
+			}
+			return docker.Images(opts)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&all, "all", "a", false, "显示所有镜像（包括中间层）")
+	cmd.Flags().StringVarP(&filter, "filter", "f", "", "过滤条件 (dangling=true, reference=nginx 等)")
+	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "只显示镜像 ID")
+	cmd.Flags().BoolVar(&noTrunc, "no-trunc", false, "不截断镜像 ID")
+
+	return cmd
+}
+
+// NewDockerRMICmd 创建 docker rmi 命令
+func NewDockerRMICmd() *cobra.Command {
+	var (
+		force   bool
+		noPrune bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "rmi <image> [image...]",
+		Short: "删除一个或多个镜像",
+		Long: `删除本地 Docker 镜像
+
+示例:
+  opsxcli docker rmi nginx:latest
+  opsxcli docker rmi nginx:latest redis:alpine
+  opsxcli docker rmi -f nginx:latest    # 强制删除`,
+		Args:          cobra.MinimumNArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.RMIOptions{
+				Images:  args,
+				Force:   force,
+				NoPrune: noPrune,
+			}
+			return docker.RMI(opts)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "强制删除")
+	cmd.Flags().BoolVar(&noPrune, "no-prune", false, "不删除未标记的父镜像")
+
+	return cmd
+}
+
+// NewDockerTagCmd 创建 docker tag 命令
+func NewDockerTagCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "tag <source> <target>",
+		Short: "为镜像打标签",
+		Long: `为 Docker 镜像创建标签
+
+示例:
+  opsxcli docker tag nginx:latest myregistry/nginx:latest
+  opsxcli docker tag abc123 myapp:v1.0`,
+		Args:          cobra.ExactArgs(2),
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.TagOptions{
+				Source: args[0],
+				Target: args[1],
+			}
+			return docker.Tag(opts)
+		},
+	}
+
+	return cmd
+}
+
+// NewDockerPushCmd 创建 docker push 命令
+func NewDockerPushCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "push <image>",
+		Short: "推送镜像到仓库",
+		Long: `推送 Docker 镜像到远程仓库
+
+示例:
+  opsxcli docker push myregistry/nginx:latest
+  opsxcli docker push myrepo/myapp:v1.0`,
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.PushImageOptions{
+				Image: args[0],
+			}
+			return docker.PushImage(opts)
+		},
+	}
+
+	return cmd
+}
+
+// NewDockerInspectImageCmd 创建 docker inspect-image 命令
+func NewDockerInspectImageCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "inspect-image <image>",
+		Short: "查看镜像详细信息",
+		Long: `查看 Docker 镜像的详细信息，包括层、配置、环境变量等
+
+示例:
+  opsxcli docker inspect-image nginx:latest
+  opsxcli docker inspect-image abc123def456`,
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			result, err := docker.InspectImage(args[0])
+			if err != nil {
+				return err
+			}
+			docker.PrintImageInspect(result)
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+// NewDockerSearchCmd 创建 docker search 命令
+func NewDockerSearchCmd() *cobra.Command {
+	var limit int
+
+	cmd := &cobra.Command{
+		Use:   "search <term>",
+		Short: "搜索 Docker Hub 镜像",
+		Long: `在 Docker Hub 搜索镜像
+
+示例:
+  opsxcli docker search nginx
+  opsxcli docker search python --limit 5`,
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return docker.SearchImages(args[0], limit)
+		},
+	}
+
+	cmd.Flags().IntVarP(&limit, "limit", "n", 25, "返回结果数量上限")
+
+	return cmd
+}
+
+// NewDockerSaveCmd 创建 docker save 命令
+func NewDockerSaveCmd() *cobra.Command {
+	var output string
+
+	cmd := &cobra.Command{
+		Use:   "save <image>",
+		Short: "导出镜像为 tar 文件",
+		Long: `将 Docker 镜像导出为 tar 文件
+
+示例:
+  opsxcli docker save nginx:latest -o nginx.tar
+  opsxcli docker save nginx:latest > nginx.tar`,
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return docker.SaveImage(args[0], output)
+		},
+	}
+
+	cmd.Flags().StringVarP(&output, "output", "o", "", "输出文件路径")
+
+	return cmd
+}
+
+// NewDockerLoadCmd 创建 docker load 命令
+func NewDockerLoadCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "load <tar-file>",
+		Short: "从 tar 文件导入镜像",
+		Long: `从 tar 文件导入 Docker 镜像
+
+示例:
+  opsxcli docker load nginx.tar`,
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return docker.LoadImage(args[0])
+		},
+	}
+
+	return cmd
+}
+
+// NewDockerHistoryCmd 创建 docker history 命令
+func NewDockerHistoryCmd() *cobra.Command {
+	var (
+		noTrunc bool
+		quiet   bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "history <image>",
+		Short: "查看镜像构建历史",
+		Long: `查看 Docker 镜像的构建历史（各层信息）
+
+示例:
+  opsxcli docker history nginx:latest
+  opsxcli docker history nginx:latest --no-trunc
+  opsxcli docker history nginx:latest -q`,
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return docker.HistoryImages(args[0], noTrunc, quiet)
+		},
+	}
+
+	cmd.Flags().BoolVar(&noTrunc, "no-trunc", false, "不截断输出")
+	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "只显示镜像 ID")
+
+	return cmd
+}
+
+// NewDockerPruneCmd 创建 docker prune 命令
+func NewDockerPruneCmd() *cobra.Command {
+	var all bool
+
+	cmd := &cobra.Command{
+		Use:   "prune",
+		Short: "清理未使用的镜像",
+		Long: `清理未使用的 Docker 镜像，释放磁盘空间
+
+示例:
+  # 清理悬空镜像（无标签的）
+  opsxcli docker prune
+
+  # 清理所有未使用的镜像
+  opsxcli docker prune --all`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return docker.PruneImages(all)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&all, "all", "a", false, "清理所有未使用的镜像（不仅仅是悬空的）")
 
 	return cmd
 }
