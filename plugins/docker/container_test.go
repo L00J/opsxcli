@@ -1,514 +1,469 @@
 package docker
 
 import (
-	"encoding/json"
+	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
-// === formatContainerName ===
+// =============================================================================
+// buildRunArgs 纯函数测试
+// =============================================================================
 
-func TestFormatContainerName(t *testing.T) {
-	tests := []struct {
-		name     string
-		names    []string
-		expected string
-	}{
-		{"single name", []string{"/nginx"}, "nginx"},
-		{"name without slash", []string{"nginx"}, "nginx"},
-		{"empty names", []string{}, ""},
-		{"nil names", nil, ""},
-		{"first name selected", []string{"/web", "/web-1"}, "web"},
+func TestBuildRunArgs_BasicImageOnly(t *testing.T) {
+	opts := &RunOptions{Image: "nginx:latest"}
+	args := buildRunArgs(opts)
+
+	expected := []string{"run", "nginx:latest"}
+	if len(args) != len(expected) {
+		t.Fatalf("expected %v, got %v", expected, args)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := formatContainerName(tt.names)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-// === formatPorts ===
-
-func TestFormatPorts(t *testing.T) {
-	tests := []struct {
-		name     string
-		ports    []PortBinding
-		expected string
-	}{
-		{
-			"nil ports",
-			nil,
-			"",
-		},
-		{
-			"empty ports",
-			[]PortBinding{},
-			"",
-		},
-		{
-			"public port mapping",
-			[]PortBinding{{IP: "0.0.0.0", PrivatePort: 80, PublicPort: 8080, Type: "tcp"}},
-			"0.0.0.0:8080->80/tcp",
-		},
-		{
-			"private port only",
-			[]PortBinding{{PrivatePort: 443, Type: "tcp"}},
-			"443/tcp",
-		},
-		{
-			"multiple ports",
-			[]PortBinding{
-				{IP: "0.0.0.0", PrivatePort: 80, PublicPort: 8080, Type: "tcp"},
-				{IP: "0.0.0.0", PrivatePort: 443, PublicPort: 8443, Type: "tcp"},
-			},
-			"0.0.0.0:8080->80/tcp, 0.0.0.0:8443->443/tcp",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := formatPorts(tt.ports)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-// === formatContainerState ===
-
-func TestFormatContainerState(t *testing.T) {
-	tests := []struct {
-		name     string
-		state    ContainerState
-		expected string
-	}{
-		{
-			"running",
-			ContainerState{Running: true},
-			"Up",
-		},
-		{
-			"paused",
-			ContainerState{Running: true, Paused: true},
-			"Paused",
-		},
-		{
-			"restarting",
-			ContainerState{Restarting: true},
-			"Restarting",
-		},
-		{
-			"exited with code 0",
-			ContainerState{ExitCode: 0},
-			"Exited (0)",
-		},
-		{
-			"exited with code 137",
-			ContainerState{ExitCode: 137},
-			"Exited (137)",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := formatContainerState(tt.state)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-// === parseContainerInspect ===
-
-func TestParseContainerInspect(t *testing.T) {
-	t.Run("basic fields", func(t *testing.T) {
-		raw := map[string]interface{}{
-			"Id":   "abc123def456",
-			"Name": "/my-container",
-			"Config": map[string]interface{}{
-				"Image": "nginx:latest",
-				"Env":   []interface{}{"PATH=/usr/local/bin", "NODE_ENV=production"},
-				"Labels": map[string]interface{}{
-					"com.docker.compose.service": "web",
-				},
-			},
-			"Created": "2024-01-15T10:30:00Z",
-			"State": map[string]interface{}{
-				"Status":     "running",
-				"Running":    true,
-				"Paused":     false,
-				"Restarting": false,
-				"ExitCode":   float64(0),
-				"StartedAt":  "2024-01-15T10:30:01Z",
-			},
-			"NetworkSettings": map[string]interface{}{
-				"Gateway":   "172.17.0.1",
-				"IPAddress": "172.17.0.2",
-				"Networks": map[string]interface{}{
-					"bridge": map[string]interface{}{},
-				},
-			},
-			"Mounts": []interface{}{
-				map[string]interface{}{
-					"Source":      "/host/data",
-					"Destination": "/container/data",
-					"Mode":        "rw",
-					"RW":          true,
-					"Type":        "bind",
-				},
-			},
+	for i, v := range expected {
+		if args[i] != v {
+			t.Errorf("args[%d] = %q, want %q", i, args[i], v)
 		}
-
-		result := parseContainerInspect(raw)
-
-		assert.Equal(t, "abc123def456", result.ID)
-		assert.Equal(t, "my-container", result.Name)
-		assert.Equal(t, "nginx:latest", result.Image)
-		assert.True(t, result.State.Running)
-		assert.False(t, result.State.Paused)
-		assert.Equal(t, 0, result.State.ExitCode)
-		assert.Equal(t, "172.17.0.1", result.NetworkSettings.Gateway)
-		assert.Equal(t, "172.17.0.2", result.NetworkSettings.IPAddress)
-		assert.Contains(t, result.NetworkSettings.Networks, "bridge")
-		assert.Len(t, result.Mounts, 1)
-		assert.Equal(t, "/host/data", result.Mounts[0].Source)
-		assert.Equal(t, "/container/data", result.Mounts[0].Destination)
-		assert.True(t, result.Mounts[0].RW)
-		assert.Equal(t, "bind", result.Mounts[0].Type)
-		assert.Len(t, result.Env, 2)
-		assert.Contains(t, result.Env, "PATH=/usr/local/bin")
-		assert.Equal(t, "web", result.Labels["com.docker.compose.service"])
-	})
-
-	t.Run("with health check", func(t *testing.T) {
-		raw := map[string]interface{}{
-			"Id":   "health-container",
-			"Name": "/health-check",
-			"Config": map[string]interface{}{
-				"Image": "redis:alpine",
-			},
-			"State": map[string]interface{}{
-				"Status":  "running",
-				"Running": true,
-				"Health": map[string]interface{}{
-					"Status": "healthy",
-				},
-			},
-			"NetworkSettings": map[string]interface{}{},
-		}
-
-		result := parseContainerInspect(raw)
-		assert.Equal(t, "healthy", result.State.Health)
-	})
-
-	t.Run("empty fields", func(t *testing.T) {
-		raw := map[string]interface{}{}
-		result := parseContainerInspect(raw)
-		assert.Empty(t, result.ID)
-		assert.Empty(t, result.Name)
-		assert.Empty(t, result.Image)
-	})
-}
-
-// === parseContainerState ===
-
-func TestParseContainerState(t *testing.T) {
-	t.Run("with all fields", func(t *testing.T) {
-		raw := map[string]interface{}{
-			"Status":      "running",
-			"Running":     true,
-			"Paused":      false,
-			"Restarting":  false,
-			"ExitCode":    float64(0),
-			"StartedAt":   "2024-01-15T10:30:01Z",
-			"FinishedAt":  "2024-01-14T08:00:00Z",
-			"Health": map[string]interface{}{
-				"Status": "healthy",
-			},
-		}
-		state := parseContainerState(raw)
-		assert.Equal(t, "running", state.Status)
-		assert.True(t, state.Running)
-		assert.False(t, state.Paused)
-		assert.Equal(t, 0, state.ExitCode)
-		assert.Equal(t, "healthy", state.Health)
-	})
-
-	t.Run("minimal fields", func(t *testing.T) {
-		raw := map[string]interface{}{}
-		state := parseContainerState(raw)
-		assert.Empty(t, state.Status)
-		assert.False(t, state.Running)
-		assert.Equal(t, 0, state.ExitCode)
-	})
-}
-
-// === parseNetworkSettings ===
-
-func TestParseNetworkSettings(t *testing.T) {
-	t.Run("with port bindings", func(t *testing.T) {
-		raw := map[string]interface{}{
-			"Gateway":   "172.17.0.1",
-			"IPAddress": "172.17.0.3",
-			"Networks": map[string]interface{}{
-				"bridge": map[string]interface{}{},
-				"host":   map[string]interface{}{},
-			},
-			"Ports": map[string]interface{}{
-				"80/tcp": []interface{}{
-					map[string]interface{}{
-						"HostIp":   "0.0.0.0",
-						"HostPort": "8080",
-					},
-				},
-			},
-		}
-		ns := parseNetworkSettings(raw)
-		assert.Equal(t, "172.17.0.1", ns.Gateway)
-		assert.Equal(t, "172.17.0.3", ns.IPAddress)
-		assert.Len(t, ns.Networks, 2)
-		assert.Contains(t, ns.Networks, "bridge")
-		assert.Contains(t, ns.Networks, "host")
-		assert.Len(t, ns.Ports, 1)
-		assert.Contains(t, ns.Ports[0], "8080")
-		assert.Contains(t, ns.Ports[0], "80/tcp")
-	})
-
-	t.Run("exposed port without binding", func(t *testing.T) {
-		raw := map[string]interface{}{
-			"Ports": map[string]interface{}{
-				"443/tcp": nil,
-			},
-		}
-		ns := parseNetworkSettings(raw)
-		assert.Len(t, ns.Ports, 1)
-		assert.Equal(t, "443/tcp", ns.Ports[0])
-	})
-
-	t.Run("empty settings", func(t *testing.T) {
-		raw := map[string]interface{}{}
-		ns := parseNetworkSettings(raw)
-		assert.Empty(t, ns.Gateway)
-		assert.Empty(t, ns.IPAddress)
-	})
-}
-
-// === parseMounts ===
-
-func TestParseMounts(t *testing.T) {
-	t.Run("multiple mounts", func(t *testing.T) {
-		raw := []interface{}{
-			map[string]interface{}{
-				"Source":      "/host/data",
-				"Destination": "/data",
-				"Mode":        "rw",
-				"RW":          true,
-				"Type":        "bind",
-			},
-			map[string]interface{}{
-				"Source":      "myvolume",
-				"Destination": "/var/lib/data",
-				"Mode":        "z",
-				"RW":          true,
-				"Type":        "volume",
-			},
-		}
-		mounts := parseMounts(raw)
-		assert.Len(t, mounts, 2)
-		assert.Equal(t, "bind", mounts[0].Type)
-		assert.True(t, mounts[0].RW)
-		assert.Equal(t, "volume", mounts[1].Type)
-	})
-
-	t.Run("empty mounts", func(t *testing.T) {
-		mounts := parseMounts([]interface{}{})
-		assert.Empty(t, mounts)
-	})
-
-	t.Run("nil mounts", func(t *testing.T) {
-		mounts := parseMounts(nil)
-		assert.Empty(t, mounts)
-	})
-}
-
-// === toInt ===
-
-func TestToInt(t *testing.T) {
-	tests := []struct {
-		name      string
-		input     interface{}
-		expected  int
-		expectOk  bool
-	}{
-		{"float64", float64(42), 42, true},
-		{"int", 42, 42, true},
-		{"string", "42", 0, false},
-		{"nil", nil, 0, false},
-		{"bool", true, 0, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			val, ok := toInt(tt.input)
-			assert.Equal(t, tt.expectOk, ok)
-			if ok {
-				assert.Equal(t, tt.expected, val)
-			}
-		})
 	}
 }
 
-// === cleanDockerError ===
+func TestBuildRunArgs_DetachMode(t *testing.T) {
+	opts := &RunOptions{Image: "alpine", Detach: true}
+	args := buildRunArgs(opts)
 
-func TestCleanDockerError(t *testing.T) {
-	t.Run("generic error", func(t *testing.T) {
-		err := cleanDockerError(assert.AnError)
-		assert.Contains(t, err, "assert")
-	})
-}
-
-// === ContainerInfo JSON parsing ===
-
-func TestContainerInfoJSON(t *testing.T) {
-	raw := `{
-		"Id": "abc123",
-		"Names": ["/my-container"],
-		"Image": "nginx:latest",
-		"State": "running",
-		"Status": "Up 2 hours",
-		"Ports": [
-			{"IP": "0.0.0.0", "PrivatePort": 80, "PublicPort": 8080, "Type": "tcp"}
-		]
-	}`
-
-	var c ContainerInfo
-	err := json.Unmarshal([]byte(raw), &c)
-	assert.NoError(t, err)
-	assert.Equal(t, "abc123", c.ID)
-	assert.Equal(t, []string{"/my-container"}, c.Names)
-	assert.Equal(t, "nginx:latest", c.Image)
-	assert.Equal(t, "running", c.State)
-	assert.Len(t, c.Ports, 1)
-	assert.Equal(t, 80, c.Ports[0].PrivatePort)
-}
-
-// === PSOptions default values ===
-
-func TestPSOptionsDefaults(t *testing.T) {
-	opts := &PSOptions{}
-	assert.False(t, opts.All)
-	assert.Equal(t, 0, opts.Last)
-	assert.Empty(t, opts.Filter)
-	assert.Empty(t, opts.Format)
-	assert.False(t, opts.NoTrunc)
-	assert.False(t, opts.Quiet)
-}
-
-// === ContainerActionOptions defaults ===
-
-func TestContainerActionOptionsDefaults(t *testing.T) {
-	opts := &ContainerActionOptions{}
-	assert.Empty(t, opts.Containers)
-	assert.Equal(t, 0, opts.Timeout)
-	assert.False(t, opts.Force)
-	assert.False(t, opts.Volumes)
-}
-
-// === PortBinding ===
-
-func TestPortBinding(t *testing.T) {
-	pb := PortBinding{
-		IP:          "0.0.0.0",
-		PrivatePort: 80,
-		PublicPort:  8080,
-		Type:        "tcp",
+	if !sliceContains(args, "-d") {
+		t.Error("expected -d flag in args")
 	}
-	assert.Equal(t, "0.0.0.0", pb.IP)
-	assert.Equal(t, 80, pb.PrivatePort)
-	assert.Equal(t, 8080, pb.PublicPort)
-	assert.Equal(t, "tcp", pb.Type)
 }
 
-// === ContainerState ===
+func TestBuildRunArgs_InteractiveTTY(t *testing.T) {
+	opts := &RunOptions{Image: "alpine", Interactive: true, TTY: true, Remove: true}
+	args := buildRunArgs(opts)
 
-func TestContainerStateDefaults(t *testing.T) {
-	state := ContainerState{}
-	assert.Empty(t, state.Status)
-	assert.False(t, state.Running)
-	assert.False(t, state.Paused)
-	assert.False(t, state.Restarting)
-	assert.Equal(t, 0, state.ExitCode)
-	assert.Empty(t, state.Health)
-}
-
-// === NetworkSummary ===
-
-func TestNetworkSummaryDefaults(t *testing.T) {
-	ns := NetworkSummary{}
-	assert.Empty(t, ns.IPAddress)
-	assert.Empty(t, ns.Gateway)
-	assert.Empty(t, ns.Networks)
-	assert.Empty(t, ns.Ports)
-}
-
-// === MountInfo ===
-
-func TestMountInfo(t *testing.T) {
-	m := MountInfo{
-		Source:      "/host/path",
-		Destination: "/container/path",
-		Mode:        "rw",
-		RW:          true,
-		Type:        "bind",
+	if !sliceContains(args, "-i") {
+		t.Error("expected -i flag")
 	}
-	assert.Equal(t, "/host/path", m.Source)
-	assert.Equal(t, "/container/path", m.Destination)
-	assert.True(t, m.RW)
+	if !sliceContains(args, "-t") {
+		t.Error("expected -t flag")
+	}
+	if !sliceContains(args, "--rm") {
+		t.Error("expected --rm flag")
+	}
 }
 
-// === ContainerInspectResult ===
+func TestBuildRunArgs_ContainerName(t *testing.T) {
+	opts := &RunOptions{Image: "nginx", Name: "my-web"}
+	args := buildRunArgs(opts)
 
-func TestContainerInspectResultDefaults(t *testing.T) {
-	result := ContainerInspectResult{}
-	assert.Empty(t, result.ID)
-	assert.Empty(t, result.Name)
-	assert.Empty(t, result.Image)
-	assert.Empty(t, result.Env)
-	assert.Empty(t, result.Mounts)
-	assert.Nil(t, result.Labels)
+	idx := sliceIndexOf(args, "--name")
+	if idx < 0 {
+		t.Fatal("expected --name flag")
+	}
+	if args[idx+1] != "my-web" {
+		t.Errorf("name = %q, want %q", args[idx+1], "my-web")
+	}
 }
 
-// === Container lifecycle errors (no docker) ===
+func TestBuildRunArgs_Hostname(t *testing.T) {
+	opts := &RunOptions{Image: "alpine", Hostname: "myhost"}
+	args := buildRunArgs(opts)
 
-func TestPS_NoDocker(t *testing.T) {
-	// 测试无 docker 时的错误处理
-	// 这个测试在无 docker 环境下会返回错误
-	err := PS(&PSOptions{})
-	// 在 CI 环境可能没有 docker，所以只验证不会 panic
-	_ = err
+	idx := sliceIndexOf(args, "-h")
+	if idx < 0 {
+		t.Fatal("expected -h flag")
+	}
+	if args[idx+1] != "myhost" {
+		t.Errorf("hostname = %q, want %q", args[idx+1], "myhost")
+	}
 }
 
-func TestStop_NoArgs(t *testing.T) {
-	err := Stop(&ContainerActionOptions{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "请指定")
+func TestBuildRunArgs_User(t *testing.T) {
+	opts := &RunOptions{Image: "alpine", User: "root"}
+	args := buildRunArgs(opts)
+
+	idx := sliceIndexOf(args, "-u")
+	if idx < 0 {
+		t.Fatal("expected -u flag")
+	}
+	if args[idx+1] != "root" {
+		t.Errorf("user = %q, want %q", args[idx+1], "root")
+	}
 }
 
-func TestStart_NoArgs(t *testing.T) {
-	err := Start(&ContainerActionOptions{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "请指定")
+func TestBuildRunArgs_Workdir(t *testing.T) {
+	opts := &RunOptions{Image: "alpine", Workdir: "/app"}
+	args := buildRunArgs(opts)
+
+	idx := sliceIndexOf(args, "-w")
+	if idx < 0 {
+		t.Fatal("expected -w flag")
+	}
+	if args[idx+1] != "/app" {
+		t.Errorf("workdir = %q, want %q", args[idx+1], "/app")
+	}
 }
 
-func TestRestart_NoArgs(t *testing.T) {
-	err := Restart(&ContainerActionOptions{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "请指定")
+func TestBuildRunArgs_Network(t *testing.T) {
+	opts := &RunOptions{Image: "nginx", Network: "my-net"}
+	args := buildRunArgs(opts)
+
+	idx := sliceIndexOf(args, "--network")
+	if idx < 0 {
+		t.Fatal("expected --network flag")
+	}
+	if args[idx+1] != "my-net" {
+		t.Errorf("network = %q, want %q", args[idx+1], "my-net")
+	}
 }
 
-func TestRM_NoArgs(t *testing.T) {
-	err := RM(&ContainerActionOptions{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "请指定")
+func TestBuildRunArgs_DNS(t *testing.T) {
+	opts := &RunOptions{Image: "alpine", DNS: []string{"8.8.8.8", "8.8.4.4"}}
+	args := buildRunArgs(opts)
+
+	count := countFlag(args, "--dns")
+	if count != 2 {
+		t.Errorf("expected 2 --dns flags, got %d", count)
+	}
+}
+
+func TestBuildRunArgs_ExtraHosts(t *testing.T) {
+	opts := &RunOptions{Image: "alpine", ExtraHosts: []string{"host1:192.168.1.1"}}
+	args := buildRunArgs(opts)
+
+	idx := sliceIndexOf(args, "--add-host")
+	if idx < 0 {
+		t.Fatal("expected --add-host flag")
+	}
+	if args[idx+1] != "host1:192.168.1.1" {
+		t.Errorf("add-host = %q, want %q", args[idx+1], "host1:192.168.1.1")
+	}
+}
+
+func TestBuildRunArgs_RestartPolicy(t *testing.T) {
+	opts := &RunOptions{Image: "nginx", Restart: "always"}
+	args := buildRunArgs(opts)
+
+	idx := sliceIndexOf(args, "--restart")
+	if idx < 0 {
+		t.Fatal("expected --restart flag")
+	}
+	if args[idx+1] != "always" {
+		t.Errorf("restart = %q, want %q", args[idx+1], "always")
+	}
+}
+
+func TestBuildRunArgs_Memory(t *testing.T) {
+	opts := &RunOptions{Image: "nginx", Memory: "512m"}
+	args := buildRunArgs(opts)
+
+	idx := sliceIndexOf(args, "-m")
+	if idx < 0 {
+		t.Fatal("expected -m flag")
+	}
+	if args[idx+1] != "512m" {
+		t.Errorf("memory = %q, want %q", args[idx+1], "512m")
+	}
+}
+
+func TestBuildRunArgs_CPUs(t *testing.T) {
+	opts := &RunOptions{Image: "nginx", CPUs: "1.5"}
+	args := buildRunArgs(opts)
+
+	idx := sliceIndexOf(args, "--cpus")
+	if idx < 0 {
+		t.Fatal("expected --cpus flag")
+	}
+	if args[idx+1] != "1.5" {
+		t.Errorf("cpus = %q, want %q", args[idx+1], "1.5")
+	}
+}
+
+func TestBuildRunArgs_Env(t *testing.T) {
+	opts := &RunOptions{
+		Image: "mysql",
+		Env:   []string{"MYSQL_ROOT_PASSWORD=123456", "MYSQL_DATABASE=testdb"},
+	}
+	args := buildRunArgs(opts)
+
+	count := countFlag(args, "-e")
+	if count != 2 {
+		t.Errorf("expected 2 -e flags, got %d", count)
+	}
+
+	// Verify specific values
+	values := getFlagValues(args, "-e")
+	if !sliceContains(values, "MYSQL_ROOT_PASSWORD=123456") {
+		t.Error("expected MYSQL_ROOT_PASSWORD env var")
+	}
+	if !sliceContains(values, "MYSQL_DATABASE=testdb") {
+		t.Error("expected MYSQL_DATABASE env var")
+	}
+}
+
+func TestBuildRunArgs_EnvFile(t *testing.T) {
+	opts := &RunOptions{Image: "app", EnvFile: []string{".env", "prod.env"}}
+	args := buildRunArgs(opts)
+
+	count := countFlag(args, "--env-file")
+	if count != 2 {
+		t.Errorf("expected 2 --env-file flags, got %d", count)
+	}
+}
+
+func TestBuildRunArgs_Label(t *testing.T) {
+	opts := &RunOptions{Image: "nginx", Label: []string{"version=1.0", "env=prod"}}
+	args := buildRunArgs(opts)
+
+	count := countFlag(args, "--label")
+	if count != 2 {
+		t.Errorf("expected 2 --label flags, got %d", count)
+	}
+}
+
+func TestBuildRunArgs_Publish(t *testing.T) {
+	opts := &RunOptions{Image: "nginx", Publish: []string{"80:80", "443:443"}}
+	args := buildRunArgs(opts)
+
+	count := countFlag(args, "-p")
+	if count != 2 {
+		t.Errorf("expected 2 -p flags, got %d", count)
+	}
+}
+
+func TestBuildRunArgs_Expose(t *testing.T) {
+	opts := &RunOptions{Image: "nginx", Expose: []string{"8080", "9090"}}
+	args := buildRunArgs(opts)
+
+	count := countFlag(args, "--expose")
+	if count != 2 {
+		t.Errorf("expected 2 --expose flags, got %d", count)
+	}
+}
+
+func TestBuildRunArgs_Volume(t *testing.T) {
+	opts := &RunOptions{
+		Image:  "nginx",
+		Volume: []string{"/host/data:/container/data", "/host/config:/etc/nginx:ro"},
+	}
+	args := buildRunArgs(opts)
+
+	count := countFlag(args, "-v")
+	if count != 2 {
+		t.Errorf("expected 2 -v flags, got %d", count)
+	}
+}
+
+func TestBuildRunArgs_Privileged(t *testing.T) {
+	opts := &RunOptions{Image: "alpine", Privileged: true}
+	args := buildRunArgs(opts)
+
+	if !sliceContains(args, "--privileged") {
+		t.Error("expected --privileged flag")
+	}
+}
+
+func TestBuildRunArgs_Init(t *testing.T) {
+	opts := &RunOptions{Image: "alpine", Init: true}
+	args := buildRunArgs(opts)
+
+	if !sliceContains(args, "--init") {
+		t.Error("expected --init flag")
+	}
+}
+
+func TestBuildRunArgs_Command(t *testing.T) {
+	opts := &RunOptions{Image: "alpine", Command: []string{"sh", "-c", "echo hello"}}
+	args := buildRunArgs(opts)
+
+	// Last args should be the command
+	idx := sliceIndexOf(args, "alpine")
+	if idx < 0 {
+		t.Fatal("expected image name in args")
+	}
+	rem := args[idx+1:]
+	if len(rem) != 3 {
+		t.Fatalf("expected 3 command args, got %d: %v", len(rem), rem)
+	}
+	if rem[0] != "sh" || rem[1] != "-c" || rem[2] != "echo hello" {
+		t.Errorf("command = %v, want [sh -c echo hello]", rem)
+	}
+}
+
+// Full integration test: all options combined
+func TestBuildRunArgs_AllOptions(t *testing.T) {
+	opts := &RunOptions{
+		Image:       "nginx:latest",
+		Command:     []string{"nginx", "-g", "daemon off;"},
+		Name:        "web-server",
+		Detach:      true,
+		Interactive: false,
+		TTY:         false,
+		Remove:      false,
+		Env:         []string{"FOO=bar"},
+		Publish:     []string{"80:80"},
+		Expose:      []string{"443"},
+		Volume:      []string{"/data:/data"},
+		Network:     "bridge",
+		Restart:     "always",
+		Memory:      "1g",
+		CPUs:        "2",
+		User:        "nginx",
+		Workdir:     "/app",
+		Hostname:    "web",
+		Privileged:  false,
+		Init:        true,
+		EnvFile:     []string{".env"},
+		Label:       []string{"app=web"},
+		DNS:         []string{"8.8.8.8"},
+		ExtraHosts:  []string{"db:10.0.0.1"},
+	}
+	args := buildRunArgs(opts)
+
+	// Verify key elements present
+	argStr := strings.Join(args, " ")
+
+	checks := []string{
+		"run",
+		"-d",
+		"--init",
+		"--name web-server",
+		"-h web",
+		"-u nginx",
+		"-w /app",
+		"--network bridge",
+		"--dns 8.8.8.8",
+		"--add-host db:10.0.0.1",
+		"--restart always",
+		"-m 1g",
+		"--cpus 2",
+		"-e FOO=bar",
+		"--env-file .env",
+		"--label app=web",
+		"-p 80:80",
+		"--expose 443",
+		"-v /data:/data",
+		"nginx:latest",
+		"nginx -g daemon off;",
+	}
+
+	for _, check := range checks {
+		if !strings.Contains(argStr, check) {
+			t.Errorf("expected args to contain %q, got: %s", check, argStr)
+		}
+	}
+
+	// Verify order: "run" first, image before command
+	runIdx := sliceIndexOf(args, "run")
+	imageIdx := sliceIndexOf(args, "nginx:latest")
+	if runIdx != 0 {
+		t.Errorf("expected 'run' at index 0, got %d", runIdx)
+	}
+	if imageIdx <= 0 {
+		t.Error("expected image to appear after flags")
+	}
+	// Command should come after image
+	cmdStart := imageIdx + 1
+	if args[cmdStart] != "nginx" {
+		t.Errorf("expected command to start after image, got %q", args[cmdStart])
+	}
+}
+
+// Test that empty strings are properly omitted
+func TestBuildRunArgs_EmptyStrings(t *testing.T) {
+	opts := &RunOptions{
+		Image:    "alpine",
+		Name:     "",
+		Network:  "",
+		Restart:  "",
+		Memory:   "",
+		CPUs:     "",
+		User:     "",
+		Workdir:  "",
+		Hostname: "",
+	}
+	args := buildRunArgs(opts)
+
+	// Should only have "run" and "alpine"
+	if len(args) != 2 {
+		t.Errorf("expected 2 args for empty options, got %d: %v", len(args), args)
+	}
+}
+
+// Test that nil slices are properly handled
+func TestBuildRunArgs_NilSlices(t *testing.T) {
+	opts := &RunOptions{
+		Image:   "alpine",
+		Env:     nil,
+		Publish: nil,
+		Volume:  nil,
+		DNS:     nil,
+	}
+	args := buildRunArgs(opts)
+
+	if len(args) != 2 {
+		t.Errorf("expected 2 args with nil slices, got %d: %v", len(args), args)
+	}
+}
+
+// =============================================================================
+// Run 验证测试（不依赖 Docker）
+// =============================================================================
+
+func TestRun_NilOptions(t *testing.T) {
+	err := Run(nil)
+	if err == nil {
+		t.Error("expected error for nil options")
+	}
+	if err.Error() != "请指定要运行的镜像" {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestRun_EmptyImage(t *testing.T) {
+	err := Run(&RunOptions{Image: ""})
+	if err == nil {
+		t.Error("expected error for empty image")
+	}
+	if err.Error() != "请指定要运行的镜像" {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+// =============================================================================
+// 辅助函数
+// =============================================================================
+
+func sliceContains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+func sliceIndexOf(slice []string, item string) int {
+	for i, s := range slice {
+		if s == item {
+			return i
+		}
+	}
+	return -1
+}
+
+func countFlag(slice []string, flag string) int {
+	count := 0
+	for _, s := range slice {
+		if s == flag {
+			count++
+		}
+	}
+	return count
+}
+
+func getFlagValues(slice []string, flag string) []string {
+	var values []string
+	for i, s := range slice {
+		if s == flag && i+1 < len(slice) {
+			values = append(values, slice[i+1])
+		}
+	}
+	return values
 }

@@ -67,6 +67,7 @@ func NewDockerCmd() *cobra.Command {
 	cmd.AddCommand(NewDockerPruneCmd())
 
 	// 添加子命令 - 容器管理
+	cmd.AddCommand(NewDockerRunCmd())
 	cmd.AddCommand(NewDockerPSCmd())
 	cmd.AddCommand(NewDockerInspectCmd())
 	cmd.AddCommand(NewDockerLogsCmd())
@@ -135,6 +136,139 @@ func NewDockerPullCmd() *cobra.Command {
 	// 添加 flags
 	cmd.Flags().StringSliceVarP(&registries, "registry", "r", []string{}, "自定义镜像源（可指定多个，留空使用默认源）")
 	cmd.Flags().IntVarP(&concurrency, "concurrency", "c", 5, "并发下载数量")
+
+	return cmd
+}
+
+// NewDockerRunCmd 创建 docker run 命令
+func NewDockerRunCmd() *cobra.Command {
+	var (
+		name        string
+		detach      bool
+		interactive bool
+		tty         bool
+		remove      bool
+		env         []string
+		publish     []string
+		expose      []string
+		volume      []string
+		network     string
+		restart     string
+		memory      string
+		cpus        string
+		user        string
+		workdir     string
+		hostname    string
+		privileged  bool
+		init        bool
+		envFile     []string
+		label       []string
+		dns         []string
+		extraHosts  []string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "run [flags] image [command [args...]]",
+		Short: "运行一个新的容器",
+		Long: `在新的容器中运行命令
+
+示例:
+  # 运行一个 nginx 容器（后台模式）
+  opsxcli docker run -d --name nginx -p 80:80 nginx:latest
+
+  # 交互式运行
+  opsxcli docker run -it --rm alpine sh
+
+  # 带环境变量和资源限制
+  opsxcli docker run -d -e MYSQL_ROOT_PASSWORD=123456 -m 512m --cpus 1 mysql:8.0
+
+  # 挂载卷
+  opsxcli docker run -d -v /host/data:/container/data nginx:latest
+
+  # 指定网络
+  opsxcli docker run -d --network my-net --name app myapp:latest
+
+  # 自定义 DNS 和 hosts
+  opsxcli docker run -d --dns 8.8.8.8 --add-host host1:192.168.1.1 nginx:latest`,
+		Args:          cobra.MinimumNArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			image := args[0]
+			var command []string
+			if len(args) > 1 {
+				command = args[1:]
+			}
+
+			opts := &docker.RunOptions{
+				Image:       image,
+				Command:     command,
+				Name:        name,
+				Detach:      detach,
+				Interactive: interactive,
+				TTY:         tty,
+				Remove:      remove,
+				Env:         env,
+				Publish:     publish,
+				Expose:      expose,
+				Volume:      volume,
+				Network:     network,
+				Restart:     restart,
+				Memory:      memory,
+				CPUs:        cpus,
+				User:        user,
+				Workdir:     workdir,
+				Hostname:    hostname,
+				Privileged:  privileged,
+				Init:        init,
+				EnvFile:     envFile,
+				Label:       label,
+				DNS:         dns,
+				ExtraHosts:  extraHosts,
+			}
+			return docker.Run(opts)
+		},
+	}
+
+	// 模式
+	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "后台运行容器")
+	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "保持 STDIN 打开")
+	cmd.Flags().BoolVarP(&tty, "tty", "t", false, "分配伪终端")
+	cmd.Flags().BoolVar(&remove, "rm", false, "容器退出后自动删除")
+	cmd.Flags().BoolVar(&privileged, "privileged", false, "赋予容器扩展权限")
+	cmd.Flags().BoolVar(&init, "init", false, "使用 tini 作为 PID 1 进程")
+
+	// 容器标识
+	cmd.Flags().StringVar(&name, "name", "", "容器名称")
+	cmd.Flags().StringVarP(&hostname, "hostname", "h", "", "容器主机名")
+	cmd.Flags().StringVarP(&user, "user", "u", "", "用户名或 UID (格式: <name|uid>[:<group|gid>])")
+	cmd.Flags().StringVarP(&workdir, "workdir", "w", "", "容器内工作目录")
+
+	// 网络
+	cmd.Flags().StringVar(&network, "network", "", "连接到指定网络")
+	cmd.Flags().StringSliceVar(&dns, "dns", nil, "指定 DNS 服务器")
+	cmd.Flags().StringSliceVar(&extraHosts, "add-host", nil, "添加自定义 host 映射 (host:ip)")
+
+	// 重启策略
+	cmd.Flags().StringVar(&restart, "restart", "", "重启策略 (no|on-failure[:max-retries]|always|unless-stopped)")
+
+	// 资源限制
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "内存限制 (如 512m, 1g)")
+	cmd.Flags().StringVar(&cpus, "cpus", "", "CPU 数量限制 (如 1.5)")
+
+	// 环境变量
+	cmd.Flags().StringSliceVarP(&env, "env", "e", nil, "设置环境变量")
+	cmd.Flags().StringSliceVar(&envFile, "env-file", nil, "从文件读取环境变量")
+
+	// 标签
+	cmd.Flags().StringSliceVar(&label, "label", nil, "设置元数据标签")
+
+	// 端口
+	cmd.Flags().StringSliceVarP(&publish, "publish", "p", nil, "端口映射 (hostPort:containerPort)")
+	cmd.Flags().StringSliceVar(&expose, "expose", nil, "暴露端口或端口范围")
+
+	// 卷
+	cmd.Flags().StringSliceVarP(&volume, "volume", "v", nil, "挂载卷 (host:container[:mode])")
 
 	return cmd
 }

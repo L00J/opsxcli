@@ -87,6 +87,162 @@ type PSOptions struct {
 	Quiet    bool   // 只显示 ID
 }
 
+// RunOptions docker run 选项
+type RunOptions struct {
+	Image       string   // 镜像名称
+	Command     []string // 容器内执行的命令
+	Name        string   // 容器名称 (--name)
+	Detach      bool     // 后台运行 (-d)
+	Interactive bool     // 交互模式 (-i)
+	TTY         bool     // 分配伪终端 (-t)
+	Remove      bool     // 退出后自动删除 (--rm)
+	Env         []string // 环境变量 (-e)
+	Publish     []string // 端口映射 (-p)
+	Expose      []string // 暴露端口 (--expose)
+	Volume      []string // 挂载卷 (-v)
+	Network     string   // 网络模式 (--network)
+	Restart     string   // 重启策略 (--restart)
+	Memory      string   // 内存限制 (-m, 如 "512m")
+	CPUs        string   // CPU 限制 (--cpus, 如 "1.5")
+	User        string   // 运行用户 (-u, 如 "root")
+	Workdir     string   // 工作目录 (-w)
+	Hostname    string   // 主机名 (-h)
+	Privileged  bool     // 特权模式 (--privileged)
+	Init        bool     // 使用 tini 作为 PID 1 (--init)
+	EnvFile     []string // 环境变量文件 (--env-file)
+	Label       []string // 标签 (--label)
+	DNS         []string // DNS 服务器 (--dns)
+	ExtraHosts  []string // 额外 hosts (--add-host)
+}
+
+// Run 运行容器
+func Run(opts *RunOptions) error {
+	if err := checkDockerInstalled(); err != nil {
+		return err
+	}
+
+	if opts == nil || opts.Image == "" {
+		return fmt.Errorf("请指定要运行的镜像")
+	}
+
+	args := buildRunArgs(opts)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// 交互模式需要连接终端
+	if opts.Interactive || opts.TTY {
+		cmd.Stdin = os.Stdin
+	}
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("运行容器失败: %v", cleanDockerError(err))
+	}
+
+	return nil
+}
+
+// buildRunArgs 构建 docker run 命令参数（纯函数，可测试）
+func buildRunArgs(opts *RunOptions) []string {
+	args := []string{"run"}
+
+	// 基本模式
+	if opts.Detach {
+		args = append(args, "-d")
+	}
+	if opts.Interactive {
+		args = append(args, "-i")
+	}
+	if opts.TTY {
+		args = append(args, "-t")
+	}
+	if opts.Remove {
+		args = append(args, "--rm")
+	}
+	if opts.Privileged {
+		args = append(args, "--privileged")
+	}
+	if opts.Init {
+		args = append(args, "--init")
+	}
+
+	// 容器标识
+	if opts.Name != "" {
+		args = append(args, "--name", opts.Name)
+	}
+	if opts.Hostname != "" {
+		args = append(args, "-h", opts.Hostname)
+	}
+	if opts.User != "" {
+		args = append(args, "-u", opts.User)
+	}
+	if opts.Workdir != "" {
+		args = append(args, "-w", opts.Workdir)
+	}
+
+	// 网络
+	if opts.Network != "" {
+		args = append(args, "--network", opts.Network)
+	}
+	for _, dns := range opts.DNS {
+		args = append(args, "--dns", dns)
+	}
+	for _, host := range opts.ExtraHosts {
+		args = append(args, "--add-host", host)
+	}
+
+	// 重启策略
+	if opts.Restart != "" {
+		args = append(args, "--restart", opts.Restart)
+	}
+
+	// 资源限制
+	if opts.Memory != "" {
+		args = append(args, "-m", opts.Memory)
+	}
+	if opts.CPUs != "" {
+		args = append(args, "--cpus", opts.CPUs)
+	}
+
+	// 环境变量
+	for _, env := range opts.Env {
+		args = append(args, "-e", env)
+	}
+	for _, f := range opts.EnvFile {
+		args = append(args, "--env-file", f)
+	}
+
+	// 标签
+	for _, label := range opts.Label {
+		args = append(args, "--label", label)
+	}
+
+	// 端口
+	for _, p := range opts.Publish {
+		args = append(args, "-p", p)
+	}
+	for _, e := range opts.Expose {
+		args = append(args, "--expose", e)
+	}
+
+	// 卷挂载
+	for _, v := range opts.Volume {
+		args = append(args, "-v", v)
+	}
+
+	// 镜像
+	args = append(args, opts.Image)
+
+	// 容器内命令
+	args = append(args, opts.Command...)
+
+	return args
+}
+
 // ContainerActionOptions 容器操作选项
 type ContainerActionOptions struct {
 	Containers []string // 容器 ID 或名称列表
