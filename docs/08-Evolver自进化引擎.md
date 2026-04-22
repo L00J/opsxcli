@@ -4,9 +4,11 @@
 
 ```
 internal/agent/evolver/
-├── engine.go        # 进化引擎核心，10 步主循环
+├── engine.go        # 进化引擎核心，13 步主循环
 ├── experience.go    # 经验记忆层，任务类型→工具序列映射
-└── environment.go   # 环境记忆层，服务器信息与用户偏好
+├── environment.go   # 环境记忆层，服务器信息与用户偏好
+├── factual.go       # v0.5.0 事实记忆层 (MEMORY.md + USER.md)
+└── procedural.go    # v0.5.0 程序记忆层 (SKILL_xxx.md 技能文档)
 ```
 
 ---
@@ -25,13 +27,18 @@ Evolver 借鉴 Hermes Agent 的设计理念，通过经验积累、LLM 反射分
 
 ```go
 type EvolverEngine struct {
-    experience  *ExperienceMemory   // 经验记忆层
-    environment *EnvironmentMemory  // 环境记忆层
-    mu          sync.RWMutex        // 读写锁保护并发访问
-    baseDir     string              // 存储目录（默认 ~/.opsxcli/agent）
-    minSteps    int                 // 触发进化的最小步数（默认 2）
-    enabled     bool                // 是否启用
-    llmClient   reflectionClient    // 可选 LLM 客户端，用于反射分析
+    experience    *ExperienceMemory    // 经验记忆层
+    environment   *EnvironmentMemory   // 环境记忆层
+    factual       *FactualMemory       // v0.5.0: 事实层 (MEMORY.md + USER.md)
+    procedural    *ProceduralMemory    // v0.5.0: 程序层 (SKILL_xxx.md)
+    mu            sync.RWMutex         // 读写锁保护并发访问
+    baseDir       string               // 存储目录（默认 ~/.opsxcli/agent）
+    minSteps      int                  // 触发进化的最小步数（默认 2）
+    enabled       bool                 // 是否启用
+    llmClient     reflectionClient     // 可选 LLM 客户端，用于反射分析
+    simpleThresh  int                  // 简单任务阈值（≤此值为简单）
+    moderateThresh int                 // 中等任务阈值（≤此值为中等）
+    onProgress    ProgressCallback     // 进度回调（可选）
 }
 ```
 
@@ -67,7 +74,7 @@ type ToolCallRecord struct {
 
 ### EvolveResult（进化结果）
 
-10 步循环的输出，包含学习到的经验和环境更新：
+13 步循环的输出（含 3 个子步骤），包含学习到的经验和环境更新：
 
 ```go
 type EvolveResult struct {
@@ -78,6 +85,9 @@ type EvolveResult struct {
     ExperienceAdded    bool      // 是否新增经验
     EnvironmentUpdated bool      // 是否更新环境记忆
     Consolidated       bool      // 是否触发经验整合
+    SkillDistilled     bool      // v0.5.0: 是否提炼了新 Skill
+    DistilledSkillID   string    // v0.5.0: 提炼的 Skill ID
+    FactsLearned       int       // v0.5.0: 新增事实数量
 }
 ```
 
@@ -96,13 +106,13 @@ type Reflection struct {
 
 ---
 
-## 🔄 10 步进化主循环
+## 🔄 13 步进化主循环
 
-`Evolve()` 方法是 Evolver 的核心入口，在每次任务完成后被调用。以下为完整的 10 步流程：
+`Evolve()` 方法是 Evolver 的核心入口，在每次任务完成后被调用。以下为完整的 13 步流程（含 3 个子步骤 2.5/9.5/9.7）：
 
 ```
 ┌─────────────────────────────────────────────┐
-│          Evolve 10 步主循环                    │
+│          Evolve 13 步主循环                   │
 ├─────────────────────────────────────────────┤
 │                                             │
 │  Step 1: OBSERVE  ─── 观察任务执行概况        │
@@ -134,6 +144,12 @@ type Reflection struct {
 │                                             │
 │  Step 9: ADAPT    ─── 调整环境记忆           │
 │    ↓ 记录服务器信息、用户查询模式             │
+│                                             │
+│  Step 9.5: MEMORIZE ─ 提取持久事实           │
+│    ↓ 从成功执行中提取可复用的事实知识         │
+│                                             │
+│  Step 9.7: DISTILL ── 自动提炼 Skill         │
+│    ↓ 从复杂任务中提炼可复用的 Skill 模板     │
 │                                             │
 │  Step 10: FEEDBACK ── 生成用户反馈消息        │
 │    ↓ 展示学习成果给用户                      │
@@ -209,6 +225,39 @@ type Reflection struct {
 - 从 `ssh_execute` 调用中提取服务器地址，记录到已知服务器列表
 - 更新用户最近查询记录
 
+#### Step 9.5: MEMORIZE（提取持久事实）
+
+从成功执行的任务记录中提取可持久化的事实知识：
+- 提取服务器信息、路径配置、环境变量等可复用事实
+- 存入 `FactualMemory`（`~/.opsxcli/agent/MEMORY.md` + `USER.md`）
+- 触发条件：任务成功且 `FactualMemory` 已初始化
+- 自动去重：通过 key 检查避免重复存储
+
+```go
+// engine.go stepMemorize
+if e.factual != nil && exec.Success {
+    e.stepMemorize(exec)  // 提取事实 → factual.SetFact(key, value, "environment")
+    _ = e.factual.Save()
+}
+```
+
+#### Step 9.7: DISTILL（自动提炼 Skill）
+
+从复杂任务执行记录中自动提炼可复用的 Skill 模板：
+- 生成 `distillSteps`（步骤序列）、`distillTriggers`（触发条件）、`distillPitfalls`（常见陷阱）、`distillDescription`（描述）
+- 自动分类（`classifyCategory`）：脚本执行、诊断排查、数据采集、配置变更、综合运维
+- 触发条件：中等及以上复杂度 + ≥5 次工具调用 + 任务成功
+
+```go
+// engine.go stepDistill
+// 条件：中等(4-6步) 或 复杂(7+步) + toolCallCount ≥ 5 + exec.Success
+if complexity >= ComplexityModerate && toolCallCount >= 5 && exec.Success {
+    skillID := e.stepDistill(exec)
+    result.SkillDistilled = true
+    result.DistilledSkillID = skillID
+}
+```
+
 #### Step 10: FEEDBACK（用户反馈）
 
 生成中文反馈消息，通过 `PrintEvolveFeedback()` 以黄色 emoji 风格展示：
@@ -218,7 +267,35 @@ type Reflection struct {
 
 ---
 
-## 🧠 三层记忆系统
+## 🧠 四层记忆系统
+
+Evolver 维护四层互补的记忆结构，覆盖从瞬时经验到持久技能的完整认知链路：
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    四层记忆架构                               │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Layer 1: ExperienceMemory（经验层）                          │
+│    任务完成后的短期经验，自动整合去重                           │
+│    存储: experience.jsonl                                     │
+│                                                              │
+│  Layer 2: EnvironmentMemory（环境层）                         │
+│    服务器信息、用户偏好、常用路径                              │
+│    存储: environment.json                                     │
+│                                                              │
+│  Layer 3: FactualMemory（事实层）— v0.5.0 新增                │
+│    持久事实知识，跨会话保留                                    │
+│    存储: MEMORY.md + USER.md                                  │
+│    由 Step 9.5 MEMORIZE 写入                                  │
+│                                                              │
+│  Layer 4: ProceduralMemory（程序层）— v0.5.0 新增             │
+│    可复用的运维技能模板，版本化管理                            │
+│    存储: skills/SKILL_xxx.md                                  │
+│    由 Step 9.7 DISTILL 写入                                   │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ### 1. ExperienceMemory（经验记忆层）
 
@@ -277,7 +354,165 @@ type EnvironmentMemory struct {
 
 **ServerInfo**：记录服务器的使用历史和用途分类，帮助 Agent 快速定位目标服务器。
 
-### 3. Experience（经验记录）
+### 3. FactualMemory（事实记忆层）— v0.5.0 新增
+
+**存储路径**：`~/.opsxcli/agent/MEMORY.md` + `~/.opsxcli/agent/USER.md`  
+**写入时机**：Step 9.5 MEMORIZE（任务成功后自动提取）
+
+事实层负责持久化存储跨会话的事实知识，分为两个 Markdown 文件：
+- **MEMORY.md**：环境事实、工具特性、约定俗成（category: `environment` / `tool_quirk` / `convention`）
+- **USER.md**：用户偏好、用户画像（category: `preference` / `user_profile`）
+
+```go
+// FactEntry 事实条目（键值对形式）
+type FactEntry struct {
+    Key       string    // 事实键名
+    Value     string    // 事实值
+    Category  string    // 分类: preference, environment, convention, tool_quirk, user_profile
+    CreatedAt time.Time
+    UpdatedAt time.Time
+}
+
+// FactualMemory 事实记忆管理器
+type FactualMemory struct {
+    mu        sync.RWMutex
+    baseDir   string
+    facts     map[string]*FactEntry // key -> entry
+    dirty     bool                  // 是否有未持久化的变更
+}
+```
+
+**核心方法**：
+| 方法 | 说明 |
+|------|------|
+| `LoadFactualMemory(baseDir)` | 从 MEMORY.md + USER.md 加载事实 |
+| `SetFact(key, value, category)` | 新增或更新事实 |
+| `GetFact(key)` | 获取事实值 |
+| `DeleteFact(key)` | 删除事实 |
+| `GetFactsByCategory(category)` | 按分类查询事实 |
+| `GetAllFacts()` | 获取全部事实 |
+| `Count()` | 事实总数 |
+| `Save()` | 持久化到 MEMORY.md + USER.md |
+| `BuildMemoryContext()` | 构建 Prompt 注入上下文（👤 用户偏好 / 🌍 环境事实 / 🔧 工具特性） |
+| `MergeFromEvolveResult(facts, category)` | 从进化结果批量合并事实（自动去重） |
+
+**Markdown 存储格式**：
+
+```markdown
+# OpsXCLI Agent 环境记忆
+
+> 此文件由 Agent 自动维护，记录环境事实和工具特性
+
+## 环境事实
+
+- 生产服务器: 192.168.1.10 (CentOS 7)
+- 日志目录: /var/log/nginx
+
+## 工具特性
+
+- df -h: 需要注意 inode 使用率
+```
+
+### 4. ProceduralMemory（程序记忆层）— v0.5.0 新增
+
+**存储路径**：`~/.opsxcli/agent/skills/SKILL_xxx.md`  
+**写入时机**：Step 9.7 DISTILL（中等以上复杂度 + ≥5 次工具调用 + 任务成功）
+
+程序层管理 Agent 在运维任务中习得的可复用操作技能，以版本化的 `SKILL_xxx.md` 文件持久化。每个技能包含操作步骤、触发条件、推荐工具序列和注意事项。
+
+```go
+// SkillEntry 技能条目 — 一个可复用的运维操作技能
+type SkillEntry struct {
+    ID          string    // 技能ID (如 "network_diagnosis")
+    Name        string    // 技能名称
+    Category    string    // 分类: network, database, system, security, deploy
+    Version     int       // 版本号（每次更新+1）
+    Description string    // 技能描述
+    Steps       []string  // 操作步骤
+    ToolSeq     []string  // 推荐工具序列
+    Triggers    []string  // 触发条件（关键词）
+    Pitfalls    []string  // 注意事项/陷阱
+    SuccessRate float64   // 历史成功率
+    UsageCount  int       // 使用次数
+    Source      string    // 来源: "seed" (内置种子) / "learned" (自动学习) / "manual" (用户创建)
+    CreatedAt   time.Time
+    UpdatedAt   time.Time
+}
+
+// ProceduralMemory 程序层记忆管理器
+type ProceduralMemory struct {
+    mu      sync.RWMutex
+    baseDir string
+    skills  map[string]*SkillEntry // ID -> SkillEntry
+    dirty   bool
+}
+```
+
+**核心方法**：
+| 方法 | 说明 |
+|------|------|
+| `LoadProceduralMemory(baseDir)` | 从 skills/ 目录加载所有 SKILL_xxx.md |
+| `SeedBuiltinSkills()` | 填充 5 个内置种子技能（local_common_ops / install_software / risk_approval / network_diagnosis / basic_recovery） |
+| `GetSkill(id)` | 获取指定技能 |
+| `SetSkill(skill)` | 新增或更新技能（版本自动递增） |
+| `DeleteSkill(id)` | 删除技能 |
+| `IncrementUsage(id)` | 增加技能使用计数 |
+| `GetAllSkills()` | 获取全部技能（按使用次数排序） |
+| `GetSkillsByCategory(category)` | 按分类查询技能 |
+| `FindMatchingSkills(query)` | 根据查询匹配相关技能（匹配触发条件、名称、ID） |
+| `Count()` | 技能总数 |
+| `Save()` | 持久化到 skills/SKILL_xxx.md |
+| `BuildContext(query)` | 构建 Prompt 注入上下文（📖 技能[id]: 名称 + 步骤 + 注意事项） |
+
+**SKILL 文件格式示例**（`SKILL_network_diagnosis.md`）：
+
+```markdown
+# SKILL: network_diagnosis
+> 名称: 网络故障诊断
+> 分类: network
+> 版本: 3
+> 来源: learned
+> 成功率: 0.85
+> 使用次数: 10
+
+## 描述
+网络连接异常、DNS问题、防火墙排查的标准诊断流程
+
+## 触发条件
+- 网络
+- 连接
+- ping
+- DNS
+- 超时
+
+## 操作步骤
+1. 检查本地网络接口状态（ip addr/ifconfig）
+2. 测试基本连通性（ping 目标）
+3. 检查DNS解析（nslookup/dig）
+4. 测试端口连通性（telnet/nc）
+5. 检查防火墙规则
+
+## 推荐工具
+- execute
+- ping
+- nc
+
+## 注意事项
+- 先确认本地网络正常再排查远程
+- 注意 ICMP 可能被禁用导致 ping 失败但端口仍可达
+```
+
+**内置种子技能**（v0.5.0 提供 5 个）：
+
+| Skill ID | 名称 | 分类 | 描述 |
+|----------|------|------|------|
+| `local_common_ops` | 常用本地操作 | system | 文件/进程/服务管理标准流程 |
+| `install_software` | 软件安装标准化流程 | deploy | apt/yum/brew 包管理器安装流程 |
+| `risk_approval` | 高危操作审批流程 | security | 高危操作前的审批和回滚准备 |
+| `network_diagnosis` | 网络故障诊断 | network | 网络异常排查标准流程 |
+| `basic_recovery` | 基础故障恢复 | system | 服务重启/日志清理/磁盘回收 |
+
+### 5. 经验记录（Experience）
 
 经验是 Evolver 的核心学习单元，每条经验关联：
 - **任务类型**（自动分类）
@@ -409,6 +644,8 @@ map[string]interface{}{
     "enabled":           true,
     "total_experiences": 42,
     "total_servers":     3,
+    "total_facts":       15,      // v0.5.0
+    "total_skills":      8,       // v0.5.0
     "task_types":        []string{"磁盘分析", "远程操作", ...},
 }
 ```
@@ -443,6 +680,47 @@ map[string]interface{}{
 }
 ```
 
+### MEMORY.md（事实记忆 — 环境事实）
+
+由 `FactualMemory` 自动维护的 Markdown 文件，记录环境事实和工具特性：
+
+```markdown
+# OpsXCLI Agent 环境记忆
+
+> 此文件由 Agent 自动维护，记录环境事实和工具特性
+
+## 环境事实
+
+- 生产服务器: 192.168.1.10 (CentOS 7)
+- 日志目录: /var/log/nginx
+- 主要应用: nginx + mysql
+
+## 工具特性
+
+- df -h: 需要注意 inode 使用率
+- du -sh: 排查大文件时先查 /var/log
+```
+
+### USER.md（事实记忆 — 用户偏好）
+
+记录用户偏好和习惯，跨会话保留：
+
+```markdown
+# OpsXCLI Agent 用户偏好
+
+> 此文件由 Agent 自动维护，记录用户偏好和习惯
+
+## 用户偏好
+
+- 首选编辑器: vim
+- 输出语言: 中文
+- 偏好详细输出: 是
+```
+
+### skills/SKILL_xxx.md（程序记忆 — 技能文档）
+
+由 `ProceduralMemory` 管理的版本化技能文档，每个文件描述一个可复用的运维技能（详见 ProceduralMemory 章节）。
+
 ---
 
 ## 🎯 设计亮点
@@ -450,6 +728,8 @@ map[string]interface{}{
 1. **异步非阻塞**：进化过程在后台 goroutine 中执行，不增加用户等待时间
 2. **优雅降级**：LLM 反射失败时静默跳过，Evolver 初始化失败时 Agent 正常运行
 3. **经验整合**：自动合并相似经验，防止记忆库膨胀
-4. **会话级反馈**：上次任务的学习结果立即注入下次 Prompt，实现即时优化
-5. **可配置开关**：通过 `SetEnabled(false)` 可完全禁用进化功能
-6. **线程安全**：所有记忆操作通过 `sync.RWMutex` 保护
+4. **四层记忆**：经验层 + 环境层 + 事实层 + 程序层，覆盖从瞬时经验到持久技能的完整认知链路
+5. **自动技能提炼**：从复杂任务中自动提炼可复用的 Skill 模板（Step 9.7 DISTILL）
+6. **会话级反馈**：上次任务的学习结果立即注入下次 Prompt，实现即时优化
+7. **可配置开关**：通过 `SetEnabled(false)` 可完全禁用进化功能
+8. **线程安全**：所有记忆操作通过 `sync.RWMutex` 保护

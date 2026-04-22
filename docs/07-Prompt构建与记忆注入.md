@@ -4,7 +4,7 @@
 
 ## 设计理念
 
-Prompt 是 LLM Agent 的灵魂。opsxcli 采用 **五层 System Prompt 架构**，将静态知识（身份、安全、格式）与动态知识（经验、环境、偏好）分层组装，确保：
+Prompt 是 LLM Agent 的灵魂。opsxcli 采用 **五层 System Prompt 架构**，将静态知识（角色、能力、约束、示例）与动态知识（事实、经验、技能、环境、偏好）分层组装，确保：
 
 - **Layer 1-4 静态层**：编译期确定，不随运行时变化
 - **Layer 5 动态层**：运行时由 Evolver 注入，越用越聪明
@@ -12,38 +12,45 @@ Prompt 是 LLM Agent 的灵魂。opsxcli 采用 **五层 System Prompt 架构**�
 ## 五层 System Prompt 架构
 
 ```
-┌─────────────────────────────────────┐
-│   Layer 1: 身份层 (personaLayer)     │  ← 我是谁
-│   "opsxcli，一个智能运维超级助手"      │
-├─────────────────────────────────────┤
-│   Layer 2: 工具层 (toolLayer)        │  ← 我能用什么
-│   工具使用指南、可用工具描述            │
-├─────────────────────────────────────┤
-│   Layer 3: 格式层 (formatLayer)      │  ← 我怎么回答
-│   输出格式要求、Markdown 规范          │
-├─────────────────────────────────────┤
-│   Layer 4: 安全层 (securityLayer)    │  ← 我不能做什么
-│   安全约束、禁止操作                   │
-├─────────────────────────────────────┤
-│   Layer 5: 记忆层 (memoryLayer)      │  ← 我学到了什么（动态）
-│   经验提示 / 环境上下文 / 用户偏好      │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│   Layer 1: 角色设定层 (personaLayer)      │  ← 我是谁
+│   "opsxcli，一个智能运维超级助手"          │
+├──────────────────────────────────────────┤
+│   Layer 2: 能力定义层 (capabilityLayer)   │  ← 我能用什么
+│   可用工具描述、工具使用指南                │
+├──────────────────────────────────────────┤
+│   Layer 3: 约束规则层 (constraintLayer)   │  ← 我必须遵守什么
+│   安全约束 + 效率原则 + 输出格式规范        │
+├──────────────────────────────────────────┤
+│   Layer 4: 示例驱动层 (fewShotLayer)      │  ← 我怎么工作
+│   精选运维场景的 Thought→Action→Answer     │
+├──────────────────────────────────────────┤
+│   Layer 5: 动态记忆层 (memoryLayer)       │  ← 我学到了什么（动态）
+│   事实 / 经验 / 技能 / 环境 / 偏好         │
+└──────────────────────────────────────────┘
 ```
 
-## Layer 1: 身份层 (personaLayer)
+## Layer 1: 角色设定层 (personaLayer)
 
-定义 Agent 的身份、能力和专业领域：
+定义 Agent 的身份、沟通风格和专业领域：
 
 ```go
 // internal/agent/prompt/system.go
 
 const personaLayer = `你是 opsxcli，一个智能运维超级助手。
-你的核心能力包括：
-- Linux 系统运维：内存/CPU/磁盘监控、进程管理、日志分析
-- 数据库管理：MySQL/PostgreSQL/Redis 状态检查、性能优化
-- 容器与编排：Docker 容器管理、Kubernetes 资源运维
-- Web 服务：Nginx/Apache 配置、证书管理、负载均衡
-- 网络诊断：连通性测试、端口扫描、流量分析`
+
+【身份特征】
+- 精通 Linux 系统管理、网络诊断、性能优化、故障排查
+- 擅长使用命令行工具（grep/awk/sed/find/ps 等）快速定位和解决问题
+- 熟悉数据库（MySQL/Redis/PostgreSQL）、容器（Docker/K8s）、Web 服务（Nginx）等运维场景
+- 做事严谨，注重安全，任何风险操作都会提前告知用户
+
+【沟通风格】
+- 语言简洁专业，不废话，直接给出解决方案
+- 技术术语准确，必要时给出简要解释
+- 给出命令时附带说明：这条命令做什么、为什么需要它
+- 发现异常时标注 ⚠️，成功时标注 ✅，危险时标注 🚨
+- 不确定时诚实说"不确定"，绝不猜测或编造`
 ```
 
 **设计要点**：
@@ -51,40 +58,59 @@ const personaLayer = `你是 opsxcli，一个智能运维超级助手。
 - 明确专业领域边界
 - 场景化描述（不是抽象的「10 年经验」）
 
-## Layer 2: 工具层 (toolLayer)
+## Layer 2: 能力定义层 (capabilityLayer)
 
 告诉 LLM 有哪些工具可用、如何正确使用：
 
 ```
-- 工具调用格式要求（JSON Schema）
-- 每个工具的名称、描述、参数
-- 工具调用链的组合策略
-- 工具结果的理解与二次调用
+【可用工具】
+- execute — 统一命令执行（自动路由本地/远程）
+- transfer — 统一文件传输（自动路由本地复制/远程 SCP）
+- analyze_output — 输出分析（文本分析，不执行命令）
+- 旧工具兼容：local_bash / ssh_execute / scp_transfer / file_read / file_search
 ```
 
 工具列表在运行时从 Registry 动态获取，确保与注册的工具一致。
 
-## Layer 3: 格式层 (formatLayer)
+## Layer 3: 约束规则层 (constraintLayer)
 
-规定输出格式：
-
-```
-- 使用 Markdown 格式
-- 关键数据用表格展示
-- 命令用代码块包裹
-- 风险操作用 ⚠️ 标记
-- 成功操作用 ✅ 标记
-```
-
-## Layer 4: 安全层 (securityLayer)
-
-定义安全边界：
+将安全约束、效率原则、输出格式合并为一层硬约束：
 
 ```
-- 禁止执行的危险操作（rm -rf /, mkfs, dd ...）
-- 需要确认的操作等级
-- 敏感信息处理规范（密码、密钥）
-- 跨服务器操作的额外确认
+【安全约束 — 绝对不可违反】
+- 远程操作风险确认（强制）
+- 危险命令黑名单（强制）
+- 配置修改保护（强制）
+- 信息收集优先（强制）
+
+【效率原则 — 建议遵守】
+- 合并相关命令减少调用次数
+- 输出超过 5000 字符时自动摘要
+- 失败后分析原因尝试修复
+
+【输出格式规范 — 必须遵守】
+- 命令用 markdown 代码块
+- 关键数据加粗，异常 ⚠️，成功 ✅，危险 🚨
+```
+
+> **注意**：约束规则层同时包含安全规则和格式规范，这与系统安全审批（`internal/agent/safety/`）是不同层面的机制。
+> 本层是 Prompt 级别的"软约束引导"，安全审批是代码级别的"硬拦截"。
+
+## Layer 4: 示例驱动层 (fewShotLayer)
+
+精选运维场景示例，让 LLM 理解专家的工作方式：
+
+```
+【运维场景示例 — 展示 Thought → Action → Observation → Answer 的完整流程】
+
+示例 1: 磁盘空间分析
+  → df -h 收集信息 → du -sh 定位大文件 → 给出清理建议
+
+示例 2: 远程进程管理
+  → 告知风险 → 用户确认 → ssh_execute 执行 → 分析结果
+
+示例 3: 复杂日志分析
+  → tail + grep 过滤 → analyze_output 深度分析 → 结构化报告
 ```
 
 ## Layer 5: 动态记忆层 (memoryLayer)
@@ -95,47 +121,116 @@ const personaLayer = `你是 opsxcli，一个智能运维超级助手。
 // internal/agent/prompt/memory.go
 
 type MemoryInjector struct {
-    envMemory *evolver.EnvironmentMemory   // 环境记忆
-    expMemory *evolver.ExperienceMemory    // 经验记忆
+    envMemory   *evolver.EnvironmentMemory   // 环境记忆
+    expMemory   *evolver.ExperienceMemory    // 经验记忆
+    factMemory  *evolver.FactualMemory       // v0.5.0: 事实层 (MEMORY.md + USER.md)
+    procMemory  *evolver.ProceduralMemory    // v0.5.0: 程序层 (SKILL_xxx.md)
 }
 ```
 
-### 三层记忆注入
+### 四层记忆注入
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                MemoryInjector                         │
-│                                                       │
-│  Layer 5.1: 经验提示 (buildExperienceHints)           │
-│  ├─ 根据用户查询匹配历史经验                           │
-│  ├─ 高成功率经验优先注入                               │
-│  └─ 格式："[经验] 过去处理类似问题时，方案X 成功率 92%"  │
-│                                                       │
-│  Layer 5.2: 环境上下文 (buildEnvironmentContext)       │
-│  ├─ 已知服务器列表（IP、角色、SSH 配置）               │
-│  ├─ 常用路径（日志目录、配置文件路径）                  │
-│  └─ 格式："[环境] 生产 DB: 192.168.1.100:3306"        │
-│                                                       │
-│  Layer 5.3: 用户偏好 (buildUserPreferences)            │
-│  ├─ 常用操作习惯                                      │
-│  ├─ 输出偏好（详细/简洁）                              │
-│  └─ 格式："[偏好] 用户习惯使用 vim 编辑器"             │
-└──────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                  MemoryInjector                           │
+│                                                           │
+│  Layer 5.0: 事实层 (buildFactualContext)                  │
+│  ├─ MEMORY.md + USER.md 持久化事实                        │
+│  ├─ 项目约定、团队规范、基础设施信息                        │
+│  └─ 格式："🧠 已知事实: ..."                               │
+│                                                           │
+│  Layer 5.1: 经验提示 (buildExperienceHints)                │
+│  ├─ 根据用户查询匹配历史经验                               │
+│  ├─ 高成功率经验优先注入                                   │
+│  └─ 格式："📌 相关经验: 方案X 成功率 92%"                  │
+│                                                           │
+│    Layer 5.1.5: 程序层技能 (buildProceduralContext)        │
+│    ├─ SKILL_xxx.md 匹配相关技能                           │
+│    ├─ 最多注入前 2 个最相关技能                            │
+│    └─ 格式："📚 已习得技能: 🔹 MySQL备份 (v3, 成功率95%)"  │
+│                                                           │
+│  Layer 5.2: 环境上下文 (buildEnvironmentContext)           │
+│  ├─ 已知服务器列表（IP、角色、SSH 配置）                   │
+│  ├─ 常用路径（日志目录、配置文件路径）                      │
+│  └─ 格式："🖥️ 已知服务器环境: 生产 DB: 192.168.1.100:3306" │
+│                                                           │
+│  Layer 5.3: 用户偏好 (buildUserPreferences)                │
+│  ├─ 安全模式、超时设置                                     │
+│  ├─ sudo 偏好、其他运行时配置                              │
+│  └─ 格式："⚙️ 当前设置: 安全模式: strict"                  │
+└──────────────────────────────────────────────────────────┘
 ```
+
+> **四层结构说明**：Layer 5.1（经验）和 Layer 5.1.5（程序/技能）属于同一"经验与技能"主层，
+> 其余三层（5.0 事实、5.2 环境、5.3 偏好）各为主层，合计四层记忆注入。
+
+### 各层详解
+
+#### Layer 5.0: 事实层 (buildFactualContext)
+
+v0.5.0 新增。从 `MEMORY.md`（项目级）和 `USER.md`（用户级）中提取持久化事实：
+
+- **MEMORY.md**：项目约定、架构决策、已知限制、团队规范
+- **USER.md**：用户个人信息、常用环境、偏好设定
+
+```go
+func (m *MemoryInjector) buildFactualContext(query string) string {
+    // 使用 FactualMemory 的 BuildMemoryContext 生成上下文
+    ctx := m.factMemory.BuildMemoryContext()
+    // 格式: "🧠 已知事实:\n..."
+}
+```
+
+**设计要点**：
+- 事实层是最基础的注入层，优先级最高（最先注入）
+- 内容不依赖查询，每次都注入（除非为空）
+- 适合存放"始终有效"的知识（如"生产 DB 地址是 192.168.1.100"）
+
+#### Layer 5.1.5: 程序层技能 (buildProceduralContext)
+
+v0.5.0 新增。从 `SKILL_xxx.md` 文件中匹配相关技能，注入操作步骤和注意事项：
+
+```go
+func (m *MemoryInjector) buildProceduralContext(query string) string {
+    // 查找匹配的技能
+    skills := m.procMemory.FindMatchingSkills(query)
+    // 最多注入前 2 个最相关技能
+    // 每个技能包含: 名称、版本、成功率、使用次数、步骤、注意事项
+}
+```
+
+**注入格式示例**：
+```
+📚 已习得技能:
+   🔹 MySQL慢查询优化 (v3, 成功率95%, 使用12次)
+      分析慢查询日志 → 定位 TOP SQL → EXPLAIN 分析 → 优化索引
+      ⚠️ 注意: 生产环境禁止直接添加索引，需先在从库验证
+```
+
+**设计要点**：
+- 基于查询内容匹配，不是全量注入
+- 最多注入 2 个技能，每个最多 5 步，控制 Token 开销
+- 技能有版本号和成功率，持续进化
 
 ### 注入流程
 
 ```
-BuildSystemMessageWithMemory(query)
+BuildSystemPrompt(query)
     │
-    ├─ GetStaticSystemPrompt()     → Layer 1-4 静态组装
+    ├─ SystemPrompt (Layer 1-4 静态组装)
+    │   ├─ personaLayer        → Layer 1: 角色设定
+    │   ├─ capabilityLayer     → Layer 2: 能力定义
+    │   ├─ constraintLayer     → Layer 3: 约束规则
+    │   └─ fewShotLayer        → Layer 4: 示例驱动
     │
-    ├─ BuildMemoryContext(query)   → Layer 5 动态注入
-    │   ├─ buildExperienceHints(query)   → 经验匹配
-    │   ├─ buildEnvironmentContext(query) → 环境信息
-    │   └─ buildUserPreferences()        → 偏好注入
+    ├─ memoryLayerPrefix       → Layer 5 前缀标记
     │
-    └─ 合并为完整 System Prompt
+    └─ BuildMemoryContext(query)   → Layer 5 动态注入
+        ├─ buildFactualContext(query)    → Layer 5.0  事实注入
+        ├─ buildExperienceHints(query)   → Layer 5.1  经验匹配
+        ├─ buildProceduralContext(query) → Layer 5.1.5 技能匹配
+        ├─ buildEnvironmentContext(query)→ Layer 5.2  环境信息
+        └─ buildUserPreferences()       → Layer 5.3  偏好注入
 ```
 
 ## BuilderV2 构建器
@@ -194,39 +289,61 @@ func (b *BuilderV2) SerializeToolCalls(calls []ToolCallRecord) string
 组装 Layer 1-4 的静态内容：
 
 ```go
-func GetStaticSystemPrompt() string {
-    layers := []string{
-        personaLayer,    // Layer 1: 身份
-        toolLayer,       // Layer 2: 工具
-        formatLayer,     // Layer 3: 格式
-        securityLayer,   // Layer 4: 安全
+// 实际代码 (internal/agent/prompt/system.go)
+
+const SystemPrompt = personaLayer + "\n\n" +
+    capabilityLayer + "\n\n" +
+    constraintLayer + "\n\n" +
+    fewShotLayer + "\n\n" +
+    "【思考框架 — 每次行动前回答以下问题】\n" +
+    "1. 用户需求: 用户想要什么？关键信息是否足够？\n" +
+    "2. 信息评估: 是否已有足够信息？还是需要先收集？\n" +
+    "3. 工具选择: 哪个工具最合适？为什么？\n" +
+    "4. 风险判断: 有风险吗？需要用户确认吗？\n" +
+    "5. 执行计划: 具体命令是什么？参数如何设置？\n" +
+    "如果信息已足够且无需工具，直接回答。否则调用最合适的工具。"
+
+func BuildSystemPrompt(memoryContext string) string {
+    var sb strings.Builder
+    sb.WriteString(SystemPrompt)                    // Layer 1-4
+    if memoryContext != "" {
+        sb.WriteString("\n\n")
+        sb.WriteString(memoryLayerPrefix)            // Layer 5 前缀
+        sb.WriteString("\n")
+        sb.WriteString(memoryContext)                // Layer 5 内容
+        sb.WriteString("\n\n【注意】以上经验来自历史任务执行记录...")
     }
-    return strings.Join(layers, "\n\n")
+    return sb.String()
+}
+
+func GetStaticSystemPrompt() string {
+    return SystemPrompt
 }
 ```
 
 **为什么 Layer 1-4 是静态的？**
 
-- 身份和工具描述在编译期确定
-- 安全规则不应该被动态修改
+- 角色设定和能力描述在编译期确定
+- 约束规则（含安全规则）不应该被动态修改
 - 静态内容可以利用 Prompt Caching（减少 token 消耗）
-- 只有经验/环境/偏好需要动态更新
+- 只有事实/经验/技能/环境/偏好需要动态更新
 
 ## 扩展指南
 
 ### 添加新的 Prompt 层
 
 1. 在 `system.go` 中定义新的 const 层
-2. 在 `GetStaticSystemPrompt()` 中加入拼接
+2. 在 `SystemPrompt` 拼接中加入
 3. 更新 `BuilderV2` 的注释文档
 
 ### 添加新的记忆类型
 
 1. 在 `evolver/` 中定义新的记忆结构
-2. 在 `MemoryInjector` 中添加新的 `build*` 方法
+2. 在 `MemoryInjector` 中添加新的 `build*` 方法和字段
 3. 在 `BuildMemoryContext()` 中加入调用
+4. 更新本文档的"四层记忆注入"章节
 
-### 自定义身份描述
+### 自定义角色描述
 
 修改 `personaLayer` 常量即可。注意：
 - 不要包含版本号
@@ -238,6 +355,8 @@ func GetStaticSystemPrompt() string {
 | 陷阱 | 解决方案 |
 |------|----------|
 | Prompt 过长导致 token 超限 | 静态层精简 + 动态层按需注入 |
-| 记忆注入了无关信息 | buildExperienceHints 按 query 匹配 |
+| 记忆注入了无关信息 | buildExperienceHints / buildProceduralContext 按 query 匹配 |
 | Layer 1-4 被 Evolver 污染 | 静态层和动态层严格分离 |
 | personaLayer 包含硬编码版本号 | 已清理，禁止再加版本号 |
+| 事实层注入过期信息 | MEMORY.md / USER.md 需人工维护时效性 |
+| 技能注入占用过多 Token | buildProceduralContext 限制最多 2 个技能 × 5 步 |
