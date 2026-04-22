@@ -477,3 +477,91 @@ func TestSeedBuiltinSkills_Matching(t *testing.T) {
 		t.Error("查询'删除生产环境数据'应匹配 risk_approval")
 	}
 }
+
+func TestProceduralMemory_GetAllSkills_Empty(t *testing.T) {
+	dir := t.TempDir()
+	pm := NewProceduralMemory(dir)
+
+	skills := pm.GetAllSkills()
+	if len(skills) != 0 {
+		t.Errorf("GetAllSkills() on empty = %d skills, want 0", len(skills))
+	}
+}
+
+func TestProceduralMemory_GetAllSkills_SortedByUsage(t *testing.T) {
+	dir := t.TempDir()
+	pm := NewProceduralMemory(dir)
+
+	// 添加多个技能，使用次数不同
+	pm.SetSkill(&SkillEntry{
+		ID:       "skill_a",
+		Name:     "技能A",
+		Category: "network",
+	})
+	pm.SetSkill(&SkillEntry{
+		ID:       "skill_b",
+		Name:     "技能B",
+		Category: "system",
+	})
+	pm.SetSkill(&SkillEntry{
+		ID:       "skill_c",
+		Name:     "技能C",
+		Category: "deploy",
+	})
+
+	// 增加使用次数：B=5, A=2, C=0
+	for i := 0; i < 2; i++ {
+		pm.IncrementUsage("skill_a")
+	}
+	for i := 0; i < 5; i++ {
+		pm.IncrementUsage("skill_b")
+	}
+
+	skills := pm.GetAllSkills()
+	if len(skills) != 3 {
+		t.Fatalf("GetAllSkills() = %d skills, want 3", len(skills))
+	}
+
+	// 验证按 UsageCount 降序排列
+	if skills[0].ID != "skill_b" {
+		t.Errorf("skills[0].ID = %q, want %q", skills[0].ID, "skill_b")
+	}
+	if skills[0].UsageCount != 5 {
+		t.Errorf("skills[0].UsageCount = %d, want 5", skills[0].UsageCount)
+	}
+	if skills[1].ID != "skill_a" {
+		t.Errorf("skills[1].ID = %q, want %q", skills[1].ID, "skill_a")
+	}
+	if skills[1].UsageCount != 2 {
+		t.Errorf("skills[1].UsageCount = %d, want 2", skills[1].UsageCount)
+	}
+	if skills[2].ID != "skill_c" {
+		t.Errorf("skills[2].ID = %q, want %q", skills[2].ID, "skill_c")
+	}
+	if skills[2].UsageCount != 0 {
+		t.Errorf("skills[2].UsageCount = %d, want 0", skills[2].UsageCount)
+	}
+}
+
+func TestProceduralMemory_GetAllSkills_ReturnsCopies(t *testing.T) {
+	dir := t.TempDir()
+	pm := NewProceduralMemory(dir)
+
+	pm.SetSkill(&SkillEntry{
+		ID:       "test_skill",
+		Name:     "原始名称",
+		Category: "general",
+	})
+
+	skills := pm.GetAllSkills()
+	// 修改返回值不应影响原始数据
+	skills[0].Name = "修改后的名称"
+
+	got, ok := pm.GetSkill("test_skill")
+	if !ok {
+		t.Fatal("should find skill")
+	}
+	if got.Name != "原始名称" {
+		t.Errorf("GetSkill after mutation = %q, want %q (GetAllSkills should return copies)", got.Name, "原始名称")
+	}
+}
