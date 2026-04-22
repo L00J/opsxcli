@@ -45,6 +45,16 @@ func NewDockerCmd() *cobra.Command {
   - events:    监听 Docker 事件
   - system-df: 查看 Docker 磁盘使用
 
+Docker Compose：
+  - compose up:      启动服务
+  - compose down:    停止并移除服务
+  - compose ps:      列出服务
+  - compose logs:    查看服务日志
+  - compose build:   构建服务
+  - compose pull:    拉取服务镜像
+  - compose restart: 重启服务
+  - compose stop:    停止服务
+
 使用 'opsxcli docker <command> --help' 查看具体命令的帮助信息。`,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
@@ -81,6 +91,9 @@ func NewDockerCmd() *cobra.Command {
 	cmd.AddCommand(NewDockerTopCmd())
 	cmd.AddCommand(NewDockerEventsCmd())
 	cmd.AddCommand(NewDockerSystemDFCmd())
+
+	// 添加子命令 - Docker Compose
+	cmd.AddCommand(NewDockerComposeCmd())
 
 	return cmd
 }
@@ -919,6 +932,400 @@ func NewDockerSystemDFCmd() *cobra.Command {
 			return docker.SystemDF()
 		},
 	}
+
+	return cmd
+}
+
+// =============================================================================
+// Docker Compose 命令
+// =============================================================================
+
+// NewDockerComposeCmd 创建 docker compose 命令组
+func NewDockerComposeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "compose [command]",
+		Short: "Docker Compose 服务编排管理",
+		Long: `Docker Compose 多容器服务编排管理
+
+支持命令：
+  up       启动服务
+  down     停止并移除服务
+  ps       列出服务状态
+  logs     查看服务日志
+  build    构建服务镜像
+  pull     拉取服务镜像
+  restart  重启服务
+  stop     停止服务
+
+示例:
+  # 后台启动所有服务
+  opsxcli docker compose up -d
+
+  # 指定 compose 文件
+  opsxcli docker compose up -d -f docker-compose.prod.yml
+
+  # 停止并移除所有容器和卷
+  opsxcli docker compose down --volumes
+
+  # 查看指定服务日志
+  opsxcli docker compose logs -f web db
+
+  # 构建指定服务
+  opsxcli docker compose build --no-cache web`,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
+		},
+	}
+
+	cmd.AddCommand(NewDockerComposeUpCmd())
+	cmd.AddCommand(NewDockerComposeDownCmd())
+	cmd.AddCommand(NewDockerComposePSCmd())
+	cmd.AddCommand(NewDockerComposeLogsCmd())
+	cmd.AddCommand(NewDockerComposeBuildCmd())
+	cmd.AddCommand(NewDockerComposePullCmd())
+	cmd.AddCommand(NewDockerComposeRestartCmd())
+	cmd.AddCommand(NewDockerComposeStopCmd())
+
+	return cmd
+}
+
+// NewDockerComposeUpCmd 创建 docker compose up 命令
+func NewDockerComposeUpCmd() *cobra.Command {
+	var (
+		file    string
+		project string
+		build   bool
+		detach  bool
+		force   bool
+		noStart bool
+		remove  bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "up [flags] [service...]",
+		Short: "启动 Docker Compose 服务",
+		Long: `启动 Docker Compose 定义的服务
+
+示例:
+  opsxcli docker compose up -d
+  opsxcli docker compose up -d --build
+  opsxcli docker compose up -d -f docker-compose.yml web db`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.ComposeUpOptions{
+				File:     file,
+				Project:  project,
+				Build:    build,
+				Detach:   detach,
+				Force:    force,
+				NoStart:  noStart,
+				Remove:   remove,
+				Services: args,
+			}
+			return docker.ComposeUp(opts)
+		},
+	}
+
+	cmd.Flags().StringVarP(&file, "file", "f", "", "指定 Compose 文件路径")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "指定项目名称")
+	cmd.Flags().BoolVar(&build, "build", false, "启动前构建镜像")
+	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "后台运行")
+	cmd.Flags().BoolVar(&force, "force-recreate", false, "强制重建容器")
+	cmd.Flags().BoolVar(&noStart, "no-start", false, "只创建容器不启动")
+	cmd.Flags().BoolVar(&remove, "remove-orphans", false, "移除孤儿容器")
+
+	return cmd
+}
+
+// NewDockerComposeDownCmd 创建 docker compose down 命令
+func NewDockerComposeDownCmd() *cobra.Command {
+	var (
+		file          string
+		project       string
+		removeOrphans bool
+		volumes       bool
+		images        string
+		timeout       int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "down [flags]",
+		Short: "停止并移除 Docker Compose 服务",
+		Long: `停止并移除 Compose 定义的所有容器、网络
+
+示例:
+  opsxcli docker compose down
+  opsxcli docker compose down --volumes --rmi all
+  opsxcli docker compose down --remove-orphans`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.ComposeDownOptions{
+				File:          file,
+				Project:       project,
+				RemoveOrphans: removeOrphans,
+				Volumes:       volumes,
+				Images:        images,
+				Timeout:       timeout,
+			}
+			return docker.ComposeDown(opts)
+		},
+	}
+
+	cmd.Flags().StringVarP(&file, "file", "f", "", "指定 Compose 文件路径")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "指定项目名称")
+	cmd.Flags().BoolVar(&removeOrphans, "remove-orphans", false, "移除孤儿容器")
+	cmd.Flags().BoolVar(&volumes, "volumes", false, "删除关联的数据卷")
+	cmd.Flags().StringVar(&images, "rmi", "", "删除镜像 (all|local)")
+	cmd.Flags().IntVar(&timeout, "timeout", 0, "关闭超时秒数")
+
+	return cmd
+}
+
+// NewDockerComposePSCmd 创建 docker compose ps 命令
+func NewDockerComposePSCmd() *cobra.Command {
+	var (
+		file    string
+		project string
+		all     bool
+		quiet   bool
+		format  string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "ps [flags] [service...]",
+		Short: "列出 Docker Compose 服务状态",
+		Long: `列出 Compose 定义的服务状态
+
+示例:
+  opsxcli docker compose ps
+  opsxcli docker compose ps -a
+  opsxcli docker compose ps --format json`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.ComposePSOptions{
+				File:    file,
+				Project: project,
+				All:     all,
+				Quiet:   quiet,
+				Format:  format,
+			}
+			return docker.ComposePS(opts)
+		},
+	}
+
+	cmd.Flags().StringVarP(&file, "file", "f", "", "指定 Compose 文件路径")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "指定项目名称")
+	cmd.Flags().BoolVarP(&all, "all", "a", false, "显示所有服务（含已停止）")
+	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "只显示服务 ID")
+	cmd.Flags().StringVar(&format, "format", "", "输出格式 (table|json)")
+
+	return cmd
+}
+
+// NewDockerComposeLogsCmd 创建 docker compose logs 命令
+func NewDockerComposeLogsCmd() *cobra.Command {
+	var (
+		file       string
+		project    string
+		follow     bool
+		tail       string
+		since      string
+		until      string
+		timestamps bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "logs [flags] [service...]",
+		Short: "查看 Docker Compose 服务日志",
+		Long: `查看 Compose 服务的日志输出
+
+示例:
+  opsxcli docker compose logs
+  opsxcli docker compose logs -f web
+  opsxcli docker compose logs --tail 100 --since 30m db`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.ComposeLogsOptions{
+				File:       file,
+				Project:    project,
+				Follow:     follow,
+				Tail:       tail,
+				Since:      since,
+				Until:      until,
+				Timestamps: timestamps,
+				Services:   args,
+			}
+			return docker.ComposeLogs(opts)
+		},
+	}
+
+	cmd.Flags().StringVarP(&file, "file", "f", "", "指定 Compose 文件路径")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "指定项目名称")
+	cmd.Flags().BoolVarP(&follow, "follow", "F", false, "持续输出日志")
+	cmd.Flags().StringVar(&tail, "tail", "", "显示最后 N 行日志")
+	cmd.Flags().StringVar(&since, "since", "", "显示指定时间后的日志")
+	cmd.Flags().StringVar(&until, "until", "", "显示指定时间前的日志")
+	cmd.Flags().BoolVarP(&timestamps, "timestamps", "t", false, "显示时间戳")
+
+	return cmd
+}
+
+// NewDockerComposeBuildCmd 创建 docker compose build 命令
+func NewDockerComposeBuildCmd() *cobra.Command {
+	var (
+		file     string
+		project  string
+		noCache  bool
+		pull     bool
+		parallel bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "build [flags] [service...]",
+		Short: "构建 Docker Compose 服务镜像",
+		Long: `构建或重新构建 Compose 定义的服务镜像
+
+示例:
+  opsxcli docker compose build
+  opsxcli docker compose build --no-cache web
+  opsxcli docker compose build --pull --parallel`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.ComposeBuildOptions{
+				File:     file,
+				Project:  project,
+				NoCache:  noCache,
+				Pull:     pull,
+				Parallel: parallel,
+				Services: args,
+			}
+			return docker.ComposeBuild(opts)
+		},
+	}
+
+	cmd.Flags().StringVarP(&file, "file", "f", "", "指定 Compose 文件路径")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "指定项目名称")
+	cmd.Flags().BoolVar(&noCache, "no-cache", false, "不使用构建缓存")
+	cmd.Flags().BoolVar(&pull, "pull", false, "始终拉取最新基础镜像")
+	cmd.Flags().BoolVar(&parallel, "parallel", false, "并行构建多个服务")
+
+	return cmd
+}
+
+// NewDockerComposePullCmd 创建 docker compose pull 命令
+func NewDockerComposePullCmd() *cobra.Command {
+	var (
+		file           string
+		project        string
+		quiet          bool
+		ignoreFailures bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "pull [flags] [service...]",
+		Short: "拉取 Docker Compose 服务镜像",
+		Long: `拉取 Compose 定义的服务镜像
+
+示例:
+  opsxcli docker compose pull
+  opsxcli docker compose pull web db`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.ComposePullOptions{
+				File:           file,
+				Project:        project,
+				Quiet:          quiet,
+				IgnoreFailures: ignoreFailures,
+				Services:       args,
+			}
+			return docker.ComposePull(opts)
+		},
+	}
+
+	cmd.Flags().StringVarP(&file, "file", "f", "", "指定 Compose 文件路径")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "指定项目名称")
+	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "静默模式")
+	cmd.Flags().BoolVar(&ignoreFailures, "ignore-failures", false, "忽略拉取失败")
+
+	return cmd
+}
+
+// NewDockerComposeRestartCmd 创建 docker compose restart 命令
+func NewDockerComposeRestartCmd() *cobra.Command {
+	var (
+		file    string
+		project string
+		timeout int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "restart [flags] [service...]",
+		Short: "重启 Docker Compose 服务",
+		Long: `重启 Compose 定义的服务
+
+示例:
+  opsxcli docker compose restart
+  opsxcli docker compose restart web
+  opsxcli docker compose restart --timeout 30 db`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.ComposeRestartOptions{
+				File:     file,
+				Project:  project,
+				Timeout:  timeout,
+				Services: args,
+			}
+			return docker.ComposeRestart(opts)
+		},
+	}
+
+	cmd.Flags().StringVarP(&file, "file", "f", "", "指定 Compose 文件路径")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "指定项目名称")
+	cmd.Flags().IntVar(&timeout, "timeout", 0, "重启超时秒数")
+
+	return cmd
+}
+
+// NewDockerComposeStopCmd 创建 docker compose stop 命令
+func NewDockerComposeStopCmd() *cobra.Command {
+	var (
+		file    string
+		project string
+		timeout int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "stop [flags] [service...]",
+		Short: "停止 Docker Compose 服务",
+		Long: `停止 Compose 定义的服务（不删除容器）
+
+示例:
+  opsxcli docker compose stop
+  opsxcli docker compose stop web db
+  opsxcli docker compose stop --timeout 30 web`,
+		SilenceUsage:  true,
+		SilenceErrors: false,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := &docker.ComposeStopOptions{
+				File:     file,
+				Project:  project,
+				Timeout:  timeout,
+				Services: args,
+			}
+			return docker.ComposeStop(opts)
+		},
+	}
+
+	cmd.Flags().StringVarP(&file, "file", "f", "", "指定 Compose 文件路径")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "指定项目名称")
+	cmd.Flags().IntVar(&timeout, "timeout", 0, "停止超时秒数")
 
 	return cmd
 }
