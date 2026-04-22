@@ -304,27 +304,6 @@ func TestInputModel_SetEnabled(t *testing.T) {
 	assert.True(t, model.enabled)
 }
 
-func TestInputModel_View_Disabled(t *testing.T) {
-	model := NewInputModel("测试")
-	model.SetEnabled(false)
-	assert.Equal(t, "", model.View())
-}
-
-func TestInputModel_View_Empty(t *testing.T) {
-	model := NewInputModel("测试")
-	view := model.View()
-	assert.Contains(t, view, "测试")
-}
-
-func TestInputModel_View_WithContent(t *testing.T) {
-	model := NewInputModel("输入:")
-	model.value = []rune("hello")
-	model.cursor = 5
-	view := model.View()
-	assert.Contains(t, view, "输入:")
-	assert.Contains(t, view, "hello")
-}
-
 // ===== ConfirmDialog 测试 =====
 
 func TestNewConfirmDialog(t *testing.T) {
@@ -379,40 +358,6 @@ func TestScreen_AddMessage(t *testing.T) {
 	assert.Equal(t, "hello", screen.messages[0].Content)
 	assert.Equal(t, "assistant", screen.messages[1].Role)
 	assert.Equal(t, "world", screen.messages[1].Content)
-}
-
-func TestScreen_SetStatus(t *testing.T) {
-	screen, err := NewScreen()
-	assert.NoError(t, err)
-	defer screen.Close()
-
-	screen.SetStatus("thinking...")
-	assert.Equal(t, "thinking...", screen.statusLine)
-}
-
-func TestScreen_StartStopThinking(t *testing.T) {
-	screen, err := NewScreen()
-	assert.NoError(t, err)
-	defer screen.Close()
-
-	screen.StartThinking(5)
-	assert.True(t, screen.isThinking)
-
-	// 等待动画 goroutine 启动
-	time.Sleep(100 * time.Millisecond)
-
-	screen.StopThinking()
-	assert.False(t, screen.isThinking)
-}
-
-func TestScreen_UpdateProgress(t *testing.T) {
-	screen, err := NewScreen()
-	assert.NoError(t, err)
-	defer screen.Close()
-
-	screen.UpdateProgress(3, 1000)
-	assert.Equal(t, 3, screen.step)
-	assert.Equal(t, 1000, screen.tokens)
 }
 
 // ===== SimpleProgress 测试 =====

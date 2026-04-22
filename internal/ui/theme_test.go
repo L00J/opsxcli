@@ -217,3 +217,109 @@ func TestDrawBox_WithCJKTitle(t *testing.T) {
 	assert.Equal(t, rune('试'), s.cells[[2]int{4, 0}])
 }
 
+// ============================================================================
+// DrawHorizontalLine 测试
+// ============================================================================
+
+func TestDrawHorizontalLine(t *testing.T) {
+	s := newMockScreen()
+	DrawHorizontalLine(s, 0, 5, 10, tcell.ColorWhite)
+
+	// 左端应该是 BoxTeeLeft
+	assert.Equal(t, BoxTeeLeft, s.cells[[2]int{0, 5}])
+	// 右端应该是 BoxTeeRight
+	assert.Equal(t, BoxTeeRight, s.cells[[2]int{9, 5}])
+	// 中间应该是 BoxHorizontal
+	assert.Equal(t, BoxHorizontal, s.cells[[2]int{1, 5}])
+	assert.Equal(t, BoxHorizontal, s.cells[[2]int{5, 5}])
+	assert.Equal(t, BoxHorizontal, s.cells[[2]int{8, 5}])
+}
+
+func TestDrawHorizontalLine_SingleWidth(t *testing.T) {
+	s := newMockScreen()
+	DrawHorizontalLine(s, 0, 0, 3, tcell.ColorAqua)
+
+	assert.Equal(t, BoxTeeLeft, s.cells[[2]int{0, 0}])
+	assert.Equal(t, BoxHorizontal, s.cells[[2]int{1, 0}])
+	assert.Equal(t, BoxTeeRight, s.cells[[2]int{2, 0}])
+}
+
+func TestDrawHorizontalLine_Offset(t *testing.T) {
+	s := newMockScreen()
+	DrawHorizontalLine(s, 5, 3, 10, tcell.ColorGreen)
+
+	// 起始位置在 x=5, y=3
+	assert.Equal(t, BoxTeeLeft, s.cells[[2]int{5, 3}])
+	assert.Equal(t, BoxTeeRight, s.cells[[2]int{14, 3}])
+	assert.Equal(t, BoxHorizontal, s.cells[[2]int{10, 3}])
+}
+
+// ============================================================================
+// DrawDoubleHorizontalLine 测试
+// ============================================================================
+
+func TestDrawDoubleHorizontalLine(t *testing.T) {
+	s := newMockScreen()
+	DrawDoubleHorizontalLine(s, 0, 0, 10, tcell.ColorYellow)
+
+	// 所有位置应该是 BoxDoubleHorizontal
+	for i := 0; i < 10; i++ {
+		assert.Equal(t, BoxDoubleHorizontal, s.cells[[2]int{i, 0}])
+	}
+}
+
+func TestDrawDoubleHorizontalLine_Offset(t *testing.T) {
+	s := newMockScreen()
+	DrawDoubleHorizontalLine(s, 3, 2, 5, tcell.ColorRed)
+
+	for i := 0; i < 5; i++ {
+		assert.Equal(t, BoxDoubleHorizontal, s.cells[[2]int{3 + i, 2}])
+	}
+}
+
+func TestDrawDoubleHorizontalLine_SingleChar(t *testing.T) {
+	s := newMockScreen()
+	DrawDoubleHorizontalLine(s, 0, 0, 1, tcell.ColorWhite)
+
+	assert.Equal(t, BoxDoubleHorizontal, s.cells[[2]int{0, 0}])
+}
+
+// ============================================================================
+// DrawBox 边界情况测试
+// ============================================================================
+
+func TestDrawBox_WithLongTitle(t *testing.T) {
+	s := newMockScreen()
+	// 标题比边框宽度长
+	DrawBox(s, 0, 0, 5, 3, "VeryLongTitle", tcell.ColorWhite)
+	// 应该只渲染能放下的部分
+	assert.Equal(t, 'V', s.cells[[2]int{2, 0}])
+}
+
+func TestDrawBox_WithColor(t *testing.T) {
+	s := newMockScreen()
+	DrawBox(s, 0, 0, 10, 5, "", tcell.ColorRed)
+	// 确认单元格被设置（颜色由 tcell.Style 处理）
+	assert.Equal(t, BoxTopLeft, s.cells[[2]int{0, 0}])
+}
+
+func TestDrawBox_LargeBox(t *testing.T) {
+	s := newMockScreen()
+	DrawBox(s, 0, 0, 30, 15, "Big Box", tcell.ColorWhite)
+
+	// 验证四个角
+	assert.Equal(t, BoxTopLeft, s.cells[[2]int{0, 0}])
+	assert.Equal(t, BoxTopRight, s.cells[[2]int{29, 0}])
+	assert.Equal(t, BoxBottomLeft, s.cells[[2]int{0, 14}])
+	assert.Equal(t, BoxBottomRight, s.cells[[2]int{29, 14}])
+
+	// 验证垂直边
+	assert.Equal(t, BoxVertical, s.cells[[2]int{0, 7}])
+	assert.Equal(t, BoxVertical, s.cells[[2]int{29, 7}])
+
+	// 验证标题
+	assert.Equal(t, 'B', s.cells[[2]int{2, 0}])
+	assert.Equal(t, 'i', s.cells[[2]int{3, 0}])
+	assert.Equal(t, 'g', s.cells[[2]int{4, 0}])
+}
+
