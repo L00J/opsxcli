@@ -1,0 +1,126 @@
+# OpsXCLI GoReleaser 配置
+# 用于自动化构建、打包和发布
+# 使用方式: goreleaser release --clean
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: opsxcli
+    main: .
+    binary: opsxcli
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.buildTime={{.Date}}
+      - -X main.gitCommit={{.Commit}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      # Windows arm64 暂时忽略
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: opsxcli-archive
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^auto:"
+      - "^chore:"
+      - "merge conflict"
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Revert
+
+# Homebrew Tap 配置
+# 需要创建 opsxcli/homebrew-tap 仓库
+brews:
+  - name: opsxcli
+    repository:
+      owner: opsxcli
+      name: homebrew-tap
+    directory: Formula
+    homepage: "https://github.com/opsxcli/opsxcli"
+    description: "OpsXCLI - 面向运维和开发的集成化命令行工具集，70+ 运维命令"
+    license: MIT
+    install: |
+      bin.install "opsxcli"
+      # 安装 shell 补全脚本
+      generate_completions_from_executable(bin/"opsxcli", "completion")
+    test: |
+      system "#{bin}/opsxcli version"
+    caveats: |
+      OpsXCLI 已安装完成！快速开始:
+        opsxcli              # 启动 AI 运维助手
+        opsxcli mysql        # MySQL 客户端
+        opsxcli redis        # Redis 客户端
+        opsxcli ssh          # SSH 管理
+        opsxcli sys          # 系统监控
+        opsxcli --help       # 查看所有命令
+
+release:
+  github:
+    owner: opsxcli
+    name: opsxcli
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## OpsXCLI {{ .Tag }}
+
+    ### 🚀 一键安装
+
+    **macOS (Homebrew)**:
+    ```
+    brew tap opsxcli/tap
+    brew install opsxcli
+    ```
+
+    **Linux (一键脚本)**:
+    ```
+    curl -fsSL https://github.com/opsxcli/opsxcli/releases/latest/download/install.sh | bash
+    ```
+
+    **手动下载**: 选择对应平台和架构的二进制文件
+
+  footer: >
+    ---
+    **完整更新日志**: https://github.com/opsxcli/opsxcli/blob/master/CHANGELOG.md
