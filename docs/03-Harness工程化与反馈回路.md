@@ -207,7 +207,7 @@ Steering Loop 是 Harness Engineering 的元过程 — 人类通过迭代改进 
 
 | 理论概念 | opsxcli 实现 | 当前状态 |
 |----------|-------------|----------|
-| 计算型反馈 | `make test` + 覆盖率门禁 50% | ✅ 52.7%，2282 测试 |
+|| 计算型反馈 | `make test` + 覆盖率门禁 50% | ✅ 54.2%，47 包全通过 |
 | 计算型反馈 | `make lint` golangci-lint 检查 | ✅ 配置就绪 |
 | 计算型反馈 | `go build` 编译验证 | ✅ 零错误 |
 | 结构化反馈 | ReAct 循环中的自适应检查点 | `internal/agent/core/agent.go` |
@@ -220,12 +220,11 @@ opsxcli 的 **Evolver 自我进化引擎**是 Steering Loop 的代码级实现�
 ```
 Evolver 引擎 (internal/agent/evolver/)
     │
-    ├── engine.go         PREDICT → OBSERVE → ANALYZE → ADAPT 主循环
+    ├── engine.go         13步进化循环（OBSERVE → EXTRACT → ... → FEEDBACK）
     ├── experience.go     经验提取与存储
-    ├── factual.go        事实性知识积累
-    ├── procedural.go     过程性知识（操作序列）
-    ├── environment.go    环境感知与适配
-    └── progress.go       进度回调机制
+    ├── factual.go        事实性知识积累（MEMORY.md + USER.md）
+    ├── procedural.go     程序性知识（SKILL_xxx.md 技能提炼）
+    └── environment.go    环境感知与适配
 ```
 
 每次 Agent 执行任务时，Evolver 在 ReAct 循环前执行 PREDICT 阶段，结果通过 RWMutex 注入后续的 System Prompt。当问题多次发生时，进化结果自动调整后续行为 — 这正是 Steering Loop 的自动化实现。

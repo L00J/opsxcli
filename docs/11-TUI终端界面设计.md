@@ -228,11 +228,18 @@ plugins/sys/
 ├── collector_disk.go       # 磁盘 IO + 使用率 + 平台分支
 ├── types.go                # 所有数据类型定义
 ├── monitor.go              # Monitor 主循环 + screen 管理
+├── event.go                # 键盘/鼠标事件处理
+├── ui.go                   # 公共 UI 绘制辅助函数
+├── utils.go                # 通用工具函数
+├── draw_header.go          # 顶部标题栏绘制
 ├── draw_overview.go        # 概览 Tab 绘制
 ├── draw_cpu.go             # CPU Tab 绘制
 ├── draw_memory.go          # 内存 Tab 绘制
 ├── draw_disk.go            # 磁盘 Tab 绘制
-└── draw_process.go         # 进程 Tab 绘制
+├── draw_processes.go       # 进程 Tab 绘制
+├── collector_test.go       # 采集器单元测试
+├── sys_test.go             # 系统监控集成测试
+└── sys_extended_test.go    # 扩展测试
 ```
 
 ### 跨平台兼容性
@@ -281,14 +288,23 @@ plugins/sys/
 
 ```
 plugins/net/
-├── data.go                     # NetDataCollector + 数据结构
-├── monitor.go                  # Monitor 主循环
-├── draw_realtime.go            # 实时流量 Tab
-├── draw_statistics.go          # 统计入口（精简）
-├── draw_stats_left.go          # 左面板：累计 + 质量
-├── draw_stats_right.go         # 右面板：接口排行
-├── draw_connections_view.go    # 连接列表 Tab
-└── types.go                    # 数据类型
+├── data.go                        # NetDataCollector + 数据结构
+├── types.go                       # 数据类型
+├── monitor.go                     # Monitor 主循环
+├── event.go                       # 键盘/鼠标事件处理
+├── ui.go                          # 公共 UI 绘制辅助函数
+├── utils.go                       # 通用工具函数
+├── simple_connections.go          # 简化连接获取
+├── draw_header.go                 # 顶部标题栏绘制
+├── draw_realtime.go               # 实时流量 Tab
+├── draw_statistics.go             # 统计入口（精简）
+├── draw_stats_left.go             # 左面板：累计 + 质量
+├── draw_stats_right.go            # 右面板：接口排行
+├── draw_connections_view.go       # 连接列表 Tab（完整）
+├── draw_simple_connections.go     # 连接列表 Tab（简化）
+├── data_test.go                   # 数据采集测试
+├── net_test.go                    # 网络监控测试
+└── net_extended_test.go           # 扩展测试
 ```
 
 ### 跨平台连接获取
@@ -358,7 +374,7 @@ DrawBarChart(screen, x, y, w, h, data, maxVal, color)
 
 1. 在 `types.go` 中定义数据结构
 2. 在 `collector.go` 中添加采集方法
-3. 创建 `draw_<tab>.go` 绘制函数
+3. 创建 `draw_<tab>.go` 绘制函数（参见 draw_cpu.go、draw_memory.go 等现有文件为模板）
 4. 在 `monitor.go` 注册 Tab
 
 ### 自定义颜色主题
