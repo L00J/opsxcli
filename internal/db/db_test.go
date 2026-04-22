@@ -541,3 +541,34 @@ func TestUserRepository_用户名唯一约束(t *testing.T) {
 	err := repo.Create(user2)
 	assert.Error(t, err, "重复用户名应报错")
 }
+
+// --- ApplyDefaults ---
+
+func TestApplyDefaults_AllProvided(t *testing.T) {
+	host, port, user := ApplyDefaults("myhost", 3306, "root", "mysql")
+	assert.Equal(t, "myhost", host)
+	assert.Equal(t, 3306, port)
+	assert.Equal(t, "root", user)
+}
+
+func TestApplyDefaults_MySQLDefaults(t *testing.T) {
+	host, port, user := ApplyDefaults("", 0, "", "mysql")
+	// Falls back to config defaults for mysql
+	assert.NotEmpty(t, host, "should have a default mysql host")
+	assert.NotZero(t, port, "should have a default mysql port")
+	_ = user
+}
+
+func TestApplyDefaults_PostgresDefaults(t *testing.T) {
+	host, port, user := ApplyDefaults("", 0, "", "postgres")
+	assert.NotEmpty(t, host)
+	assert.NotZero(t, port)
+	_ = user
+}
+
+func TestApplyDefaults_EmptyDBType(t *testing.T) {
+	host, port, user := ApplyDefaults("host", 5432, "", "")
+	assert.Equal(t, "host", host)
+	assert.Equal(t, 5432, port)
+	assert.Equal(t, "", user)
+}
