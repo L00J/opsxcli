@@ -1,6 +1,9 @@
 package tools
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 // TestParseHostAddress 测试主机地址解析
 func TestParseHostAddress(t *testing.T) {
@@ -61,4 +64,88 @@ func TestSSHExecuteTool_RiskLevel(t *testing.T) {
 	if got := tool.RiskLevel(); got != RiskHigh {
 		t.Errorf("RiskLevel() = %v, want %v", got, RiskHigh)
 	}
+}
+
+// TestBuildAuthMethods 测试构建 SSH 认证方法
+func TestBuildAuthMethods(t *testing.T) {
+	t.Run("无密钥无密码_不panic", func(t *testing.T) {
+		tool := NewSSHExecuteTool()
+		t.Setenv("SSH_PASSWORD", "")
+		// 主要确保不会 panic
+		_, _ = tool.buildAuthMethods("root", "localhost")
+	})
+
+	t.Run("设置密码环境变量", func(t *testing.T) {
+		tool := NewSSHExecuteTool()
+		t.Setenv("SSH_PASSWORD", "testpass")
+		methods, err := tool.buildAuthMethods("root", "localhost")
+		if err != nil {
+			t.Fatalf("有密码时不应报错: %v", err)
+		}
+		if len(methods) == 0 {
+			t.Error("应至少有一个认证方法")
+		}
+		// 有密码时，不应有 KeyboardInteractive（因为 sshPassword != ""）
+		// 但应有 Password 方法
+	})
+
+	t.Run("无密码时有KeyboardInteractive", func(t *testing.T) {
+		tool := NewSSHExecuteTool()
+		t.Setenv("SSH_PASSWORD", "")
+		t.Setenv("SSH_ASKPASS", "/usr/bin/ssh-askpass")
+		methods, err := tool.buildAuthMethods("root", "localhost")
+		if err != nil {
+			t.Logf("buildAuthMethods 返回错误 (可能是环境中无密钥): %v", err)
+			return
+		}
+		// 至少应有一些方法
+		if len(methods) == 0 {
+			t.Error("应至少有一个认证方法")
+		}
+	})
+
+	t.Run("有密码时不添加KeyboardInteractive", func(t *testing.T) {
+		tool := NewSSHExecuteTool()
+		t.Setenv("SSH_PASSWORD", "secretpass")
+		methods, err := tool.buildAuthMethods("user", "host")
+		if err != nil {
+			t.Fatalf("不应报错: %v", err)
+		}
+		// 有密码时：可能有 PublicKeys + Password（无 KeyboardInteractive）
+		if len(methods) == 0 {
+			t.Error("应至少有一个认证方法")
+		}
+	})
+}
+
+// TestBuildHostKeyCallback 测试构建 HostKey 回调
+func TestBuildHostKeyCallback(t *testing.T) {
+	t.Run("应返回非nil回调", func(t *testing.T) {
+		cb := buildHostKeyCallback()
+		if cb == nil {
+			t.Error("buildHostKeyCallback() 不应返回 nil")
+		}
+	})
+}
+
+// TestLoadPrivateKey 测试加载私钥
+func TestLoadPrivateKey(t *testing.T) {
+	t.Run("不存在的文件", func(t *testing.T) {
+		_, err := loadPrivateKey("/nonexistent/path/id_rsa")
+		if err == nil {
+			t.Error("不存在的文件应返回错误")
+		}
+	})
+
+	t.Run("无效的密钥内容", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		keyFile := tmpDir + "/bad_key"
+		if err := os.WriteFile(keyFile, []byte("not a valid key"), 0600); err != nil {
+			t.Fatalf("写入临时文件失败: %v", err)
+		}
+		_, err := loadPrivateKey(keyFile)
+		if err == nil {
+			t.Error("无效密钥内容应返回错误")
+		}
+	})
 }

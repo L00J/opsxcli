@@ -941,3 +941,32 @@ func TestFormatDuration_零(t *testing.T) {
 		t.Errorf("0 应返回 '0ms'，实际为 %s", result)
 	}
 }
+
+// TestParseListItem 测试列表项解析
+func TestParseListItem(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		wantMarker   string
+		wantText     string
+	}{
+		{"dash列表", "- item text", "•", "item text"},
+		{"star列表", "* item text", "•", "item text"},
+		{"数字列表", "1. first item", "1.", "first item"},
+		{"数字列表_多位", "12. twelfth item", "12.", "twelfth item"},
+		{"无前缀_回退", "plain text", "•", "plain text"},
+		{"空字符串", "", "•", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			marker, text := parseListItem(tt.input)
+			if marker != tt.wantMarker {
+				t.Errorf("parseListItem(%q) marker = %q, want %q", tt.input, marker, tt.wantMarker)
+			}
+			if text != tt.wantText {
+				t.Errorf("parseListItem(%q) text = %q, want %q", tt.input, text, tt.wantText)
+			}
+		})
+	}
+}

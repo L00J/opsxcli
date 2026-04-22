@@ -722,3 +722,30 @@ func TestBuilderV2_BuildRetryObservationMessage(t *testing.T) {
 		}
 	})
 }
+
+// TestMin 测试 min 辅助函数
+func TestMin(t *testing.T) {
+	tests := []struct {
+		name string
+		a    int
+		b    int
+		want int
+	}{
+		{"a小于b", 1, 5, 1},
+		{"b小于a", 10, 3, 3},
+		{"相等", 7, 7, 7},
+		{"负数_a更小", -5, 3, -5},
+		{"负数_b更小", 5, -10, -10},
+		{"零和正数", 0, 100, 0},
+		{"零和负数", 0, -1, -1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := min(tt.a, tt.b)
+			if got != tt.want {
+				t.Errorf("min(%d, %d) = %d, want %d", tt.a, tt.b, got, tt.want)
+			}
+		})
+	}
+}

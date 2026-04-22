@@ -339,3 +339,124 @@ func createTestZip(t *testing.T, zipPath string, files map[string]string) {
 	}
 	require.NoError(t, w.Close())
 }
+
+// TestExtractZipFile 测试解压单个 ZIP 文件条目
+func TestExtractZipFile(t *testing.T) {
+	t.Run("目录条目", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "test_dir.zip")
+		createTestZip(t, zipPath, map[string]string{
+			"subdir/": "",
+		})
+
+		r, err := zip.OpenReader(zipPath)
+		require.NoError(t, err)
+		defer r.Close()
+
+		dest := filepath.Join(tmpDir, "out")
+		require.NoError(t, os.MkdirAll(dest, 0755))
+
+		for _, f := range r.File {
+			err := extractZipFile(f, dest, true)
+			assert.NoError(t, err)
+		}
+
+		// 目录应已创建
+		info, err := os.Stat(filepath.Join(dest, "subdir"))
+		assert.NoError(t, err)
+		assert.True(t, info.IsDir())
+	})
+
+	t.Run("文件条目", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "test_file.zip")
+		createTestZip(t, zipPath, map[string]string{
+			"hello.txt": "hello world",
+		})
+
+		r, err := zip.OpenReader(zipPath)
+		require.NoError(t, err)
+		defer r.Close()
+
+		dest := filepath.Join(tmpDir, "out")
+		require.NoError(t, os.MkdirAll(dest, 0755))
+
+		for _, f := range r.File {
+			err := extractZipFile(f, dest, true)
+			assert.NoError(t, err)
+		}
+
+		data, err := os.ReadFile(filepath.Join(dest, "hello.txt"))
+		assert.NoError(t, err)
+		assert.Equal(t, "hello world", string(data))
+	})
+
+	t.Run("嵌套目录中的文件", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "test_nested.zip")
+		createTestZip(t, zipPath, map[string]string{
+			"deep/nested/file.txt": "nested content",
+		})
+
+		r, err := zip.OpenReader(zipPath)
+		require.NoError(t, err)
+		defer r.Close()
+
+		dest := filepath.Join(tmpDir, "out")
+		require.NoError(t, os.MkdirAll(dest, 0755))
+
+		for _, f := range r.File {
+			err := extractZipFile(f, dest, true)
+			assert.NoError(t, err)
+		}
+
+		data, err := os.ReadFile(filepath.Join(dest, "deep", "nested", "file.txt"))
+		assert.NoError(t, err)
+		assert.Equal(t, "nested content", string(data))
+	})
+
+	t.Run("目标目录不存在_自动创建", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "test_auto_dir.zip")
+		createTestZip(t, zipPath, map[string]string{
+			"a/b.txt": "auto dir",
+		})
+
+		r, err := zip.OpenReader(zipPath)
+		require.NoError(t, err)
+		defer r.Close()
+
+		// dest 不需要预先存在 MkdirAll，extractZipFile 内部会创建父目录
+		dest := filepath.Join(tmpDir, "auto_out")
+		for _, f := range r.File {
+			err := extractZipFile(f, dest, true)
+			assert.NoError(t, err)
+		}
+
+		data, err := os.ReadFile(filepath.Join(dest, "a", "b.txt"))
+		assert.NoError(t, err)
+		assert.Equal(t, "auto dir", string(data))
+	})
+
+	t.Run("只读目录写入文件", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "test_readonly.zip")
+		createTestZip(t, zipPath, map[string]string{
+			"readonly.txt": "can't write here",
+		})
+
+		r, err := zip.OpenReader(zipPath)
+		require.NoError(t, err)
+		defer r.Close()
+
+		// 创建一个只读父目录
+		dest := filepath.Join(tmpDir, "readonly_out")
+		require.NoError(t, os.MkdirAll(dest, 0555))
+
+		for _, f := range r.File {
+			err := extractZipFile(f, dest, true)
+			// 应返回错误因为父目录不可写
+			assert.Error(t, err)
+		}
+	})
+}

@@ -1,6 +1,7 @@
 package evolver
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -394,4 +395,140 @@ func TestGetHintForQuery_NoExperience(t *testing.T) {
 	if hint != "" {
 		t.Errorf("Expected empty hint with no experience, got %q", hint)
 	}
+}
+
+// TestGenerateHint 测试优化提示生成
+func TestGenerateHint(t *testing.T) {
+	e := &EvolverEngine{}
+
+	t.Run("无提示_无工具无决策", func(t *testing.T) {
+		exec := &TaskExecution{Query: "一般查询", TotalSteps: 1}
+		hint := e.generateHint(exec, nil, nil, nil)
+		if !strings.Contains(hint, "任务使用") {
+			t.Errorf("应包含默认提示, got %q", hint)
+		}
+	})
+
+	t.Run("localBash提示", func(t *testing.T) {
+		exec := &TaskExecution{
+			Query:       "查看日志",
+			TotalSteps:  3,
+			Duration:    5 * time.Second,
+			ToolCalls: []ToolCallRecord{
+				{ToolName: "local_bash", Success: true},
+				{ToolName: "ssh_execute", Success: true},
+			},
+		}
+		hint := e.generateHint(exec, nil, nil, nil)
+		if !strings.Contains(hint, "优先使用本地命令收集信息") {
+			t.Errorf("应包含本地命令提示, got %q", hint)
+		}
+	})
+
+	t.Run("重试决策提示", func(t *testing.T) {
+		exec := &TaskExecution{
+			Query:      "查看磁盘",
+			TotalSteps: 2,
+			Duration:   5 * time.Second,
+			ToolCalls:  []ToolCallRecord{{ToolName: "local_bash"}, {ToolName: "analyze_output"}},
+		}
+		hint := e.generateHint(exec, nil, []string{"需要重试命令", "其他"}, nil)
+		if !strings.Contains(hint, "注意检查前置条件") {
+			t.Errorf("应包含重试提示, got %q", hint)
+		}
+	})
+
+	t.Run("长耗时提示", func(t *testing.T) {
+		exec := &TaskExecution{
+			Query:      "查看磁盘",
+			TotalSteps: 2,
+			Duration:   60 * time.Second,
+			ToolCalls:  []ToolCallRecord{{ToolName: "ssh_execute"}, {ToolName: "local_bash"}},
+		}
+		hint := e.generateHint(exec, nil, nil, nil)
+		if !strings.Contains(hint, "任务耗时较长") {
+			t.Errorf("应包含耗时提示, got %q", hint)
+		}
+	})
+
+	t.Run("reflection改进建议", func(t *testing.T) {
+		exec := &TaskExecution{
+			Query:      "查看磁盘",
+			TotalSteps: 2,
+			Duration:   5 * time.Second,
+			ToolCalls:  []ToolCallRecord{{ToolName: "ssh_execute"}, {ToolName: "local_bash"}},
+		}
+		reflection := &Reflection{
+			ImprovementSuggestion: "使用更精确的grep参数",
+			FailureReason:         "超时导致部分命令未完成",
+		}
+		hint := e.generateHint(exec, nil, nil, reflection)
+		if !strings.Contains(hint, "使用更精确的grep参数") {
+			t.Errorf("应包含改进建议, got %q", hint)
+		}
+		if !strings.Contains(hint, "注意避免: 超时导致部分命令未完成") {
+			t.Errorf("应包含避免提示, got %q", hint)
+		}
+	})
+
+	t.Run("reflection仅改进建议无失败原因", func(t *testing.T) {
+		exec := &TaskExecution{
+			Query:      "查看日志",
+			TotalSteps: 2,
+			Duration:   5 * time.Second,
+			ToolCalls:  []ToolCallRecord{{ToolName: "ssh_execute"}, {ToolName: "local_bash"}},
+		}
+		reflection := &Reflection{
+			ImprovementSuggestion: "减少冗余调用",
+		}
+		hint := e.generateHint(exec, nil, nil, reflection)
+		if !strings.Contains(hint, "减少冗余调用") {
+			t.Errorf("应包含改进建议, got %q", hint)
+		}
+	})
+
+	t.Run("reflection空字段不产生提示", func(t *testing.T) {
+		exec := &TaskExecution{
+			Query:      "一般查询",
+			TotalSteps: 1,
+			ToolCalls:  []ToolCallRecord{},
+		}
+		reflection := &Reflection{}
+		hint := e.generateHint(exec, nil, nil, reflection)
+		if !strings.Contains(hint, "任务使用") {
+			t.Errorf("空reflection应走默认路径, got %q", hint)
+		}
+	})
+
+	t.Run("无localBash多工具不提示优先本地", func(t *testing.T) {
+		exec := &TaskExecution{
+			Query:      "查看日志",
+			TotalSteps: 3,
+			Duration:   5 * time.Second,
+			ToolCalls: []ToolCallRecord{
+				{ToolName: "ssh_execute"},
+				{ToolName: "analyze_output"},
+			},
+		}
+		hint := e.generateHint(exec, nil, nil, nil)
+		if strings.Contains(hint, "优先使用本地命令收集信息") {
+			t.Errorf("不应包含本地命令提示, got %q", hint)
+		}
+	})
+
+	t.Run("多提示用分号连接", func(t *testing.T) {
+		exec := &TaskExecution{
+			Query:      "查看磁盘",
+			TotalSteps: 3,
+			Duration:   60 * time.Second,
+			ToolCalls: []ToolCallRecord{
+				{ToolName: "local_bash"},
+				{ToolName: "ssh_execute"},
+			},
+		}
+		hint := e.generateHint(exec, nil, []string{"需要重试"}, nil)
+		if !strings.Contains(hint, "；") {
+			t.Errorf("多提示应用分号连接, got %q", hint)
+		}
+	})
 }
