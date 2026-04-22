@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -61,13 +62,15 @@ type ToolCallRecord struct {
 
 // EvolveResult 进化结果（10 步循环的输出）
 type EvolveResult struct {
-	TaskType        string    `json:"task_type"`         // 任务类型（自动分类）
-	ToolSequence    []string  `json:"tool_sequence"`     // 工具序列
-	LearnedHint     string    `json:"learned_hint"`      // 学到的提示
-	UserFeedback    string    `json:"user_feedback"`     // 用户反馈
-	ExperienceAdded bool      `json:"experience_added"`  // 是否新增经验
-	EnvironmentUpdated bool   `json:"environment_updated"` // 是否更新环境记忆
-	Consolidated    bool      `json:"consolidated"`      // 是否触发整合
+	TaskType           string    `json:"task_type"`            // 任务类型（自动分类）
+	ToolSequence       []string  `json:"tool_sequence"`        // 工具序列
+	LearnedHint        string    `json:"learned_hint"`         // 学到的提示
+	UserFeedback       string    `json:"user_feedback"`        // 用户反馈
+	ExperienceAdded    bool      `json:"experience_added"`     // 是否新增经验
+	EnvironmentUpdated bool      `json:"environment_updated"`  // 是否更新环境记忆
+	Consolidated       bool      `json:"consolidated"`         // 是否触发整合
+	SkillDistilled     bool      `json:"skill_distilled"`      // v0.5.0: 是否提炼了新Skill
+	DistilledSkillID   string    `json:"distilled_skill_id"`   // v0.5.0: 提炼的Skill ID
 }
 
 // Reflection LLM 反射分析结果
@@ -218,6 +221,15 @@ func (e *EvolverEngine) Evolve(ctx context.Context, exec *TaskExecution) *Evolve
 	// Step 9.5: MEMORIZE - 从执行结果中提取事实并存储到事实层
 	if e.factual != nil && exec.Success {
 		e.stepMemorize(exec, result)
+	}
+
+	// Step 9.7: DISTILL - Skill 自动提炼（复杂任务 ≥5 次工具调用时触发）
+	if e.procedural != nil && len(exec.ToolCalls) >= 5 && exec.Success {
+		skillID := e.stepDistill(exec, result)
+		if skillID != "" {
+			result.SkillDistilled = true
+			result.DistilledSkillID = skillID
+		}
 	}
 
 	// Step 10: FEEDBACK - 准备用户反馈消息
@@ -554,6 +566,10 @@ func (e *EvolverEngine) stepFeedback(result *EvolveResult) string {
 		hints = append(hints, "已更新服务器环境记忆")
 	}
 
+	if result.SkillDistilled {
+		hints = append(hints, fmt.Sprintf("已自动提炼技能「%s」，下次类似任务可直接复用", result.DistilledSkillID))
+	}
+
 	return strings.Join(hints, "；")
 }
 
@@ -810,4 +826,370 @@ func PrintEvolveFeedback(result *EvolveResult) {
 		return
 	}
 	fmt.Printf("\n%s %s\n", color.YellowString("🧠"), color.HiBlackString(result.UserFeedback))
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Step 9.7: DISTILL - Skill 自动提炼
+// 从复杂任务执行记录中自动提炼可复用的 Skill
+// ═══════════════════════════════════════════════════════════════
+
+// stepDistill 从任务执行中提炼新 Skill
+// 触发条件: len(exec.ToolCalls) >= 5 && exec.Success
+// 返回提炼的 Skill ID，空字符串表示未提炼
+func (e *EvolverEngine) stepDistill(exec *TaskExecution, result *EvolveResult) string {
+	taskType := e.classifyTaskType(exec.Query)
+
+	// 生成技能 ID: 按任务类型分类
+	skillID := sanitizeID(taskType)
+
+	// 提取操作步骤：从工具调用链中生成人类可读的步骤描述
+	steps := e.distillSteps(exec)
+
+	// 提取工具序列
+	toolSeq := e.extractToolSequence(exec)
+
+	// 提取触发关键词
+	triggers := e.distillTriggers(exec, taskType)
+
+	// 提取注意事项/陷阱
+	pitfalls := e.distillPitfalls(exec, result)
+
+	// 计算成功率（基于本次执行的评分）
+	successRate := 0.80
+	if score, ok := e.stepScore(exec)["success_rate"]; ok {
+		successRate = score
+	}
+
+	// 检查是否已有同类型技能
+	existing, hasExisting := e.procedural.GetSkill(skillID)
+
+	skill := &SkillEntry{
+		ID:          skillID,
+		Name:        taskType + "（自动提炼）",
+		Category:    e.classifyCategory(taskType),
+		Description: e.distillDescription(exec, taskType),
+		Steps:       steps,
+		ToolSeq:     toolSeq,
+		Triggers:    triggers,
+		Pitfalls:    pitfalls,
+		SuccessRate: successRate,
+		Source:      "learned",
+	}
+
+	if hasExisting && existing.Source == "learned" {
+		// 合并已有学习技能：保留使用次数，更新步骤
+		skill.Version = existing.Version + 1
+		skill.UsageCount = existing.UsageCount
+		skill.CreatedAt = existing.CreatedAt
+		// 合并触发条件（去重）
+		skill.Triggers = mergeStrings(existing.Triggers, triggers)
+		// 合并注意事项（去重）
+		skill.Pitfalls = mergeStrings(existing.Pitfalls, pitfalls)
+		// 保留成功率较高的
+		if existing.SuccessRate > successRate {
+			skill.SuccessRate = existing.SuccessRate
+		}
+	}
+
+	e.procedural.SetSkill(skill)
+	if err := e.procedural.Save(); err == nil {
+		return skillID
+	}
+	return ""
+}
+
+// distillSteps 从工具调用链中提炼操作步骤
+func (e *EvolverEngine) distillSteps(exec *TaskExecution) []string {
+	steps := make([]string, 0, len(exec.ToolCalls))
+	for i, tc := range exec.ToolCalls {
+		var step string
+		switch tc.ToolName {
+		case "local_bash", "execute":
+			// 尝试从参数中提取命令描述
+			if cmd, ok := tc.Args["command"].(string); ok && cmd != "" {
+				step = describeCommand(cmd, i+1)
+			} else {
+				step = fmt.Sprintf("步骤%d: 执行本地命令", i+1)
+			}
+		case "ssh_execute":
+			if host, ok := tc.Args["host"].(string); ok && host != "" {
+				step = fmt.Sprintf("步骤%d: 通过SSH在 %s 上执行远程命令", i+1, host)
+			} else {
+				step = fmt.Sprintf("步骤%d: 执行远程SSH命令", i+1)
+			}
+		case "scp_transfer", "transfer":
+			direction := "传输"
+			if d, ok := tc.Args["direction"].(string); ok {
+				direction = d
+			}
+			step = fmt.Sprintf("步骤%d: 文件%s", i+1, direction)
+		case "analyze_output":
+			step = fmt.Sprintf("步骤%d: 分析命令输出", i+1)
+		case "file_read":
+			if path, ok := tc.Args["path"].(string); ok && path != "" {
+				step = fmt.Sprintf("步骤%d: 读取文件 %s", i+1, path)
+			} else {
+				step = fmt.Sprintf("步骤%d: 读取文件", i+1)
+			}
+		case "file_search":
+			step = fmt.Sprintf("步骤%d: 搜索文件内容", i+1)
+		default:
+			step = fmt.Sprintf("步骤%d: 使用 %s 工具", i+1, tc.ToolName)
+		}
+		if tc.Duration > 5*time.Second {
+			step += fmt.Sprintf("（耗时 %s）", tc.Duration.Truncate(time.Second))
+		}
+		steps = append(steps, step)
+	}
+	return steps
+}
+
+// distillTriggers 提炼触发关键词
+func (e *EvolverEngine) distillTriggers(exec *TaskExecution, taskType string) []string {
+	triggers := make([]string, 0)
+	// 从用户查询中提取关键词
+	query := strings.ToLower(exec.Query)
+	keywords := []string{
+		"磁盘", "内存", "CPU", "网络", "端口", "服务", "日志",
+		"文件", "进程", "SSH", "远程", "安装", "配置", "重启",
+		"故障", "恢复", "清理", "备份", "监控", "Docker", "K8s",
+	}
+	for _, kw := range keywords {
+		if strings.Contains(query, strings.ToLower(kw)) {
+			triggers = append(triggers, kw)
+		}
+	}
+	// 确保任务类型本身也是触发词
+	if len(triggers) == 0 {
+		triggers = append(triggers, taskType)
+	}
+	return triggers
+}
+
+// distillPitfalls 提炼注意事项
+func (e *EvolverEngine) distillPitfalls(exec *TaskExecution, result *EvolveResult) []string {
+	pitfalls := make([]string, 0)
+
+	// 检查是否有失败的工具调用
+	for i, tc := range exec.ToolCalls {
+		if !tc.Success {
+			pitfalls = append(pitfalls, fmt.Sprintf("步骤%d (%s) 曾失败，注意参数正确性", i+1, tc.ToolName))
+		}
+	}
+
+	// 检查是否有重试
+	retryCount := 0
+	for i := 1; i < len(exec.ToolCalls); i++ {
+		if exec.ToolCalls[i].ToolName == exec.ToolCalls[i-1].ToolName {
+			retryCount++
+		}
+	}
+	if retryCount > 0 {
+		pitfalls = append(pitfalls, fmt.Sprintf("有 %d 次工具重试，建议先检查前置条件", retryCount))
+	}
+
+	// 检查耗时过长的步骤
+	for _, tc := range exec.ToolCalls {
+		if tc.Duration > 10*time.Second {
+			pitfalls = append(pitfalls, fmt.Sprintf("%s 工具可能耗时较长，考虑设置合理超时", tc.ToolName))
+			break // 只添加一次
+		}
+	}
+
+	// 至少保留一个默认注意事项
+	if len(pitfalls) == 0 {
+		pitfalls = append(pitfalls, "执行前确认环境和参数正确")
+	}
+
+	return pitfalls
+}
+
+// distillDescription 生成技能描述
+func (e *EvolverEngine) distillDescription(exec *TaskExecution, taskType string) string {
+	toolCount := len(exec.ToolCalls)
+	successTools := 0
+	for _, tc := range exec.ToolCalls {
+		if tc.Success {
+			successTools++
+		}
+	}
+
+	desc := fmt.Sprintf("自动提炼的%s流程，共 %d 个步骤",
+		taskType, toolCount)
+	if exec.Duration > 0 {
+		desc += fmt.Sprintf("，平均耗时 %s", (exec.Duration/time.Duration(toolCount)).Truncate(time.Second))
+	}
+	return desc
+}
+
+// classifyCategory 从任务类型推断技能分类
+func (e *EvolverEngine) classifyCategory(taskType string) string {
+	switch {
+	case strings.Contains(taskType, "网络"):
+		return "network"
+	case strings.Contains(taskType, "磁盘") || strings.Contains(taskType, "内存") || strings.Contains(taskType, "CPU"):
+		return "system"
+	case strings.Contains(taskType, "服务"):
+		return "system"
+	case strings.Contains(taskType, "远程") || strings.Contains(taskType, "SSH"):
+		return "system"
+	case strings.Contains(taskType, "日志"):
+		return "system"
+	case strings.Contains(taskType, "文件"):
+		return "system"
+	case strings.Contains(taskType, "部署") || strings.Contains(taskType, "安装"):
+		return "deploy"
+	default:
+		return "general"
+	}
+}
+
+// describeCommand 从 shell 命令生成人类可读的描述
+func describeCommand(cmd string, stepNum int) string {
+	cmd = strings.TrimSpace(cmd)
+	// 提取第一个命令名
+	parts := strings.Fields(cmd)
+	if len(parts) == 0 {
+		return fmt.Sprintf("步骤%d: 执行本地命令", stepNum)
+	}
+	baseCmd := parts[0]
+
+	descriptions := map[string]string{
+		"ping":        "测试网络连通性",
+		"curl":        "发送 HTTP 请求",
+		"wget":        "下载文件",
+		"ssh":         "远程连接服务器",
+		"scp":         "远程拷贝文件",
+		"docker":      "操作 Docker 容器",
+		"kubectl":     "操作 Kubernetes 资源",
+		"systemctl":   "管理系统服务",
+		"journalctl":  "查看系统日志",
+		"top":         "查看进程资源使用",
+		"ps":          "查看进程列表",
+		"df":          "查看磁盘使用",
+		"du":          "查看目录大小",
+		"free":        "查看内存使用",
+		"netstat":     "查看网络连接",
+		"ss":          "查看网络套接字",
+		"ls":          "列出文件",
+		"cat":         "查看文件内容",
+		"grep":        "搜索文件内容",
+		"find":        "查找文件",
+		"tail":        "查看文件末尾",
+		"head":        "查看文件开头",
+		"awk":         "处理文本数据",
+		"sed":         "编辑文本流",
+		"sort":        "排序数据",
+		"uniq":        "去重",
+		"wc":          "统计数据",
+		"nslookup":    "DNS 查询",
+		"dig":         "DNS 查询",
+		"traceroute":  "追踪网络路由",
+		"iptables":    "管理防火墙规则",
+		"chmod":       "修改文件权限",
+		"chown":       "修改文件所有者",
+		"mkdir":       "创建目录",
+		"rm":          "删除文件",
+		"cp":          "复制文件",
+		"mv":          "移动文件",
+		"tar":         "打包/解包文件",
+		"unzip":       "解压 ZIP 文件",
+		"apt":         "APT 包管理",
+		"yum":         "YUM 包管理",
+		"brew":        "Homebrew 包管理",
+		"npm":         "NPM 包管理",
+		"pip":         "Python 包管理",
+		"go":          "Go 工具链",
+		"make":        "Make 构建",
+		"git":         "Git 版本控制",
+		"mysql":       "MySQL 数据库操作",
+		"redis-cli":   "Redis 操作",
+		"psql":        "PostgreSQL 操作",
+		"nginx":       "Nginx 操作",
+	}
+
+	if desc, ok := descriptions[baseCmd]; ok {
+		return fmt.Sprintf("步骤%d: %s", stepNum, desc)
+	}
+
+	// 带管道的命令
+	if strings.Contains(cmd, "|") {
+		return fmt.Sprintf("步骤%d: 执行管道命令链", stepNum)
+	}
+
+	return fmt.Sprintf("步骤%d: 执行 %s", stepNum, baseCmd)
+}
+
+// sanitizeID 将任务类型字符串转换为合法的 Skill ID
+func sanitizeID(s string) string {
+	// 替换常见中文为英文
+	replacements := map[string]string{
+		"分析":  "analysis",
+		"诊断":  "diagnosis",
+		"管理":  "management",
+		"操作":  "operation",
+		"远程":  "remote",
+		"文件":  "file",
+		"磁盘":  "disk",
+		"内存":  "memory",
+		"网络":  "network",
+		"服务":  "service",
+		"日志":  "log",
+		"通用运维": "general_ops",
+	}
+
+	result := s
+	for cn, en := range replacements {
+		result = strings.ReplaceAll(result, cn, en)
+	}
+
+	// 如果仍然是中文或包含非 ASCII 字符，用通用 ID
+	if !isASCII(result) {
+		result = "learned_task"
+	}
+
+	// 清理非字母数字下划线字符
+	reg := regexp.MustCompile(`[^a-zA-Z0-9_]`)
+	result = reg.ReplaceAllString(result, "_")
+	// 合并连续下划线
+	for strings.Contains(result, "__") {
+		result = strings.ReplaceAll(result, "__", "_")
+	}
+	result = strings.Trim(result, "_")
+
+	if result == "" {
+		result = "learned_task"
+	}
+
+	// 添加 learned_ 前缀区分自动提炼和种子技能
+	return "learned_" + result
+}
+
+// isASCII 检查字符串是否纯 ASCII
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] > 127 {
+			return false
+		}
+	}
+	return true
+}
+
+// mergeStrings 合并两个字符串切片并去重
+func mergeStrings(existing, newItems []string) []string {
+	seen := make(map[string]bool)
+	result := make([]string, 0)
+	for _, s := range existing {
+		if !seen[s] {
+			seen[s] = true
+			result = append(result, s)
+		}
+	}
+	for _, s := range newItems {
+		if !seen[s] {
+			seen[s] = true
+			result = append(result, s)
+		}
+	}
+	return result
 }
