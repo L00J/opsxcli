@@ -2,6 +2,7 @@ package traceroute
 
 import (
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -168,6 +169,49 @@ func TestBuildUDPAddr_Normal(t *testing.T) {
 	addr := buildUDPAddr(net.ParseIP("8.8.8.8"), 33437)
 	require.NotNil(t, addr)
 	assert.Equal(t, "8.8.8.8:33437", addr.String())
+}
+
+// --- formatHostDisplay ---
+
+func TestFormatHostDisplay_WithLoopback(t *testing.T) {
+	// 127.0.0.1 likely has a reverse DNS entry on most systems, but even if not,
+	// it should at least return the IP string.
+	ip := net.ParseIP("127.0.0.1")
+	result := formatHostDisplay(ip)
+	if result == "" {
+		t.Error("formatHostDisplay should return non-empty string")
+	}
+	// Should always contain the IP
+	if !strings.Contains(result, "127.0.0.1") {
+		t.Errorf("formatHostDisplay should contain IP, got %q", result)
+	}
+}
+
+func TestFormatHostDisplay_LocalAddress(t *testing.T) {
+	// A local address that typically has no reverse DNS
+	ip := net.ParseIP("192.168.255.254")
+	result := formatHostDisplay(ip)
+	if result == "" {
+		t.Error("formatHostDisplay should return non-empty string")
+	}
+	// Without reverse DNS, should just be the IP
+	if !strings.Contains(result, "192.168.255.254") {
+		t.Errorf("formatHostDisplay should contain IP, got %q", result)
+	}
+}
+
+func TestFormatHostDisplay_Format(t *testing.T) {
+	// If there's a reverse DNS entry, format is "hostname (ip)"
+	// If not, format is just the IP
+	ip := net.ParseIP("8.8.8.8")
+	result := formatHostDisplay(ip)
+	if result == "" {
+		t.Error("formatHostDisplay should return non-empty string")
+	}
+	// Must contain the IP regardless
+	if !strings.Contains(result, "8.8.8.8") {
+		t.Errorf("formatHostDisplay should contain IP, got %q", result)
+	}
 }
 
 // --- isDestinationReached ---

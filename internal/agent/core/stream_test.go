@@ -201,6 +201,118 @@ func TestRunStreamWithErrorChunk(t *testing.T) {
 	}
 }
 
+// --- formatToolCallDetail tests ---
+
+func TestFormatToolCallDetail_BashWithCommand(t *testing.T) {
+	result := formatToolCallDetail("local_bash", map[string]interface{}{"command": "ls -la"})
+	if result != "执行命令: ls -la" {
+		t.Errorf("got %q, want %q", result, "执行命令: ls -la")
+	}
+}
+
+func TestFormatToolCallDetail_BashNonStringCommand(t *testing.T) {
+	result := formatToolCallDetail("bash", map[string]interface{}{"command": 123})
+	// command is not a string, should fall through to generic format
+	if result == "执行命令: 123" {
+		// Actually this won't match because type assertion fails
+		t.Error("should not format as command when value is not string")
+	}
+}
+
+func TestFormatToolCallDetail_BashEmptyArgs(t *testing.T) {
+	result := formatToolCallDetail("bash", map[string]interface{}{})
+	if result != "bash" {
+		t.Errorf("got %q, want %q", result, "bash")
+	}
+}
+
+func TestFormatToolCallDetail_SSH(t *testing.T) {
+	result := formatToolCallDetail("ssh_execute", map[string]interface{}{
+		"host":    "10.0.0.1",
+		"command": "uptime",
+	})
+	if result != "SSH 10.0.0.1 → uptime" {
+		t.Errorf("got %q, want %q", result, "SSH 10.0.0.1 → uptime")
+	}
+}
+
+func TestFormatToolCallDetail_SSHMissingHost(t *testing.T) {
+	result := formatToolCallDetail("remote_bash", map[string]interface{}{
+		"command": "uptime",
+	})
+	// host is empty, should fall through to generic format
+	if !strings.Contains(result, "command=uptime") {
+		t.Errorf("expected generic format with command, got %q", result)
+	}
+}
+
+func TestFormatToolCallDetail_SSHMissingCommand(t *testing.T) {
+	result := formatToolCallDetail("ssh_execute", map[string]interface{}{
+		"host": "10.0.0.1",
+	})
+	// command is empty, should fall through
+	if !strings.Contains(result, "host=10.0.0.1") {
+		t.Errorf("expected generic format with host, got %q", result)
+	}
+}
+
+func TestFormatToolCallDetail_GenericWithArgs(t *testing.T) {
+	result := formatToolCallDetail("some_tool", map[string]interface{}{
+		"arg1": "value1",
+		"arg2": "value2",
+	})
+	if !strings.Contains(result, "some_tool(") {
+		t.Errorf("expected function-like format, got %q", result)
+	}
+	if !strings.Contains(result, "arg1=value1") {
+		t.Errorf("expected arg1=value1, got %q", result)
+	}
+	if !strings.Contains(result, "arg2=value2") {
+		t.Errorf("expected arg2=value2, got %q", result)
+	}
+}
+
+func TestFormatToolCallDetail_LongValue(t *testing.T) {
+	longValue := strings.Repeat("x", 100)
+	result := formatToolCallDetail("tool", map[string]interface{}{
+		"data": longValue,
+	})
+	if !strings.Contains(result, "data="+strings.Repeat("x", 60)+"...") {
+		t.Errorf("expected truncated value, got %q", result)
+	}
+}
+
+func TestFormatToolCallDetail_SkipsInternalKeys(t *testing.T) {
+	result := formatToolCallDetail("tool", map[string]interface{}{
+		"_i":       "internal",
+		"_intent":  "secret",
+		"visible":  "yes",
+	})
+	if strings.Contains(result, "_i=") {
+		t.Errorf("should skip _i key, got %q", result)
+	}
+	if strings.Contains(result, "_intent=") {
+		t.Errorf("should skip _intent key, got %q", result)
+	}
+	if !strings.Contains(result, "visible=yes") {
+		t.Errorf("should include visible key, got %q", result)
+	}
+}
+
+func TestFormatToolCallDetail_NilArgs(t *testing.T) {
+	result := formatToolCallDetail("mytool", nil)
+	if result != "mytool" {
+		t.Errorf("got %q, want %q", result, "mytool")
+	}
+}
+
+func TestFormatToolCallDetail_EmptyArgs(t *testing.T) {
+	result := formatToolCallDetail("mytool", map[string]interface{}{})
+	if result != "mytool" {
+		t.Errorf("got %q, want %q", result, "mytool")
+	}
+}
+
 func TestRunStreamMaxIterations(t *testing.T) {
 	mockT := &mockTool{
 		name:        "mock_tool",

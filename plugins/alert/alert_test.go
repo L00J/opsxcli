@@ -887,6 +887,152 @@ func TestEscalationManager(t *testing.T) {
 	}
 }
 
+// --- matchSilence 和 matchPattern 详细覆盖测试 ---
+
+func TestMatchPattern_Exact(t *testing.T) {
+	// 精确匹配
+	if !matchPattern("high_cpu", "high_cpu") {
+		t.Error("exact match should succeed")
+	}
+	if matchPattern("high_cpu", "low_cpu") {
+		t.Error("different strings should not match")
+	}
+}
+
+func TestMatchPattern_Wildcard(t *testing.T) {
+	// "*" 通配符匹配所有
+	if !matchPattern("*", "anything") {
+		t.Error("* should match everything")
+	}
+}
+
+func TestMatchPattern_PrefixWildcard(t *testing.T) {
+	// 前缀通配符 "*_cpu" 匹配以 "_cpu" 结尾的字符串
+	if !matchPattern("*_cpu", "high_cpu") {
+		t.Error("*_cpu should match high_cpu")
+	}
+	if !matchPattern("*_cpu", "low_cpu") {
+		t.Error("*_cpu should match low_cpu")
+	}
+	if matchPattern("*_cpu", "high_mem") {
+		t.Error("*_cpu should not match high_mem")
+	}
+}
+
+func TestMatchPattern_SuffixWildcard(t *testing.T) {
+	// 后缀通配符 "disk_*" 匹配以 "disk_" 开头的字符串
+	if !matchPattern("disk_*", "disk_full") {
+		t.Error("disk_* should match disk_full")
+	}
+	if !matchPattern("disk_*", "disk_usage") {
+		t.Error("disk_* should match disk_usage")
+	}
+	if matchPattern("disk_*", "cpu_high") {
+		t.Error("disk_* should not match cpu_high")
+	}
+}
+
+func TestMatchPattern_NoWildcardNoMatch(t *testing.T) {
+	// 无通配符且不匹配时，走最后的 return pattern == s
+	if matchPattern("abc", "def") {
+		t.Error("different strings without wildcard should not match")
+	}
+}
+
+func TestMatchSilence_NameMatch(t *testing.T) {
+	sm := &SilenceManager{}
+	// 匹配名称
+	alert := &Alert{RuleName: "high_cpu", Level: LevelWarning}
+	rule := &SilenceRule{MatchName: "high_cpu"}
+	if !sm.matchSilence(alert, rule) {
+		t.Error("name match should succeed")
+	}
+
+	// 名称不匹配
+	rule2 := &SilenceRule{MatchName: "low_cpu"}
+	if sm.matchSilence(alert, rule2) {
+		t.Error("name mismatch should fail")
+	}
+}
+
+func TestMatchSilence_LevelMatch(t *testing.T) {
+	sm := &SilenceManager{}
+	alert := &Alert{RuleName: "test", Level: LevelCritical}
+	// 级别匹配
+	rule := &SilenceRule{MatchLevel: LevelCritical}
+	if !sm.matchSilence(alert, rule) {
+		t.Error("level match should succeed")
+	}
+	// 级别不匹配
+	rule2 := &SilenceRule{MatchLevel: LevelWarning}
+	if sm.matchSilence(alert, rule2) {
+		t.Error("level mismatch should fail")
+	}
+}
+
+func TestMatchSilence_LabelMatch(t *testing.T) {
+	sm := &SilenceManager{}
+	alert := &Alert{
+		RuleName: "test",
+		Level:    LevelWarning,
+		Labels:   map[string]string{"host": "server1", "env": "prod"},
+	}
+	// 标签完全匹配
+	rule := &SilenceRule{MatchLabels: map[string]string{"host": "server1"}}
+	if !sm.matchSilence(alert, rule) {
+		t.Error("label match should succeed")
+	}
+	// 标签值不匹配
+	rule2 := &SilenceRule{MatchLabels: map[string]string{"host": "server2"}}
+	if sm.matchSilence(alert, rule2) {
+		t.Error("label value mismatch should fail")
+	}
+}
+
+func TestMatchSilence_LabelNilLabels(t *testing.T) {
+	sm := &SilenceManager{}
+	// 告警无标签
+	alert := &Alert{RuleName: "test", Level: LevelWarning, Labels: nil}
+	rule := &SilenceRule{MatchLabels: map[string]string{"host": "server1"}}
+	if sm.matchSilence(alert, rule) {
+		t.Error("nil alert labels should not match")
+	}
+}
+
+func TestMatchSilence_EmptyRule(t *testing.T) {
+	sm := &SilenceManager{}
+	// 空规则（无匹配条件）不匹配任何告警
+	alert := &Alert{RuleName: "test", Level: LevelWarning}
+	rule := &SilenceRule{} // MatchName, MatchLevel, MatchLabels all empty
+	if sm.matchSilence(alert, rule) {
+		t.Error("empty rule should not match any alert")
+	}
+}
+
+func TestMatchSilence_NameAndLevel(t *testing.T) {
+	sm := &SilenceManager{}
+	alert := &Alert{RuleName: "high_cpu", Level: LevelCritical}
+	// 名称和级别都匹配
+	rule := &SilenceRule{MatchName: "high_cpu", MatchLevel: LevelCritical}
+	if !sm.matchSilence(alert, rule) {
+		t.Error("name+level match should succeed")
+	}
+	// 名称匹配但级别不匹配
+	rule2 := &SilenceRule{MatchName: "high_cpu", MatchLevel: LevelWarning}
+	if sm.matchSilence(alert, rule2) {
+		t.Error("name match + level mismatch should fail")
+	}
+}
+
+func TestMatchSilence_NameWildcard(t *testing.T) {
+	sm := &SilenceManager{}
+	alert := &Alert{RuleName: "disk_full", Level: LevelWarning}
+	rule := &SilenceRule{MatchName: "disk_*"}
+	if !sm.matchSilence(alert, rule) {
+		t.Error("wildcard name match should succeed")
+	}
+}
+
 // --- 历史管理器默认路径测试 ---
 
 func TestNewHistoryManager_DefaultPath(t *testing.T) {

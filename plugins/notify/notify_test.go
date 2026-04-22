@@ -316,6 +316,56 @@ func TestFeishuNotifier_SendWithAt(t *testing.T) {
 	}
 }
 
+func TestFeishuNotifier_BuildURL(t *testing.T) {
+	t.Run("no secret returns base URL", func(t *testing.T) {
+		n, _ := NewFeishuNotifier("https://open.feishu.cn/open-apis/bot/v2/hook/test-token")
+		got := n.buildURL()
+		if got != "https://open.feishu.cn/open-apis/bot/v2/hook/test-token" {
+			t.Errorf("buildURL without secret = %q, want base URL", got)
+		}
+	})
+
+	t.Run("with secret appends timestamp and sign", func(t *testing.T) {
+		n, _ := NewFeishuNotifier("https://open.feishu.cn/open-apis/bot/v2/hook/test-token")
+		n.SetSecret("my-secret")
+		got := n.buildURL()
+		if !strings.Contains(got, "timestamp=") {
+			t.Errorf("buildURL with secret missing timestamp: %q", got)
+		}
+		if !strings.Contains(got, "sign=") {
+			t.Errorf("buildURL with secret missing sign: %q", got)
+		}
+		if !strings.Contains(got, "test-token") {
+			t.Errorf("buildURL should preserve original path: %q", got)
+		}
+	})
+
+	t.Run("with secret and query params", func(t *testing.T) {
+		n, _ := NewFeishuNotifier("https://open.feishu.cn/hook?existing=param")
+		n.SetSecret("secret123")
+		got := n.buildURL()
+		if !strings.Contains(got, "existing=param") {
+			t.Errorf("buildURL should preserve existing params: %q", got)
+		}
+		if !strings.Contains(got, "timestamp=") {
+			t.Errorf("buildURL should add timestamp: %q", got)
+		}
+		if !strings.Contains(got, "sign=") {
+			t.Errorf("buildURL should add sign: %q", got)
+		}
+	})
+
+	t.Run("with invalid URL returns targetURL", func(t *testing.T) {
+		n, _ := NewFeishuNotifier("://invalid-url")
+		n.SetSecret("secret")
+		got := n.buildURL()
+		// When url.Parse fails, it should return the original targetURL
+		if got != "://invalid-url" {
+			t.Errorf("buildURL with invalid URL = %q, want original targetURL", got)
+		}
+	})
+}
+
 func TestFeishuNotifier_SendError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
