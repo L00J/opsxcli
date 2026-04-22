@@ -474,4 +474,28 @@ func TestConvertResumeInfoToChunks_Extended(t *testing.T) {
 		roundtrip := ConvertResumeInfoToChunks(resume)
 		assert.Equal(t, original, roundtrip)
 	})
+
+	t.Run("nil切片转为空切片", func(t *testing.T) {
+		result := ConvertChunksToResumeInfo(nil)
+		assert.Empty(t, result)
+		assert.NotNil(t, result)
+	})
+
+	t.Run("nil切片反向转为空切片", func(t *testing.T) {
+		result := ConvertResumeInfoToChunks(nil)
+		assert.Empty(t, result)
+		assert.NotNil(t, result)
+	})
+
+	t.Run("多个分片往返转换", func(t *testing.T) {
+		original := []ChunkInfo{
+			{Index: 0, Start: 0, End: 999, Size: 1000, Completed: true, Registry: "reg-a"},
+			{Index: 1, Start: 1000, End: 1999, Size: 1000, Completed: false, Registry: "reg-b"},
+			{Index: 2, Start: 2000, End: 2999, Size: 1000, Completed: true, Registry: "reg-a"},
+			{Index: 3, Start: 3000, End: 3999, Size: 1000, Completed: false, Registry: ""},
+		}
+		resume := ConvertChunksToResumeInfo(original)
+		roundtrip := ConvertResumeInfoToChunks(resume)
+		assert.Equal(t, original, roundtrip)
+	})
 }

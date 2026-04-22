@@ -61,14 +61,23 @@ func drawConnectionsDashboard(screen tcell.Screen, width, height int, connection
 	for _, conn := range connections {
 		// 只记录已建立的连接，不管队列是否有数据
 		if conn.State == "ESTABLISHED" {
+			recvKB := float64(conn.RecvQ) / 1024.0
+			sendKB := float64(conn.SendQ) / 1024.0
+
+			// 优先使用 nettop 累计流量（macOS）
+			if conn.BytesIn > 0 || conn.BytesOut > 0 {
+				recvKB = float64(conn.BytesIn) / 1024.0
+				sendKB = float64(conn.BytesOut) / 1024.0
+			}
+
 			entry := &TrafficHistoryEntry{
 				SrcAddr:    conn.LocalAddr,
 				SrcPort:    conn.LocalPort,
 				DstAddr:    conn.ForeignAddr,
 				DstPort:    conn.ForeignPort,
-				RecvKB:     float64(conn.RecvQ) / 1024.0,
-				SendKB:     float64(conn.SendQ) / 1024.0,
-				TotalKB:    float64(conn.RecvQ+conn.SendQ) / 1024.0,
+				RecvKB:     recvKB,
+				SendKB:     sendKB,
+				TotalKB:    recvKB + sendKB,
 				LastUpdate: now,
 			}
 			newEntries = append(newEntries, entry)

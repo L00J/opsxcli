@@ -140,3 +140,80 @@ func TestDrawBox_SmallBox(t *testing.T) {
 	assert.Equal(t, BoxBottomRight, s.cells[[2]int{2, 2}])
 }
 
+// ============================================================================
+// runeWidth 纯函数测试
+// ============================================================================
+
+func TestRuneWidth(t *testing.T) {
+	t.Run("ASCII字符宽度为1", func(t *testing.T) {
+		assert.Equal(t, 1, runeWidth('a'))
+		assert.Equal(t, 1, runeWidth('Z'))
+		assert.Equal(t, 1, runeWidth('0'))
+		assert.Equal(t, 1, runeWidth(' '))
+		assert.Equal(t, 1, runeWidth('~'))
+	})
+
+	t.Run("CJK中文字符宽度为2", func(t *testing.T) {
+		assert.Equal(t, 2, runeWidth('中'))  // U+4E2D
+		assert.Equal(t, 2, runeWidth('文'))  // U+6587
+		assert.Equal(t, 2, runeWidth('字'))  // U+5B57
+		assert.Equal(t, 2, runeWidth('你'))  // U+4F60
+		assert.Equal(t, 2, runeWidth('好'))  // U+597D
+	})
+
+	t.Run("韩文字符宽度为2", func(t *testing.T) {
+		assert.Equal(t, 2, runeWidth(0x1100)) // Hangul Jamo 起始
+		assert.Equal(t, 2, runeWidth(0x115F)) // Hangul Jamo 结束
+		assert.Equal(t, 2, runeWidth(0xAC00)) // 韩文音节起始 (가)
+		assert.Equal(t, 2, runeWidth(0xD7AF)) // 韩文音节结束
+	})
+
+	t.Run("全角字符宽度为2", func(t *testing.T) {
+		assert.Equal(t, 2, runeWidth(0xFF00)) // 全角ASCII起始 (Fullwidth exclamation)
+		assert.Equal(t, 2, runeWidth(0xFF60)) // 全角ASCII结束附近
+		assert.Equal(t, 2, runeWidth(0xFFE0)) // 全角符号 (￠)
+		assert.Equal(t, 2, runeWidth(0xFFE6)) // 全角符号结束 (￦)
+	})
+
+	t.Run("其他Unicode字符宽度为1", func(t *testing.T) {
+		assert.Equal(t, 1, runeWidth('é'))  // U+00E9 拉丁字母带锐音符
+		assert.Equal(t, 1, runeWidth('ñ'))  // U+00F1
+		assert.Equal(t, 1, runeWidth('ü'))  // U+00FC
+		assert.Equal(t, 1, runeWidth('©'))  // U+00A9
+		assert.Equal(t, 1, runeWidth('®'))  // U+00AE
+	})
+
+	t.Run("CJK兼容表意文字宽度为2", func(t *testing.T) {
+		assert.Equal(t, 2, runeWidth(0xF900)) // CJK兼容表意文字起始
+		assert.Equal(t, 2, runeWidth(0xFAFF)) // CJK兼容表意文字结束
+	})
+
+	t.Run("CJK兼容形式宽度为2", func(t *testing.T) {
+		assert.Equal(t, 2, runeWidth(0xFE30)) // CJK兼容形式起始
+		assert.Equal(t, 2, runeWidth(0xFE6F)) // CJK兼容形式结束
+	})
+
+	t.Run("竖排形式宽度为2", func(t *testing.T) {
+		assert.Equal(t, 2, runeWidth(0xFE10)) // 竖排形式起始
+		assert.Equal(t, 2, runeWidth(0xFE19)) // 竖排形式结束
+	})
+
+	t.Run("CJK扩展A宽度为2", func(t *testing.T) {
+		assert.Equal(t, 2, runeWidth(0x20000)) // CJK扩展起始
+		assert.Equal(t, 2, runeWidth(0x2FFFD)) // CJK扩展结束
+	})
+
+	t.Run("CJK扩展B宽度为2", func(t *testing.T) {
+		assert.Equal(t, 2, runeWidth(0x30000)) // CJK扩展B起始
+		assert.Equal(t, 2, runeWidth(0x3FFFD)) // CJK扩展B结束
+	})
+}
+
+func TestDrawBox_WithCJKTitle(t *testing.T) {
+	s := newMockScreen()
+	DrawBox(s, 0, 0, 20, 5, "测试", tcell.ColorWhite)
+	// CJK标题：'测'在位置2，'试'在位置4（每个CJK字符占2列）
+	assert.Equal(t, rune('测'), s.cells[[2]int{2, 0}])
+	assert.Equal(t, rune('试'), s.cells[[2]int{4, 0}])
+}
+

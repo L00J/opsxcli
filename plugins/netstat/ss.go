@@ -26,6 +26,10 @@ type SsConnection struct {
 	State       string
 	PID         int32
 	ProcessName string
+	// BytesIn/BytesOut 是连接级别的累计流量（字节）
+	// macOS 上通过 nettop 获取，Linux 上暂不可用
+	BytesIn  int64
+	BytesOut int64
 }
 
 // Ss 高性能网络连接查询（类似ss命令，直接读取/proc/net）
@@ -146,6 +150,10 @@ type lsofEntry struct {
 // readTCPConnectionsDarwin 使用 lsof 获取 macOS 上的 TCP 连接
 func readTCPConnectionsDarwin(listen, all, programs bool) []SsConnection {
 	entries := parseLsofOutput("TCP")
+
+	// 获取 nettop 流量数据（进程级累计流量）
+	traffic := getNettopTraffic()
+
 	var connections []SsConnection
 
 	for _, e := range entries {
@@ -169,6 +177,12 @@ func readTCPConnectionsDarwin(listen, all, programs bool) []SsConnection {
 		if programs {
 			conn.PID = e.pid
 			conn.ProcessName = e.command
+		}
+
+		// 填充 nettop 流量数据
+		if t, ok := traffic[e.pid]; ok {
+			conn.BytesIn = t.bytesIn
+			conn.BytesOut = t.bytesOut
 		}
 
 		connections = append(connections, conn)
@@ -1004,4 +1018,86 @@ func PrintComprehensiveDashboard(connections []SsConnection, topN int) error {
 	}
 
 	return nil
+}
+
+// === macOS nettop 流量数据 ===
+
+// nettopTraffic 存储从 nettop 获取的进程级累计流量
+type nettopTraffic struct {
+	bytesIn  int64
+	bytesOut int64
+}
+
+// getNettopTraffic 在 macOS 上通过 nettop 获取进程级 TCP 累计流量
+// 返回 PID → 流量的映射
+//
+//nolint:unused // 仅 darwin 平台使用
+func getNettopTraffic() map[int32]nettopTraffic {
+	result := make(map[int32]nettopTraffic)
+
+	// nettop -x -m tcp -P -l 1: 以扩展模式、TCP、进程汇总模式、1次采样
+	cmd := exec.Command("nettop", "-x", "-m", "tcp", "-P", "-l", "1")
+	output, err := cmd.Output()
+	if err != nil {
+		return result
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(string(output)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		// 跳过表头行
+		if strings.HasPrefix(line, "time") || line == "" {
+			continue
+		}
+
+		// nettop -P 输出格式（制表符分隔）:
+		// time   interface   state   bytes_in   bytes_out   ...
+		// 实际行示例:
+		// 22:28:12.152182	apsd.375		6879	28053	48	0	6692
+		// 进程名.PID 后面是字段值（制表符分隔）
+		// 第二列格式: 进程名.PID
+
+		fields := strings.Fields(line)
+		if len(fields) < 5 {
+			continue
+		}
+
+		// fields[1] 应该是 "进程名.PID" 格式
+		processField := fields[1]
+		dotIdx := strings.LastIndex(processField, ".")
+		if dotIdx < 0 {
+			continue
+		}
+
+		pidStr := processField[dotIdx+1:]
+		pid, err := strconv.ParseInt(pidStr, 10, 32)
+		if err != nil {
+			continue
+		}
+
+		// 查找 bytes_in 和 bytes_out
+		// 格式: time  进程.PID  [interface]  [state]  bytes_in  bytes_out ...
+		// 但字段数量可变，需要找到数值字段
+		// 更可靠的方式：从 fields 中找非空数值字段
+		// nettop -P 的实际输出中，进程.PID 后面直接就是数值
+		// 尝试从 fields[2] 开始找数值
+		numFields := make([]int64, 0)
+		for i := 2; i < len(fields); i++ {
+			val, err := strconv.ParseInt(fields[i], 10, 64)
+			if err == nil {
+				numFields = append(numFields, val)
+			}
+		}
+
+		// nettop -P 的数值字段顺序: bytes_in, bytes_out, rx_dupe, rx_ooo, re-tx, ...
+		// 至少需要 2 个数值字段
+		if len(numFields) >= 2 {
+			result[int32(pid)] = nettopTraffic{
+				bytesIn:  numFields[0],
+				bytesOut: numFields[1],
+			}
+		}
+	}
+
+	return result
 }
