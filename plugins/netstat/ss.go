@@ -151,8 +151,8 @@ type lsofEntry struct {
 func readTCPConnectionsDarwin(listen, all, programs bool) []SsConnection {
 	entries := parseLsofOutput("TCP")
 
-	// 获取 nettop 流量数据（进程级累计流量）
-	traffic := getNettopTraffic()
+	// 获取 nettop 连接级流量数据（每条连接独立流量）
+	traffic := getNettopConnectionTraffic()
 
 	var connections []SsConnection
 
@@ -179,8 +179,9 @@ func readTCPConnectionsDarwin(listen, all, programs bool) []SsConnection {
 			conn.ProcessName = e.command
 		}
 
-		// 填充 nettop 流量数据
-		if t, ok := traffic[e.pid]; ok {
+		// 按连接地址匹配流量数据（每条连接独立流量）
+		key := nettopConnKey(e.localAddr, e.localPort, e.foreignAddr, e.foreignPort)
+		if t, ok := traffic[key]; ok {
 			conn.BytesIn = t.bytesIn
 			conn.BytesOut = t.bytesOut
 		}
@@ -1020,23 +1021,31 @@ func PrintComprehensiveDashboard(connections []SsConnection, topN int) error {
 	return nil
 }
 
-// === macOS nettop 流量数据 ===
+// === macOS nettop 连接级流量数据 ===
 
-// nettopTraffic 存储从 nettop 获取的进程级累计流量
+// nettopTraffic 存储从 nettop 获取的连接级累计流量
 type nettopTraffic struct {
 	bytesIn  int64
 	bytesOut int64
 }
 
-// getNettopTraffic 在 macOS 上通过 nettop 获取进程级 TCP 累计流量
-// 返回 PID → 流量的映射
+// nettopConnKey 生成连接级匹配 key: "localAddr:localPort->foreignAddr:foreignPort"
 //
 //nolint:unused // 仅 darwin 平台使用
-func getNettopTraffic() map[int32]nettopTraffic {
-	result := make(map[int32]nettopTraffic)
+func nettopConnKey(localAddr string, localPort uint32, foreignAddr string, foreignPort uint32) string {
+	return fmt.Sprintf("%s:%d->%s:%d", localAddr, localPort, foreignAddr, foreignPort)
+}
 
-	// nettop -x -m tcp -P -l 1: 以扩展模式、TCP、进程汇总模式、1次采样
-	cmd := exec.Command("nettop", "-x", "-m", "tcp", "-P", "-l", "1")
+// getNettopConnectionTraffic 在 macOS 上通过 nettop 获取每条 TCP 连接的独立累计流量
+// 不使用 -P 参数，解析每条连接行的独立 bytes_in/bytes_out
+//
+//nolint:unused // 仅 darwin 平台使用
+func getNettopConnectionTraffic() map[string]nettopTraffic {
+	result := make(map[string]nettopTraffic)
+
+	// nettop -x -m tcp -l 1: 扩展模式、TCP、1次采样
+	// 不加 -P，输出每条连接的独立流量
+	cmd := exec.Command("nettop", "-x", "-m", "tcp", "-l", "1")
 	output, err := cmd.Output()
 	if err != nil {
 		return result
@@ -1045,43 +1054,41 @@ func getNettopTraffic() map[int32]nettopTraffic {
 	scanner := bufio.NewScanner(strings.NewReader(string(output)))
 	for scanner.Scan() {
 		line := scanner.Text()
-		// 跳过表头行
+		// 跳过表头行和空行
 		if strings.HasPrefix(line, "time") || line == "" {
 			continue
 		}
 
-		// nettop -P 输出格式（制表符分隔）:
-		// time   interface   state   bytes_in   bytes_out   ...
-		// 实际行示例:
-		// 22:28:12.152182	apsd.375		6879	28053	48	0	6692
-		// 进程名.PID 后面是字段值（制表符分隔）
-		// 第二列格式: 进程名.PID
-
 		fields := strings.Fields(line)
-		if len(fields) < 5 {
+		if len(fields) < 6 {
 			continue
 		}
 
-		// fields[1] 应该是 "进程名.PID" 格式
-		processField := fields[1]
-		dotIdx := strings.LastIndex(processField, ".")
-		if dotIdx < 0 {
+		// 不带 -P 的 nettop 连级行格式:
+		// time   localIP:localPort<->foreignIP:foreignPort   interface   state   bytes_in   bytes_out   ...
+		// 例: 22:46:33.137588  192.168.2.97:60491<->17.57.145.149:5223  en1  Established  7023  28827 ...
+		// 也可能是 IPv6: [240e:...]:port<->[240e:...]:port
+
+		// fields[0] = 时间戳
+		// fields[1] = 地址对: localAddr:localPort<->foreignAddr:foreignPort
+		addrPair := fields[1]
+
+		// 解析地址对，格式: local<->foreign
+		parts := strings.SplitN(addrPair, "<->", 2)
+		if len(parts) != 2 {
 			continue
 		}
 
-		pidStr := processField[dotIdx+1:]
-		pid, err := strconv.ParseInt(pidStr, 10, 32)
-		if err != nil {
-			continue
+		localAddr, localPort := parseNettopAddr(parts[0])
+		foreignAddr, foreignPort := parseNettopAddr(parts[1])
+		if localPort == 0 && foreignPort == 0 {
+			continue // 跳过 LISTEN 行（*:port<->*:*）
 		}
 
-		// 查找 bytes_in 和 bytes_out
-		// 格式: time  进程.PID  [interface]  [state]  bytes_in  bytes_out ...
-		// 但字段数量可变，需要找到数值字段
-		// 更可靠的方式：从 fields 中找非空数值字段
-		// nettop -P 的实际输出中，进程.PID 后面直接就是数值
-		// 尝试从 fields[2] 开始找数值
-		numFields := make([]int64, 0)
+		// 从剩余字段中提取数值
+		// 格式: ... interface state bytes_in bytes_out ...
+		// 数值字段可能是 "-",
+		var numFields []int64
 		for i := 2; i < len(fields); i++ {
 			val, err := strconv.ParseInt(fields[i], 10, 64)
 			if err == nil {
@@ -1089,10 +1096,10 @@ func getNettopTraffic() map[int32]nettopTraffic {
 			}
 		}
 
-		// nettop -P 的数值字段顺序: bytes_in, bytes_out, rx_dupe, rx_ooo, re-tx, ...
-		// 至少需要 2 个数值字段
+		// 数值字段顺序: bytes_in, bytes_out, rx_dupe, rx_ooo, re-tx, rtt_avg, ...
 		if len(numFields) >= 2 {
-			result[int32(pid)] = nettopTraffic{
+			key := nettopConnKey(localAddr, localPort, foreignAddr, foreignPort)
+			result[key] = nettopTraffic{
 				bytesIn:  numFields[0],
 				bytesOut: numFields[1],
 			}
@@ -1100,4 +1107,34 @@ func getNettopTraffic() map[int32]nettopTraffic {
 	}
 
 	return result
+}
+
+// parseNettopAddr 解析 nettop 地址格式
+// 支持: "192.168.1.1:80", "[::1]:8080", "*.*", "*:80"
+//
+//nolint:unused // 仅 darwin 平台使用
+func parseNettopAddr(addr string) (host string, port uint32) {
+	// IPv6 格式: [host]:port
+	if strings.HasPrefix(addr, "[") {
+		closeBracket := strings.Index(addr, "]")
+		if closeBracket < 0 {
+			return addr, 0
+		}
+		host = addr[1:closeBracket]
+		if closeBracket+1 < len(addr) && addr[closeBracket+1] == ':' {
+			p, _ := strconv.Atoi(addr[closeBracket+2:])
+			return host, uint32(p)
+		}
+		return host, 0
+	}
+
+	// IPv4 格式: host:port
+	lastColon := strings.LastIndex(addr, ":")
+	if lastColon < 0 {
+		return addr, 0
+	}
+
+	host = addr[:lastColon]
+	p, _ := strconv.Atoi(addr[lastColon+1:])
+	return host, uint32(p)
 }
