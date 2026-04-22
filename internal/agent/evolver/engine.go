@@ -35,6 +35,80 @@ const (
 	ComplexityComplex                         // 复杂: 7+步工具调用
 )
 
+// EvolveStep 进化循环步骤标识
+type EvolveStep string
+
+const (
+	StepObserve     EvolveStep = "OBSERVE"     // Step 1: 观察任务执行
+	StepExtract     EvolveStep = "EXTRACT"     // Step 2: 提取关键决策点
+	StepReflect     EvolveStep = "REFLECT"     // Step 2.5: LLM 反射分析
+	StepScore       EvolveStep = "SCORE"       // Step 3: 评估工具效率
+	StepCompare     EvolveStep = "COMPARE"     // Step 4: 与历史对比
+	StepLearn       EvolveStep = "LEARN"       // Step 5: 生成经验规则
+	StepStore       EvolveStep = "STORE"       // Step 6: 存入长期记忆
+	StepConsolidate EvolveStep = "CONSOLIDATE" // Step 7: 整合相似经验
+	StepPredict     EvolveStep = "PREDICT"     // Step 8: 更新预测
+	StepAdapt       EvolveStep = "ADAPT"       // Step 9: 调整环境记忆
+	StepMemorize    EvolveStep = "MEMORIZE"    // Step 9.5: 提取事实
+	StepDistill     EvolveStep = "DISTILL"     // Step 9.7: Skill 提炼
+	StepFeedback    EvolveStep = "FEEDBACK"    // Step 10: 生成反馈
+)
+
+// EvolveStepInfo 进化步骤进度信息（传递给回调函数）
+type EvolveStepInfo struct {
+	Step        EvolveStep      `json:"step"`         // 当前步骤标识
+	StepIndex   int             `json:"step_index"`   // 步骤序号 (1-based)
+	TotalSteps  int             `json:"total_steps"`  // 预计总步骤数
+	StepName    string          `json:"step_name"`    // 步骤中文名
+	Complexity  TaskComplexity  `json:"complexity"`   // 任务复杂度
+	TaskQuery   string          `json:"task_query"`   // 原始查询（截断到100字符）
+	Duration    time.Duration   `json:"duration"`     // 当前步骤耗时
+	Score       float64         `json:"score"`        // 步骤评分（如有）
+	Detail      string          `json:"detail"`       // 步骤详情
+	StartTime   time.Time       `json:"start_time"`   // 步骤开始时间
+}
+
+// ProgressCallback 进度回调函数类型
+// TUI 或其他消费者可注册此回调以实时接收进化进度
+type ProgressCallback func(info EvolveStepInfo)
+
+// complexityName 返回复杂度的中文名
+func complexityName(c TaskComplexity) string {
+	switch c {
+	case ComplexitySimple:
+		return "简单"
+	case ComplexityModerate:
+		return "中等"
+	case ComplexityComplex:
+		return "复杂"
+	default:
+		return "未知"
+	}
+}
+
+// stepName 返回步骤的中文名
+func stepName(step EvolveStep) string {
+	names := map[EvolveStep]string{
+		StepObserve:     "观察任务执行",
+		StepExtract:     "提取关键决策",
+		StepReflect:     "LLM 反射分析",
+		StepScore:       "评估工具效率",
+		StepCompare:     "与历史对比",
+		StepLearn:       "生成经验规则",
+		StepStore:       "存入长期记忆",
+		StepConsolidate: "整合相似经验",
+		StepPredict:     "更新工具预测",
+		StepAdapt:       "调整环境记忆",
+		StepMemorize:    "提取持久事实",
+		StepDistill:     "自动提炼 Skill",
+		StepFeedback:    "生成用户反馈",
+	}
+	if name, ok := names[step]; ok {
+		return name
+	}
+	return string(step)
+}
+
 type EvolverEngine struct {
 	experience    *ExperienceMemory    // 经验记忆层
 	environment   *EnvironmentMemory   // 环境记忆层
@@ -47,6 +121,7 @@ type EvolverEngine struct {
 	llmClient     reflectionClient     // 可选的 LLM 客户端，用于反射分析
 	simpleThresh  int                  // 简单任务阈值（≤此值为简单）
 	moderateThresh int                 // 中等任务阈值（≤此值为中等）
+	onProgress    ProgressCallback     // 进度回调（可选）
 }
 
 // TaskExecution 一次完整的任务执行记录（Evolver 的输入）
@@ -178,6 +253,45 @@ func (e *EvolverEngine) SetEnabled(enabled bool) {
 	e.enabled = enabled
 }
 
+// SetProgressCallback 注册进度回调函数
+// TUI 或其他消费者可调用此方法注册回调，实时接收进化步骤进度
+func (e *EvolverEngine) SetProgressCallback(cb ProgressCallback) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.onProgress = cb
+}
+
+// emitProgress 触发进度回调（内部辅助方法）
+func (e *EvolverEngine) emitProgress(step EvolveStep, stepIndex, totalSteps int, complexity TaskComplexity, query string, start time.Time, score float64, detail string) {
+	e.mu.RLock()
+	cb := e.onProgress
+	e.mu.RUnlock()
+
+	if cb == nil {
+		return
+	}
+
+	// 截断查询到100字符
+	truncatedQuery := query
+	if len(truncatedQuery) > 100 {
+		truncatedQuery = truncatedQuery[:100] + "..."
+	}
+
+	info := EvolveStepInfo{
+		Step:       step,
+		StepIndex:  stepIndex,
+		TotalSteps: totalSteps,
+		StepName:   stepName(step),
+		Complexity: complexity,
+		TaskQuery:  truncatedQuery,
+		Duration:   time.Since(start),
+		Score:      score,
+		Detail:     detail,
+		StartTime:  start,
+	}
+	cb(info)
+}
+
 // IsEnabled 检查是否启用
 func (e *EvolverEngine) IsEnabled() bool {
 	e.mu.RLock()
@@ -204,11 +318,27 @@ func (e *EvolverEngine) Evolve(ctx context.Context, exec *TaskExecution) *Evolve
 	complexity := e.classifyComplexity(len(exec.ToolCalls))
 	result := &EvolveResult{}
 
+	// 预估总步骤数
+	totalSteps := 10
+	if complexity == ComplexitySimple {
+		totalSteps = 4 // 简单路径: OBSERVE, SCORE, EXTRACT+LEARN, ADAPT
+	}
+	evolveStart := time.Now()
+
 	// ═══ 简单任务快速路径：仅经验记录 + 环境适应 ═══
 	if complexity == ComplexitySimple {
+		stepStart := evolveStart
 		observation := e.stepObserve(exec)
+		e.emitProgress(StepObserve, 1, totalSteps, complexity, exec.Query, stepStart, 0, fmt.Sprintf("工具数=%d, 成功率=%.1f%%", len(exec.ToolCalls), e.calculateSuccessRate(exec)*100))
+
+		stepStart = time.Now()
 		toolScores := e.stepScore(exec)
+		e.emitProgress(StepScore, 2, totalSteps, complexity, exec.Query, stepStart, toolScores["success_rate"], fmt.Sprintf("效率=%.2f", toolScores["step_efficiency"]))
+
+		stepStart = time.Now()
 		keyDecisions := e.stepExtract(exec)
+		e.emitProgress(StepExtract, 3, totalSteps, complexity, exec.Query, stepStart, 0, fmt.Sprintf("决策数=%d", len(keyDecisions)))
+
 		newExp := e.stepLearn(exec, observation, keyDecisions, toolScores, nil, nil)
 		if newExp != nil {
 			e.experience.AddExperience(newExp)
@@ -224,6 +354,7 @@ func (e *EvolverEngine) Evolve(ctx context.Context, exec *TaskExecution) *Evolve
 		if envUpdated {
 			e.environment.Save()
 		}
+		e.emitProgress(StepAdapt, 4, totalSteps, complexity, exec.Query, evolveStart, 0, fmt.Sprintf("环境更新=%v", envUpdated))
 		result.UserFeedback = e.stepFeedback(result)
 		return result
 	}
@@ -231,25 +362,45 @@ func (e *EvolverEngine) Evolve(ctx context.Context, exec *TaskExecution) *Evolve
 	// ═══ 中等/复杂任务：完整循环 ═══
 
 	// Step 1: OBSERVE - 观察本次任务执行
+	stepStart := evolveStart
 	observation := e.stepObserve(exec)
+	e.emitProgress(StepObserve, 1, totalSteps, complexity, exec.Query, stepStart, 0, fmt.Sprintf("工具数=%d, 成功率=%.1f%%", len(exec.ToolCalls), e.calculateSuccessRate(exec)*100))
 
 	// Step 2: EXTRACT - 提取关键决策点
+	stepStart = time.Now()
 	keyDecisions := e.stepExtract(exec)
+	e.emitProgress(StepExtract, 2, totalSteps, complexity, exec.Query, stepStart, 0, fmt.Sprintf("决策数=%d", len(keyDecisions)))
 
 	// Step 2.5: REFLECT - LLM-assisted reflection（仅复杂任务触发）
 	var reflection *Reflection
 	if complexity == ComplexityComplex && e.llmClient != nil {
+		stepStart = time.Now()
 		reflection = e.stepReflectWithLLM(ctx, exec)
+		reflDetail := "无反射结果"
+		if reflection != nil {
+			reflDetail = fmt.Sprintf("置信度=%.2f", reflection.Confidence)
+		}
+		e.emitProgress(StepReflect, 3, totalSteps, complexity, exec.Query, stepStart, 0, reflDetail)
 	}
 
 	// Step 3: SCORE - 评估工具调用效率
+	stepStart = time.Now()
 	toolScores := e.stepScore(exec)
+	e.emitProgress(StepScore, 4, totalSteps, complexity, exec.Query, stepStart, toolScores["success_rate"], fmt.Sprintf("效率=%.2f, 耗时评分=%.2f", toolScores["step_efficiency"], toolScores["duration_score"]))
 
 	// Step 4: COMPARE - 与历史相似任务对比
+	stepStart = time.Now()
 	similar := e.stepCompare(exec)
+	compareDetail := "无相似历史"
+	if similar != nil {
+		compareDetail = fmt.Sprintf("找到相似经验(成功率=%.1f%%)", similar.SuccessRate*100)
+	}
+	e.emitProgress(StepCompare, 5, totalSteps, complexity, exec.Query, stepStart, 0, compareDetail)
 
 	// Step 5: LEARN - 生成新的经验规则（融入反射洞察）
+	stepStart = time.Now()
 	newExp := e.stepLearn(exec, observation, keyDecisions, toolScores, similar, reflection)
+	e.emitProgress(StepLearn, 6, totalSteps, complexity, exec.Query, stepStart, 0, fmt.Sprintf("生成经验=%v", newExp != nil))
 
 	// Step 6: STORE - 将经验存入长期记忆
 	if newExp != nil {
@@ -260,38 +411,51 @@ func (e *EvolverEngine) Evolve(ctx context.Context, exec *TaskExecution) *Evolve
 			result.TaskType = newExp.TaskType
 		}
 	}
+	e.emitProgress(StepStore, 7, totalSteps, complexity, exec.Query, stepStart, 0, fmt.Sprintf("经验已存储=%v", result.ExperienceAdded))
 
 	// Step 7: CONSOLIDATE - 整合相似经验
+	stepStart = time.Now()
 	if result.ExperienceAdded {
 		result.Consolidated = e.stepConsolidate(newExp.TaskType)
 	}
+	e.emitProgress(StepConsolidate, 8, totalSteps, complexity, exec.Query, stepStart, 0, fmt.Sprintf("整合=%v", result.Consolidated))
 
 	// Step 8: PREDICT - 更新工具选择预测（内置在经验中）
+	stepStart = time.Now()
 	result.ToolSequence = e.extractToolSequence(exec)
+	e.emitProgress(StepPredict, 9, totalSteps, complexity, exec.Query, stepStart, 0, fmt.Sprintf("工具序列=%v", result.ToolSequence))
 
 	// Step 9: ADAPT - 调整环境记忆
+	stepStart = time.Now()
 	envUpdated := e.stepAdapt(exec)
 	result.EnvironmentUpdated = envUpdated
 	if envUpdated {
 		e.environment.Save()
 	}
+	e.emitProgress(StepAdapt, 10, totalSteps, complexity, exec.Query, stepStart, 0, fmt.Sprintf("环境更新=%v", envUpdated))
 
 	// Step 9.5: MEMORIZE - 从执行结果中提取事实并存储到事实层
 	if e.factual != nil && exec.Success {
+		stepStart = time.Now()
 		e.stepMemorize(exec, result)
+		e.emitProgress(StepMemorize, 11, totalSteps, complexity, exec.Query, stepStart, 0, "事实层已更新")
 	}
 
 	// Step 9.7: DISTILL - Skill 自动提炼（中等及以上 + ≥5次工具调用 + 成功）
 	if e.procedural != nil && complexity >= ComplexityModerate && len(exec.ToolCalls) >= 5 && exec.Success {
+		stepStart = time.Now()
 		skillID := e.stepDistill(exec, result)
 		if skillID != "" {
 			result.SkillDistilled = true
 			result.DistilledSkillID = skillID
 		}
+		e.emitProgress(StepDistill, 12, totalSteps, complexity, exec.Query, stepStart, 0, fmt.Sprintf("Skill提炼=%s", skillID))
 	}
 
 	// Step 10: FEEDBACK - 准备用户反馈消息
+	stepStart = time.Now()
 	result.UserFeedback = e.stepFeedback(result)
+	e.emitProgress(StepFeedback, 13, totalSteps, complexity, exec.Query, stepStart, 0, "进化循环完成")
 
 	return result
 }
