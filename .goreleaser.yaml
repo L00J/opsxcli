@@ -1,6 +1,13 @@
 # OpsXCLI GoReleaser 配置
-# 用于自动化构建、打包和发布
+# 发布策略: 预编译二进制 → GitHub Releases → Homebrew Formula 下载二进制（不放源码）
 # 使用方式: goreleaser release --clean
+#
+# 发布流程:
+#   1. 在 Gitee 开发完成后，push 到 GitHub + 打 tag
+#   2. GitHub Actions 自动构建多平台二进制
+#   3. 二进制上传到 GitHub Releases
+#   4. Homebrew Formula 自动更新（只含二进制 URL + sha256）
+#   5. 用户 brew tap L00J/tap && brew install opsxcli
 
 version: 2
 
@@ -38,8 +45,10 @@ archives:
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
-      {{- .Os }}_
-      {{- .Arch }}
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "arm64" }}arm64
+      {{- else }}{{ .Arch }}{{ end }}
     format: tar.gz
     format_overrides:
       - goos: windows
@@ -48,6 +57,7 @@ archives:
       - README.md
       - LICENSE
       - CHANGELOG.md
+      - install.sh
 
 checksum:
   name_template: "checksums.txt"
@@ -70,35 +80,42 @@ changelog:
       - Merge remote-tracking branch
       - Revert
 
-# Homebrew Tap 配置
-# 需要创建 opsxcli/homebrew-tap 仓库
+# Homebrew Tap — 只下载预编译二进制，不放源码 URL
+# 关键: url_template 指向 GitHub Release 的 tar.gz（含编译好的二进制）
+#        Formula 不需要 Go 编译环境，直接 bin.install 即可
 brews:
   - name: opsxcli
     repository:
-      owner: opsxcli
+      owner: L00J
       name: homebrew-tap
+      branch: main
+      # 需要在 GitHub repo settings 中设置 HOMEBREW_TAP_TOKEN secret
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/opsxcli/opsxcli"
-    description: "OpsXCLI - 面向运维和开发的集成化命令行工具集，70+ 运维命令"
+    homepage: "https://gitee.com/opsx-tools/opsxcli"
+    description: "OpsXCLI - DevOps CLI toolkit with 70+ commands, AI agent, TUI dashboard"
     license: MIT
+    # 关键: 使用预编译二进制的下载 URL，而非源码 tarball
+    url_template: "https://github.com/L00J/opsxcli/releases/download/{{ .Tag }}/{{ .ArchiveName }}"
+    # 不需要 Go 编译环境 — 直接下载二进制
     install: |
       bin.install "opsxcli"
       # 安装 shell 补全脚本
       generate_completions_from_executable(bin/"opsxcli", "completion")
     test: |
-      system "#{bin}/opsxcli version"
+      system "#{bin}/opsxcli", "version"
     caveats: |
-      OpsXCLI 已安装完成！快速开始:
-        opsxcli              # 启动 AI 运维助手
-        opsxcli mysql        # MySQL 客户端
-        opsxcli redis        # Redis 客户端
-        opsxcli ssh          # SSH 管理
-        opsxcli sys          # 系统监控
-        opsxcli --help       # 查看所有命令
+      OpsXCLI installed! Quick start:
+        opsxcli              # Launch AI DevOps assistant
+        opsxcli mysql        # MySQL client
+        opsxcli redis        # Redis client
+        opsxcli ssh          # SSH management
+        opsxcli sys          # System monitoring TUI
+        opsxcli --help       # Show all commands
 
 release:
   github:
-    owner: opsxcli
+    owner: L00J
     name: opsxcli
   draft: false
   prerelease: auto
@@ -106,21 +123,22 @@ release:
   header: |
     ## OpsXCLI {{ .Tag }}
 
-    ### 🚀 一键安装
+    ### 🚀 Quick Install
 
     **macOS (Homebrew)**:
     ```
-    brew tap opsxcli/tap
+    brew tap L00J/tap
     brew install opsxcli
     ```
 
-    **Linux (一键脚本)**:
+    **Linux / macOS (script)**:
     ```
-    curl -fsSL https://github.com/opsxcli/opsxcli/releases/latest/download/install.sh | bash
+    curl -fsSL https://github.com/L00J/opsxcli/releases/latest/download/install.sh | bash
     ```
 
-    **手动下载**: 选择对应平台和架构的二进制文件
+    **Manual download**: Pick the binary for your platform and architecture.
 
-  footer: >
+  footer: >-
     ---
-    **完整更新日志**: https://github.com/opsxcli/opsxcli/blob/master/CHANGELOG.md
+
+    **Full changelog**: https://gitee.com/opsx-tools/opsxcli/blob/master/CHANGELOG.md

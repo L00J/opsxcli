@@ -48,8 +48,12 @@ jobs:
           version: '~> v2'
           args: release --clean
         env:
+          # GitHub Token — 用于创建 Release + 上传二进制
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Homebrew tap 推送需要 HOMEBREW_TAP_TOKEN
-          # 设置: gh repo create opsxcli/homebrew-tap --public
-          # 然后: 创建 PAT with repo scope, 添加为 secret
-          # HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # Homebrew Tap Token — 用于推送 Formula 到 L00J/homebrew-tap
+          # 设置方法:
+          #   1. GitHub Settings → Developer settings → Personal access tokens → Fine-grained token
+          #   2. Repository access: L00J/homebrew-tap (write)
+          #   3. Permissions: Contents (read+write), Metadata (read)
+          #   4. 将 token 添加到 L00J/opsxcli 仓库的 Secrets: HOMEBREW_TAP_TOKEN
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

@@ -1,31 +1,32 @@
-# OpsXCLI Homebrew Formula
+# OpsXCLI Homebrew Formula (参考模板)
 # 安装方式:
-#   brew tap opsxcli/tap
+#   brew tap L00J/tap
 #   brew install opsxcli
 #
-# 注意: 此文件由 goreleaser 自动更新版本号和 SHA256
-# 手动安装: brew install --formula Formula/opsxcli.rb
+# ⚠️ 此文件仅供参考！实际 Formula 由 GoReleaser 自动生成并推送到 L00J/homebrew-tap
+# GoReleaser 会根据 .goreleaser.yaml 中的 brews 配置自动生成正确的 Formula
+# （包含按平台选择二进制 URL + 正确的 sha256）
+#
+# 防代码泄露策略:
+#   - Formula url 指向 GitHub Release 的预编译 tar.gz（二进制）
+#   - 不放源码 URL — AI/爬虫只能下载到编译后的二进制
+#   - 源码仅在 Gitee 私有仓库
 
 class Opsxcli < Formula
-  desc "面向运维和开发的集成化命令行工具集，70+ 运维命令"
-  homepage "https://github.com/opsxcli/opsxcli"
-  url "https://github.com/opsxcli/opsxcli/archive/refs/tags/v0.6.0.tar.gz"
-  # goreleaser 发布时自动更新 sha256
-  sha256 "PLACEHOLDER"
+  desc "DevOps CLI toolkit with 70+ commands, AI agent, TUI dashboard"
+  homepage "https://gitee.com/opsx-tools/opsxcli"
+  # GoReleaser 自动填充: 版本号 + 二进制下载 URL + sha256
+  url "https://github.com/L00J/opsxcli/releases/download/VERSION_PLACEHOLDER/opsxcli_VERSION_Darwin_arm64.tar.gz"
+  sha256 "SHA256_PLACEHOLDER"
+  version "VERSION_PLACEHOLDER"
   license "MIT"
-  head "https://github.com/opsxcli/opsxcli.git", branch: "master"
-
-  depends_on "go" => :build
 
   def install
-    # 静态编译，零 CGO 依赖
-    system "go", "build", *std_go_args(
-      ldflags: "-s -w -X main.version=#{version} -X main.buildTime=#{Time.now.iso8601}"
-    ), "-trimpath", "."
+    bin.install "opsxcli"
+    generate_completions_from_executable(bin/"opsxcli", "completion")
   end
 
   test do
-    # 验证版本输出
-    assert_match version.to_s, shell_output("#{bin}/opsxcli version")
+    assert_match "opsxcli", shell_output("#{bin}/opsxcli version")
   end
 end
