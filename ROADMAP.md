@@ -120,7 +120,7 @@ P1 LLM运行时热切换:    3天
 || cmd/ 集成测试 | 0%→39.6% | 核心路径覆盖 (6/6 任务完成) | ✅ 已完成 |
 || Docker 管理 | 基础 pull | 完整容器生命周期 | ✅ 5/5 完成 |
 || 告警通知 | 基础发送 | 定时告警+规则引擎 | ✅ 5/5 完成 |
-| 包管理器分发 | 无 | Homebrew + 安装脚本 | 🔄 进行中 |
+|| 包管理器分发 | 无 | Homebrew + 安装脚本 | ✅ 已完成 |
 
 ### 📦 包管理器分发 (P0)
 
@@ -132,7 +132,7 @@ P1 LLM运行时热切换:    3天
 | **Homebrew Formula** | opsxcli/homebrew-tap 仓库 + 自动更新 | 0.5天 | ✅ 模板已完成 |
 | **一键安装脚本** | install.sh (curl \| bash) | 0.5天 | ✅ 已完成 |
 || **GitHub Release 工作流** | tag 触发自动发布 | 0.5天 | ✅ 已完成 |
-| **Homebrew Tap 仓库** | 创建 opsxcli/homebrew-tap | 0.5天 | 📋 规划中 |
+| **Homebrew Tap 仓库** | 创建 L00J/homebrew-tap + Formula/opsxcli.rb | 0.5天 | ✅ 已完成 |
 
 ### 🐳 Docker 管理 (P1)
 
