@@ -352,15 +352,15 @@ type PodSpec struct {
 
 // Container 容器（完整定义）
 type Container struct {
-	Name            string              `json:"name" yaml:"name"`
-	Image           string              `json:"image,omitempty" yaml:"image,omitempty"`
-	ImagePullPolicy string              `json:"imagePullPolicy,omitempty" yaml:"imagePullPolicy,omitempty"`
-	Ports           []ContainerPort     `json:"ports,omitempty" yaml:"ports,omitempty"`
-	Env             []EnvVar            `json:"env,omitempty" yaml:"env,omitempty"`
+	Name            string               `json:"name" yaml:"name"`
+	Image           string               `json:"image,omitempty" yaml:"image,omitempty"`
+	ImagePullPolicy string               `json:"imagePullPolicy,omitempty" yaml:"imagePullPolicy,omitempty"`
+	Ports           []ContainerPort      `json:"ports,omitempty" yaml:"ports,omitempty"`
+	Env             []EnvVar             `json:"env,omitempty" yaml:"env,omitempty"`
 	Resources       ResourceRequirements `json:"resources,omitempty" yaml:"resources,omitempty"`
-	LivenessProbe   *Probe              `json:"livenessProbe,omitempty" yaml:"livenessProbe,omitempty"`
-	ReadinessProbe  *Probe              `json:"readinessProbe,omitempty" yaml:"readinessProbe,omitempty"`
-	Lifecycle       *Lifecycle          `json:"lifecycle,omitempty" yaml:"lifecycle,omitempty"`
+	LivenessProbe   *Probe               `json:"livenessProbe,omitempty" yaml:"livenessProbe,omitempty"`
+	ReadinessProbe  *Probe               `json:"readinessProbe,omitempty" yaml:"readinessProbe,omitempty"`
+	Lifecycle       *Lifecycle           `json:"lifecycle,omitempty" yaml:"lifecycle,omitempty"`
 }
 
 // ContainerPort 容器端口

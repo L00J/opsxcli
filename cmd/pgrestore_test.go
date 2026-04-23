@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestNewPgrestoreCmd_Basic(t *testing.T) {
@@ -23,4 +23,3 @@ func TestNewPgrestoreCmd_NoArgsReturnsHelp(t *testing.T) {
 	cmd.SetArgs([]string{"-h", "localhost"})
 	assert.NoError(t, cmd.Execute())
 }
-

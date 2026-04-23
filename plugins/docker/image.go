@@ -47,12 +47,12 @@ type ImageInspectResult struct {
 
 // ContainerConfigInfo 容器配置摘要
 type ContainerConfigInfo struct {
-	User        string
+	User         string
 	ExposedPorts map[string]interface{}
-	Env         []string
-	Cmd         []string
-	Entrypoint  []string
-	WorkingDir  string
+	Env          []string
+	Cmd          []string
+	Entrypoint   []string
+	WorkingDir   string
 }
 
 // ImagesOptions docker images 选项
@@ -65,9 +65,9 @@ type ImagesOptions struct {
 
 // RMIOptions docker rmi 选项
 type RMIOptions struct {
-	Images []string // 镜像名称或 ID 列表
-	Force  bool     // 强制删除
-	NoPrune bool    // 不删除未标记的父镜像
+	Images  []string // 镜像名称或 ID 列表
+	Force   bool     // 强制删除
+	NoPrune bool     // 不删除未标记的父镜像
 }
 
 // TagOptions docker tag 选项

@@ -76,13 +76,13 @@ type SearchMatch struct {
 
 // FileSearchResult 搜索结果
 type FileSearchResult struct {
-	Pattern  string         `json:"pattern"`
-	Path     string         `json:"path"`
-	Target   string         `json:"target"`
-	Matches  []SearchMatch  `json:"matches"`
-	Total    int            `json:"total"`
+	Pattern   string        `json:"pattern"`
+	Path      string        `json:"path"`
+	Target    string        `json:"target"`
+	Matches   []SearchMatch `json:"matches"`
+	Total     int           `json:"total"`
 	Truncated bool          `json:"truncated,omitempty"`
-	FileGlob string         `json:"file_glob,omitempty"`
+	FileGlob  string        `json:"file_glob,omitempty"`
 }
 
 // Execute 执行文件搜索

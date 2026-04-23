@@ -124,9 +124,9 @@ func gunzipFile(filename string, opts GzipOptions) error {
 
 // UnzipOptions unzip 命令选项
 type UnzipOptions struct {
-	List     bool   // -l 列出内容（不解压）
-	Dir      string // -d 目标目录
-	Quiet    bool   // -q 静默模式
+	List  bool   // -l 列出内容（不解压）
+	Dir   string // -d 目标目录
+	Quiet bool   // -q 静默模式
 }
 
 // Unzip 解压 ZIP 文件

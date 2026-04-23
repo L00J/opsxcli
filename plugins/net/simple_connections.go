@@ -23,11 +23,11 @@ type SimpleConnectionKey struct {
 
 // SimpleConnectionStats 简化的连接统计
 type SimpleConnectionStats struct {
-	Key       SimpleConnectionKey
-	RxQueue   uint64
-	TxQueue   uint64
-	LastSeen  time.Time
-	Protocol  string // TCP or UDP
+	Key      SimpleConnectionKey
+	RxQueue  uint64
+	TxQueue  uint64
+	LastSeen time.Time
+	Protocol string // TCP or UDP
 }
 
 // SimpleConnectionTracker 基于/proc的简单连接追踪器
@@ -217,7 +217,7 @@ func parseTCPState(stateHex string) string {
 }
 
 // GetTopConnections 获取TOP连接
-func (sct *SimpleConnectionTracker) GetTopConnections(limit int) []* SimpleConnectionStats {
+func (sct *SimpleConnectionTracker) GetTopConnections(limit int) []*SimpleConnectionStats {
 	sct.mu.RLock()
 	defer sct.mu.RUnlock()
 

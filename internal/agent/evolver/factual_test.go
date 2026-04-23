@@ -281,7 +281,7 @@ func TestFactualMemory_MergeFromEvolveResult(t *testing.T) {
 	fm.SetFact("已有key", "旧值", "environment")
 
 	newFacts := map[string]string{
-		"已有key":   "新值",
+		"已有key":  "新值",
 		"新发现key": "新值",
 	}
 

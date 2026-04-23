@@ -12,9 +12,9 @@ import (
 
 // BuilderV2 Prompt 构建器 V2（五层架构 + 记忆注入）
 type BuilderV2 struct {
-	systemPrompt     string           // 组装后的 System Prompt（含 Layer 1-4）
-	memoryInjector   *MemoryInjector  // Layer 5: 动态记忆注入器
-	enableMemory     bool             // 是否启用记忆注入
+	systemPrompt   string          // 组装后的 System Prompt（含 Layer 1-4）
+	memoryInjector *MemoryInjector // Layer 5: 动态记忆注入器
+	enableMemory   bool            // 是否启用记忆注入
 }
 
 // NewBuilderV2 创建 V2 构建器

@@ -64,16 +64,16 @@ func RenderSimple(markdown string) string {
 func containsMarkdown(text string) bool {
 	// 常见的 Markdown 标记
 	markers := []string{
-		"##",     // 标题
-		"**",     // 粗体
-		"__",     // 粗体/斜体
-		"```",    // 代码块
-		"- ",     // 列表
-		"* ",     // 列表
-		"1. ",    // 有序列表
-		"[",      // 链接
-		"|",      // 表格
-		"> ",     // 引用
+		"##",  // 标题
+		"**",  // 粗体
+		"__",  // 粗体/斜体
+		"```", // 代码块
+		"- ",  // 列表
+		"* ",  // 列表
+		"1. ", // 有序列表
+		"[",   // 链接
+		"|",   // 表格
+		"> ",  // 引用
 	}
 
 	for _, marker := range markers {

@@ -7,66 +7,66 @@ func TestClientFactory_CreateFromConfig(t *testing.T) {
 	f := NewClientFactory(nil)
 
 	tests := []struct {
-		name       string
-		config     *ProviderConfig
-		wantName   string
-		wantErr    bool
+		name     string
+		config   *ProviderConfig
+		wantName string
+		wantErr  bool
 	}{
 		{
-			name:       "deepseek",
-			config:     &ProviderConfig{Type: "deepseek", BaseURL: "https://api.deepseek.com/v1", APIKey: "test", Model: "deepseek-chat"},
-			wantName:   "openai-compatible",
-			wantErr:    false,
+			name:     "deepseek",
+			config:   &ProviderConfig{Type: "deepseek", BaseURL: "https://api.deepseek.com/v1", APIKey: "test", Model: "deepseek-chat"},
+			wantName: "openai-compatible",
+			wantErr:  false,
 		},
 		{
-			name:       "openai",
-			config:     &ProviderConfig{Type: "openai", BaseURL: "https://api.openai.com/v1", APIKey: "test", Model: "gpt-4"},
-			wantName:   "openai-compatible",
-			wantErr:    false,
+			name:     "openai",
+			config:   &ProviderConfig{Type: "openai", BaseURL: "https://api.openai.com/v1", APIKey: "test", Model: "gpt-4"},
+			wantName: "openai-compatible",
+			wantErr:  false,
 		},
 		{
-			name:       "ollama",
-			config:     &ProviderConfig{Type: "ollama", BaseURL: "http://localhost:11434/v1", APIKey: "", Model: "llama2"},
-			wantName:   "openai-compatible",
-			wantErr:    false,
+			name:     "ollama",
+			config:   &ProviderConfig{Type: "ollama", BaseURL: "http://localhost:11434/v1", APIKey: "", Model: "llama2"},
+			wantName: "openai-compatible",
+			wantErr:  false,
 		},
 		{
-			name:       "claude",
-			config:     &ProviderConfig{Type: "claude", BaseURL: "https://api.anthropic.com/v1", APIKey: "test", Model: "claude-3"},
-			wantName:   "claude",
-			wantErr:    false,
+			name:     "claude",
+			config:   &ProviderConfig{Type: "claude", BaseURL: "https://api.anthropic.com/v1", APIKey: "test", Model: "claude-3"},
+			wantName: "claude",
+			wantErr:  false,
 		},
 		{
-			name:       "gemini",
-			config:     &ProviderConfig{Type: "gemini", BaseURL: "https://generativelanguage.googleapis.com/v1beta", APIKey: "test", Model: "gemini-pro"},
-			wantName:   "gemini",
-			wantErr:    false,
+			name:     "gemini",
+			config:   &ProviderConfig{Type: "gemini", BaseURL: "https://generativelanguage.googleapis.com/v1beta", APIKey: "test", Model: "gemini-pro"},
+			wantName: "gemini",
+			wantErr:  false,
 		},
 		{
-			name:       "unsupported",
-			config:     &ProviderConfig{Type: "unknown", BaseURL: "http://test", APIKey: "test", Model: "test"},
-			wantName:   "",
-			wantErr:    true,
+			name:     "unsupported",
+			config:   &ProviderConfig{Type: "unknown", BaseURL: "http://test", APIKey: "test", Model: "test"},
+			wantName: "",
+			wantErr:  true,
 		},
 		{
-			name:       "kimi (openai compatible)",
-			config:     &ProviderConfig{Type: "kimi", BaseURL: "https://api.moonshot.cn/v1", APIKey: "test", Model: "moonshot"},
-			wantName:   "openai-compatible",
-			wantErr:    false,
+			name:     "kimi (openai compatible)",
+			config:   &ProviderConfig{Type: "kimi", BaseURL: "https://api.moonshot.cn/v1", APIKey: "test", Model: "moonshot"},
+			wantName: "openai-compatible",
+			wantErr:  false,
 		},
 		{
-			name:       "qwen (openai compatible)",
-			config:     &ProviderConfig{Type: "qwen", BaseURL: "https://dashscope.aliyuncs.com/v1", APIKey: "test", Model: "qwen-turbo"},
-			wantName:   "openai-compatible",
-			wantErr:    false,
+			name:     "qwen (openai compatible)",
+			config:   &ProviderConfig{Type: "qwen", BaseURL: "https://dashscope.aliyuncs.com/v1", APIKey: "test", Model: "qwen-turbo"},
+			wantName: "openai-compatible",
+			wantErr:  false,
 		},
-	// GLM now uses Anthropic-compatible protocol (not OpenAI)
-	{
-		name:       "glm (anthropic compatible)",
-		config:     &ProviderConfig{Type: "glm", BaseURL: "https://open.bigmodel.cn/api/anthropic", APIKey: "test", Model: "glm-4"},
-		wantName:   "claude",
-		wantErr:    false,
-	},
+		// GLM now uses Anthropic-compatible protocol (not OpenAI)
+		{
+			name:     "glm (anthropic compatible)",
+			config:   &ProviderConfig{Type: "glm", BaseURL: "https://open.bigmodel.cn/api/anthropic", APIKey: "test", Model: "glm-4"},
+			wantName: "claude",
+			wantErr:  false,
+		},
 	}
 
 	for _, tt := range tests {

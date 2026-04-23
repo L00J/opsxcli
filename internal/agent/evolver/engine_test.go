@@ -411,9 +411,9 @@ func TestGenerateHint(t *testing.T) {
 
 	t.Run("localBash提示", func(t *testing.T) {
 		exec := &TaskExecution{
-			Query:       "查看日志",
-			TotalSteps:  3,
-			Duration:    5 * time.Second,
+			Query:      "查看日志",
+			TotalSteps: 3,
+			Duration:   5 * time.Second,
 			ToolCalls: []ToolCallRecord{
 				{ToolName: "local_bash", Success: true},
 				{ToolName: "ssh_execute", Success: true},

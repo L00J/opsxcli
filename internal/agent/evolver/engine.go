@@ -30,9 +30,9 @@ type reflectionClient interface {
 type TaskComplexity int
 
 const (
-	ComplexitySimple    TaskComplexity = iota // 简单: 1-3步工具调用
-	ComplexityModerate                        // 中等: 4-6步工具调用
-	ComplexityComplex                         // 复杂: 7+步工具调用
+	ComplexitySimple   TaskComplexity = iota // 简单: 1-3步工具调用
+	ComplexityModerate                       // 中等: 4-6步工具调用
+	ComplexityComplex                        // 复杂: 7+步工具调用
 )
 
 // EvolveStep 进化循环步骤标识
@@ -56,16 +56,16 @@ const (
 
 // EvolveStepInfo 进化步骤进度信息（传递给回调函数）
 type EvolveStepInfo struct {
-	Step        EvolveStep      `json:"step"`         // 当前步骤标识
-	StepIndex   int             `json:"step_index"`   // 步骤序号 (1-based)
-	TotalSteps  int             `json:"total_steps"`  // 预计总步骤数
-	StepName    string          `json:"step_name"`    // 步骤中文名
-	Complexity  TaskComplexity  `json:"complexity"`   // 任务复杂度
-	TaskQuery   string          `json:"task_query"`   // 原始查询（截断到100字符）
-	Duration    time.Duration   `json:"duration"`     // 当前步骤耗时
-	Score       float64         `json:"score"`        // 步骤评分（如有）
-	Detail      string          `json:"detail"`       // 步骤详情
-	StartTime   time.Time       `json:"start_time"`   // 步骤开始时间
+	Step       EvolveStep     `json:"step"`        // 当前步骤标识
+	StepIndex  int            `json:"step_index"`  // 步骤序号 (1-based)
+	TotalSteps int            `json:"total_steps"` // 预计总步骤数
+	StepName   string         `json:"step_name"`   // 步骤中文名
+	Complexity TaskComplexity `json:"complexity"`  // 任务复杂度
+	TaskQuery  string         `json:"task_query"`  // 原始查询（截断到100字符）
+	Duration   time.Duration  `json:"duration"`    // 当前步骤耗时
+	Score      float64        `json:"score"`       // 步骤评分（如有）
+	Detail     string         `json:"detail"`      // 步骤详情
+	StartTime  time.Time      `json:"start_time"`  // 步骤开始时间
 }
 
 // ProgressCallback 进度回调函数类型
@@ -110,53 +110,53 @@ func stepName(step EvolveStep) string {
 }
 
 type EvolverEngine struct {
-	experience    *ExperienceMemory    // 经验记忆层
-	environment   *EnvironmentMemory   // 环境记忆层
-	factual       *FactualMemory       // v0.5.0: 事实层 (MEMORY.md + USER.md)
-	procedural    *ProceduralMemory    // v0.5.0: 程序层 (SKILL_xxx.md)
-	mu            sync.RWMutex
-	baseDir       string               // 存储目录
-	minSteps      int                  // 触发 Evolver 的最小步数
-	enabled       bool                 // 是否启用
-	llmClient     reflectionClient     // 可选的 LLM 客户端，用于反射分析
-	simpleThresh  int                  // 简单任务阈值（≤此值为简单）
-	moderateThresh int                 // 中等任务阈值（≤此值为中等）
-	onProgress    ProgressCallback     // 进度回调（可选）
+	experience     *ExperienceMemory  // 经验记忆层
+	environment    *EnvironmentMemory // 环境记忆层
+	factual        *FactualMemory     // v0.5.0: 事实层 (MEMORY.md + USER.md)
+	procedural     *ProceduralMemory  // v0.5.0: 程序层 (SKILL_xxx.md)
+	mu             sync.RWMutex
+	baseDir        string           // 存储目录
+	minSteps       int              // 触发 Evolver 的最小步数
+	enabled        bool             // 是否启用
+	llmClient      reflectionClient // 可选的 LLM 客户端，用于反射分析
+	simpleThresh   int              // 简单任务阈值（≤此值为简单）
+	moderateThresh int              // 中等任务阈值（≤此值为中等）
+	onProgress     ProgressCallback // 进度回调（可选）
 }
 
 // TaskExecution 一次完整的任务执行记录（Evolver 的输入）
 type TaskExecution struct {
-	Query        string            `json:"query"`         // 用户原始查询
-	ToolCalls    []ToolCallRecord  `json:"tool_calls"`    // 工具调用序列
-	TotalSteps   int               `json:"total_steps"`   // 总迭代步数
-	TotalTokens  int               `json:"total_tokens"`  // 消耗的 token 数
-	Duration     time.Duration     `json:"duration"`      // 执行耗时
-	Success      bool              `json:"success"`       // 是否成功
-	FinalAnswer  string            `json:"final_answer"`  // 最终回答
-	Timestamp    time.Time         `json:"timestamp"`     // 执行时间
+	Query       string           `json:"query"`        // 用户原始查询
+	ToolCalls   []ToolCallRecord `json:"tool_calls"`   // 工具调用序列
+	TotalSteps  int              `json:"total_steps"`  // 总迭代步数
+	TotalTokens int              `json:"total_tokens"` // 消耗的 token 数
+	Duration    time.Duration    `json:"duration"`     // 执行耗时
+	Success     bool             `json:"success"`      // 是否成功
+	FinalAnswer string           `json:"final_answer"` // 最终回答
+	Timestamp   time.Time        `json:"timestamp"`    // 执行时间
 }
 
 // ToolCallRecord 单次工具调用记录
 type ToolCallRecord struct {
-	ToolName   string                 `json:"tool_name"`   // 工具名
-	Args       map[string]interface{} `json:"args"`        // 参数
-	Output     string                 `json:"output"`      // 输出（摘要）
-	Duration   time.Duration          `json:"duration"`    // 耗时
-	Success    bool                   `json:"success"`     // 是否成功
-	RiskLevel  int                    `json:"risk_level"`  // 风险等级
+	ToolName  string                 `json:"tool_name"`  // 工具名
+	Args      map[string]interface{} `json:"args"`       // 参数
+	Output    string                 `json:"output"`     // 输出（摘要）
+	Duration  time.Duration          `json:"duration"`   // 耗时
+	Success   bool                   `json:"success"`    // 是否成功
+	RiskLevel int                    `json:"risk_level"` // 风险等级
 }
 
 // EvolveResult 进化结果（10 步循环的输出）
 type EvolveResult struct {
-	TaskType           string    `json:"task_type"`            // 任务类型（自动分类）
-	ToolSequence       []string  `json:"tool_sequence"`        // 工具序列
-	LearnedHint        string    `json:"learned_hint"`         // 学到的提示
-	UserFeedback       string    `json:"user_feedback"`        // 用户反馈
-	ExperienceAdded    bool      `json:"experience_added"`     // 是否新增经验
-	EnvironmentUpdated bool      `json:"environment_updated"`  // 是否更新环境记忆
-	Consolidated       bool      `json:"consolidated"`         // 是否触发整合
-	SkillDistilled     bool      `json:"skill_distilled"`      // v0.5.0: 是否提炼了新Skill
-	DistilledSkillID   string    `json:"distilled_skill_id"`   // v0.5.0: 提炼的Skill ID
+	TaskType           string   `json:"task_type"`           // 任务类型（自动分类）
+	ToolSequence       []string `json:"tool_sequence"`       // 工具序列
+	LearnedHint        string   `json:"learned_hint"`        // 学到的提示
+	UserFeedback       string   `json:"user_feedback"`       // 用户反馈
+	ExperienceAdded    bool     `json:"experience_added"`    // 是否新增经验
+	EnvironmentUpdated bool     `json:"environment_updated"` // 是否更新环境记忆
+	Consolidated       bool     `json:"consolidated"`        // 是否触发整合
+	SkillDistilled     bool     `json:"skill_distilled"`     // v0.5.0: 是否提炼了新Skill
+	DistilledSkillID   string   `json:"distilled_skill_id"`  // v0.5.0: 提炼的Skill ID
 }
 
 // Reflection LLM 反射分析结果
@@ -214,10 +214,10 @@ func NewEvolverEngine(baseDir string) (*EvolverEngine, error) {
 		factual:        factMemory,
 		procedural:     procMemory,
 		baseDir:        baseDir,
-		minSteps:       2,      // 至少 2 步才触发 Evolver
-		simpleThresh:   3,      // ≤3步为简单任务
-		moderateThresh: 6,      // ≤6步为中等任务
-		enabled:        true,   // 默认启用
+		minSteps:       2,    // 至少 2 步才触发 Evolver
+		simpleThresh:   3,    // ≤3步为简单任务
+		moderateThresh: 6,    // ≤6步为中等任务
+		enabled:        true, // 默认启用
 		llmClient:      nil,
 	}, nil
 }
@@ -839,12 +839,12 @@ func (e *EvolverEngine) GetContextForPrompt(query string) string {
 // GetStats 获取进化统计
 func (e *EvolverEngine) GetStats() map[string]interface{} {
 	stats := map[string]interface{}{
-		"total_experiences":   e.experience.Count(),
-		"known_servers":       len(e.environment.KnownServers),
-		"total_queries":       len(e.environment.LastQueries),
-		"enabled":             e.enabled,
-		"min_steps_to_evolve": e.minSteps,
-		"complexity_simple_thresh":  e.simpleThresh,
+		"total_experiences":          e.experience.Count(),
+		"known_servers":              len(e.environment.KnownServers),
+		"total_queries":              len(e.environment.LastQueries),
+		"enabled":                    e.enabled,
+		"min_steps_to_evolve":        e.minSteps,
+		"complexity_simple_thresh":   e.simpleThresh,
 		"complexity_moderate_thresh": e.moderateThresh,
 	}
 	if e.factual != nil {
@@ -1241,7 +1241,7 @@ func (e *EvolverEngine) distillDescription(exec *TaskExecution, taskType string)
 	desc := fmt.Sprintf("自动提炼的%s流程，共 %d 个步骤",
 		taskType, toolCount)
 	if exec.Duration > 0 {
-		desc += fmt.Sprintf("，平均耗时 %s", (exec.Duration/time.Duration(toolCount)).Truncate(time.Second))
+		desc += fmt.Sprintf("，平均耗时 %s", (exec.Duration / time.Duration(toolCount)).Truncate(time.Second))
 	}
 	return desc
 }
@@ -1279,57 +1279,57 @@ func describeCommand(cmd string, stepNum int) string {
 	baseCmd := parts[0]
 
 	descriptions := map[string]string{
-		"ping":        "测试网络连通性",
-		"curl":        "发送 HTTP 请求",
-		"wget":        "下载文件",
-		"ssh":         "远程连接服务器",
-		"scp":         "远程拷贝文件",
-		"docker":      "操作 Docker 容器",
-		"kubectl":     "操作 Kubernetes 资源",
-		"systemctl":   "管理系统服务",
-		"journalctl":  "查看系统日志",
-		"top":         "查看进程资源使用",
-		"ps":          "查看进程列表",
-		"df":          "查看磁盘使用",
-		"du":          "查看目录大小",
-		"free":        "查看内存使用",
-		"netstat":     "查看网络连接",
-		"ss":          "查看网络套接字",
-		"ls":          "列出文件",
-		"cat":         "查看文件内容",
-		"grep":        "搜索文件内容",
-		"find":        "查找文件",
-		"tail":        "查看文件末尾",
-		"head":        "查看文件开头",
-		"awk":         "处理文本数据",
-		"sed":         "编辑文本流",
-		"sort":        "排序数据",
-		"uniq":        "去重",
-		"wc":          "统计数据",
-		"nslookup":    "DNS 查询",
-		"dig":         "DNS 查询",
-		"traceroute":  "追踪网络路由",
-		"iptables":    "管理防火墙规则",
-		"chmod":       "修改文件权限",
-		"chown":       "修改文件所有者",
-		"mkdir":       "创建目录",
-		"rm":          "删除文件",
-		"cp":          "复制文件",
-		"mv":          "移动文件",
-		"tar":         "打包/解包文件",
-		"unzip":       "解压 ZIP 文件",
-		"apt":         "APT 包管理",
-		"yum":         "YUM 包管理",
-		"brew":        "Homebrew 包管理",
-		"npm":         "NPM 包管理",
-		"pip":         "Python 包管理",
-		"go":          "Go 工具链",
-		"make":        "Make 构建",
-		"git":         "Git 版本控制",
-		"mysql":       "MySQL 数据库操作",
-		"redis-cli":   "Redis 操作",
-		"psql":        "PostgreSQL 操作",
-		"nginx":       "Nginx 操作",
+		"ping":       "测试网络连通性",
+		"curl":       "发送 HTTP 请求",
+		"wget":       "下载文件",
+		"ssh":        "远程连接服务器",
+		"scp":        "远程拷贝文件",
+		"docker":     "操作 Docker 容器",
+		"kubectl":    "操作 Kubernetes 资源",
+		"systemctl":  "管理系统服务",
+		"journalctl": "查看系统日志",
+		"top":        "查看进程资源使用",
+		"ps":         "查看进程列表",
+		"df":         "查看磁盘使用",
+		"du":         "查看目录大小",
+		"free":       "查看内存使用",
+		"netstat":    "查看网络连接",
+		"ss":         "查看网络套接字",
+		"ls":         "列出文件",
+		"cat":        "查看文件内容",
+		"grep":       "搜索文件内容",
+		"find":       "查找文件",
+		"tail":       "查看文件末尾",
+		"head":       "查看文件开头",
+		"awk":        "处理文本数据",
+		"sed":        "编辑文本流",
+		"sort":       "排序数据",
+		"uniq":       "去重",
+		"wc":         "统计数据",
+		"nslookup":   "DNS 查询",
+		"dig":        "DNS 查询",
+		"traceroute": "追踪网络路由",
+		"iptables":   "管理防火墙规则",
+		"chmod":      "修改文件权限",
+		"chown":      "修改文件所有者",
+		"mkdir":      "创建目录",
+		"rm":         "删除文件",
+		"cp":         "复制文件",
+		"mv":         "移动文件",
+		"tar":        "打包/解包文件",
+		"unzip":      "解压 ZIP 文件",
+		"apt":        "APT 包管理",
+		"yum":        "YUM 包管理",
+		"brew":       "Homebrew 包管理",
+		"npm":        "NPM 包管理",
+		"pip":        "Python 包管理",
+		"go":         "Go 工具链",
+		"make":       "Make 构建",
+		"git":        "Git 版本控制",
+		"mysql":      "MySQL 数据库操作",
+		"redis-cli":  "Redis 操作",
+		"psql":       "PostgreSQL 操作",
+		"nginx":      "Nginx 操作",
 	}
 
 	if desc, ok := descriptions[baseCmd]; ok {
@@ -1348,17 +1348,17 @@ func describeCommand(cmd string, stepNum int) string {
 func sanitizeID(s string) string {
 	// 替换常见中文为英文
 	replacements := map[string]string{
-		"分析":  "analysis",
-		"诊断":  "diagnosis",
-		"管理":  "management",
-		"操作":  "operation",
-		"远程":  "remote",
-		"文件":  "file",
-		"磁盘":  "disk",
-		"内存":  "memory",
-		"网络":  "network",
-		"服务":  "service",
-		"日志":  "log",
+		"分析":   "analysis",
+		"诊断":   "diagnosis",
+		"管理":   "management",
+		"操作":   "operation",
+		"远程":   "remote",
+		"文件":   "file",
+		"磁盘":   "disk",
+		"内存":   "memory",
+		"网络":   "network",
+		"服务":   "service",
+		"日志":   "log",
 		"通用运维": "general_ops",
 	}
 

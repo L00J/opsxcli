@@ -144,12 +144,12 @@ func newAlertCheckCmd() *cobra.Command {
 // runQuickCheck 执行快速检查模式。
 func runQuickCheck(cmd *cobra.Command, checker alert.Checker, output string) error {
 	type quickCheck struct {
-		Metric   string  `json:"metric"`
-		Value    float64 `json:"value"`
-		Operator string  `json:"operator"`
+		Metric    string  `json:"metric"`
+		Value     float64 `json:"value"`
+		Operator  string  `json:"operator"`
 		Threshold float64 `json:"threshold"`
-		Pass     bool    `json:"pass"`
-		Message  string  `json:"message"`
+		Pass      bool    `json:"pass"`
+		Message   string  `json:"message"`
 	}
 
 	var checks []quickCheck
@@ -406,9 +406,9 @@ func newAlertSilenceCmd() *cobra.Command {
 			}
 
 			silenceRule := &alert.SilenceRule{
-				MatchName:  ruleName,
-				Reason:     reason,
-				Until:      time.Now().Add(dur),
+				MatchName: ruleName,
+				Reason:    reason,
+				Until:     time.Now().Add(dur),
 			}
 			if level != "" {
 				silenceRule.MatchLevel = alert.Level(level)

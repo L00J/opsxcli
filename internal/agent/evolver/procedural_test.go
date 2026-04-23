@@ -44,8 +44,8 @@ func TestProceduralMemory_Update(t *testing.T) {
 
 	// 创建
 	skill := &SkillEntry{
-		ID:      "test_skill",
-		Name:    "测试技能",
+		ID:       "test_skill",
+		Name:     "测试技能",
 		Category: "system",
 	}
 	pm.SetSkill(skill)
@@ -73,7 +73,7 @@ func TestProceduralMemory_Delete(t *testing.T) {
 	pm := NewProceduralMemory(dir)
 
 	pm.SetSkill(&SkillEntry{ID: "to_delete", Name: "待删除"})
-	
+
 	if !pm.DeleteSkill("to_delete") {
 		t.Fatal("should delete existing skill")
 	}
@@ -108,17 +108,17 @@ func TestProceduralMemory_FindMatchingSkills(t *testing.T) {
 	pm := NewProceduralMemory(dir)
 
 	pm.SetSkill(&SkillEntry{
-		ID:       "disk_check",
-		Name:     "磁盘检查",
-		Category: "system",
-		Triggers: []string{"磁盘", "空间", "disk"},
+		ID:         "disk_check",
+		Name:       "磁盘检查",
+		Category:   "system",
+		Triggers:   []string{"磁盘", "空间", "disk"},
 		UsageCount: 5,
 	})
 	pm.SetSkill(&SkillEntry{
-		ID:       "net_diag",
-		Name:     "网络诊断",
-		Category: "network",
-		Triggers: []string{"网络", "ping", "连接"},
+		ID:         "net_diag",
+		Name:       "网络诊断",
+		Category:   "network",
+		Triggers:   []string{"网络", "ping", "连接"},
 		UsageCount: 3,
 	})
 

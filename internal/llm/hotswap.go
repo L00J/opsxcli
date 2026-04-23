@@ -12,19 +12,19 @@ import (
 
 // ProviderHealth Provider 健康状态
 type ProviderHealth struct {
-	Name      string    `json:"name"`
-	Type      string    `json:"type"`
-	Healthy   bool      `json:"healthy"`
+	Name      string        `json:"name"`
+	Type      string        `json:"type"`
+	Healthy   bool          `json:"healthy"`
 	Latency   time.Duration `json:"latency"`
-	Error     string    `json:"error,omitempty"`
-	LastCheck time.Time `json:"last_check"`
+	Error     string        `json:"error,omitempty"`
+	LastCheck time.Time     `json:"last_check"`
 }
 
 // HotSwapEvent 热切换事件
 type HotSwapEvent struct {
 	FromProvider string    `json:"from_provider"`
 	ToProvider   string    `json:"to_provider"`
-	Reason       string    `json:"reason"`     // "manual", "failover", "health_check"
+	Reason       string    `json:"reason"` // "manual", "failover", "health_check"
 	Timestamp    time.Time `json:"timestamp"`
 }
 

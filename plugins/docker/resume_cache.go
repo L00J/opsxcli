@@ -16,11 +16,11 @@ type ResumeCache struct {
 
 // LayerResumeInfo Layer 断点续传信息
 type LayerResumeInfo struct {
-	Digest    string               `json:"digest"`
-	TotalSize int64                `json:"total_size"`
-	Chunks    []ChunkResumeInfo    `json:"chunks"`
-	UpdatedAt time.Time            `json:"updated_at"`
-	Version   string               `json:"version"` // 缓存格式版本
+	Digest    string            `json:"digest"`
+	TotalSize int64             `json:"total_size"`
+	Chunks    []ChunkResumeInfo `json:"chunks"`
+	UpdatedAt time.Time         `json:"updated_at"`
+	Version   string            `json:"version"` // 缓存格式版本
 }
 
 // ChunkResumeInfo 分片断点续传信息

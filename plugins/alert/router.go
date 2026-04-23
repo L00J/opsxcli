@@ -10,7 +10,7 @@ import (
 
 // Router 负责将告警路由到对应的通知渠道。
 type Router struct {
-	mu       sync.RWMutex
+	mu        sync.RWMutex
 	notifiers map[string]notify.Notifier // 缓存已创建的 Notifier 实例
 }
 

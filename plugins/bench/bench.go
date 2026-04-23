@@ -16,34 +16,34 @@ import (
 
 // BenchOptions holds configuration for the benchmark run.
 type BenchOptions struct {
-	URL               string
-	Method            string
-	Headers           map[string]string
-	Body              string
-	Concurrency       int
-	Requests          int
-	Duration          time.Duration
-	Timeout           time.Duration
-	KeepAlive         bool
+	URL                string
+	Method             string
+	Headers            map[string]string
+	Body               string
+	Concurrency        int
+	Requests           int
+	Duration           time.Duration
+	Timeout            time.Duration
+	KeepAlive          bool
 	InsecureSkipVerify bool
 }
 
 // Result holds the aggregated benchmark results.
 type Result struct {
-	TotalRequests   int
-	SuccessRequests int
-	FailedRequests  int
-	TotalTime       time.Duration
-	MinLatency      time.Duration
-	MaxLatency      time.Duration
-	AvgLatency      time.Duration
-	P50Latency      time.Duration
-	P90Latency      time.Duration
-	P95Latency      time.Duration
-	P99Latency      time.Duration
+	TotalRequests     int
+	SuccessRequests   int
+	FailedRequests    int
+	TotalTime         time.Duration
+	MinLatency        time.Duration
+	MaxLatency        time.Duration
+	AvgLatency        time.Duration
+	P50Latency        time.Duration
+	P90Latency        time.Duration
+	P95Latency        time.Duration
+	P99Latency        time.Duration
 	RequestsPerSecond float64
-	StatusCodes     map[int]int
-	Errors          []string
+	StatusCodes       map[int]int
+	Errors            []string
 }
 
 type requestResult struct {

@@ -116,8 +116,8 @@ func TestParseContainerInspect_Full(t *testing.T) {
 			"FinishedAt": "0001-01-01T00:00:00Z",
 		},
 		"NetworkSettings": map[string]interface{}{
-			"Gateway":    "172.17.0.1",
-			"IPAddress":  "172.17.0.2",
+			"Gateway":   "172.17.0.1",
+			"IPAddress": "172.17.0.2",
 			"Networks": map[string]interface{}{
 				"bridge": map[string]interface{}{},
 			},
@@ -240,8 +240,8 @@ func TestParseNetworkSettings_Full(t *testing.T) {
 		"Gateway":   "172.17.0.1",
 		"IPAddress": "172.17.0.5",
 		"Networks": map[string]interface{}{
-			"bridge":  map[string]interface{}{},
-			"my-net":  map[string]interface{}{},
+			"bridge": map[string]interface{}{},
+			"my-net": map[string]interface{}{},
 		},
 		"Ports": map[string]interface{}{
 			"80/tcp": []interface{}{

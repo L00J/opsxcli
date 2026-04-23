@@ -8,13 +8,13 @@ import (
 
 // User 用户模型
 type User struct {
-	ID           int64     `json:"id"`
-	Username     string    `json:"username"`
-	PasswordHash string    `json:"-"`
-	Role         string    `json:"role"`
-	Email        string    `json:"email"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           int64      `json:"id"`
+	Username     string     `json:"username"`
+	PasswordHash string     `json:"-"`
+	Role         string     `json:"role"`
+	Email        string     `json:"email"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 	LastLogin    *time.Time `json:"last_login,omitempty"`
 }
 

@@ -61,7 +61,7 @@ func levelToColor(level string) string {
 type feishuCard struct {
 	MsgType string `json:"msg_type"`
 	Card    struct {
-		Header  feishuCardHeader  `json:"header"`
+		Header   feishuCardHeader    `json:"header"`
 		Elements []feishuCardElement `json:"elements"`
 	} `json:"card"`
 }

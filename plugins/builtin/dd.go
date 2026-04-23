@@ -11,16 +11,16 @@ import (
 
 // DdOptions dd 命令选项
 type DdOptions struct {
-	If         string // input file
-	Of         string // output file
-	Bs         int64  // block size
-	Count      int64  // number of blocks to copy
-	Skip       int64  // skip N blocks at start of input
-	Seek       int64  // skip N blocks at start of output
-	Conv       string // conversion options (如: notrunc, sync)
-	Status     string // status level (progress, noxfer, none)
-	IFlag      string // input flags
-	OFlag      string // output flags
+	If     string // input file
+	Of     string // output file
+	Bs     int64  // block size
+	Count  int64  // number of blocks to copy
+	Skip   int64  // skip N blocks at start of input
+	Seek   int64  // skip N blocks at start of output
+	Conv   string // conversion options (如: notrunc, sync)
+	Status string // status level (progress, noxfer, none)
+	IFlag  string // input flags
+	OFlag  string // output flags
 }
 
 // Dd 实现 dd 命令

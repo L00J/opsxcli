@@ -195,8 +195,8 @@ func TestNetworkData_QualityMetrics(t *testing.T) {
 		data.ErrorRate = float64(data.TotalErrors) / float64(totalPkts) * 100
 	}
 
-	assert.Equal(t, 1.0, data.PacketLossRate)  // 10/1000 * 100
-	assert.Equal(t, 0.5, data.ErrorRate)        // 5/1000 * 100
+	assert.Equal(t, 1.0, data.PacketLossRate) // 10/1000 * 100
+	assert.Equal(t, 0.5, data.ErrorRate)      // 5/1000 * 100
 }
 
 // TestNetworkData_QualityMetrics_ZeroPackets 无数据包时丢包率和错误率为0

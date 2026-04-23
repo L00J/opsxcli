@@ -40,14 +40,14 @@ type TopResult struct {
 
 // ProcessInfo 进程信息
 type ProcessInfo struct {
-	UID    string
-	PID    string
-	PPID   string
-	C      string
-	STIME  string
-	TTY    string
-	TIME   string
-	CMD    string
+	UID   string
+	PID   string
+	PPID  string
+	C     string
+	STIME string
+	TTY   string
+	TIME  string
+	CMD   string
 }
 
 // Stats 获取容器资源使用统计

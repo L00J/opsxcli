@@ -115,9 +115,9 @@ func TestFormatToolCallDetail_WithArgs(t *testing.T) {
 
 func TestFormatToolCallDetail_SkipsInternalFields(t *testing.T) {
 	args := map[string]interface{}{
-		"_i":       "ignored",
-		"_intent":  "ignored too",
-		"visible":  "shown",
+		"_i":      "ignored",
+		"_intent": "ignored too",
+		"visible": "shown",
 	}
 	result := formatToolCallDetail("tool", args)
 	assert.NotContains(t, result, "_i=")

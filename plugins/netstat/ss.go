@@ -902,13 +902,13 @@ func PrintComprehensiveDashboard(connections []SsConnection, topN int) error {
 
 	// 3. 收集流量统计（基于队列大小估算）
 	type TrafficStat struct {
-		srcAddr  string
-		srcPort  uint32
-		dstAddr  string
-		dstPort  uint32
-		recvKB   float64
-		sendKB   float64
-		totalKB  float64
+		srcAddr string
+		srcPort uint32
+		dstAddr string
+		dstPort uint32
+		recvKB  float64
+		sendKB  float64
+		totalKB float64
 	}
 
 	trafficStats := make([]TrafficStat, 0)

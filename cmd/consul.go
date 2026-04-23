@@ -21,15 +21,15 @@ func NewConsulCmd() *cobra.Command {
 		clean       bool
 
 		// K8s 模式参数
-		kubeconfig  string
-		clearCache  bool
+		kubeconfig string
+		clearCache bool
 
 		// 云主机模式参数
-		hosts           []string
-		hostsFile       string
-		appPort         int
-		nodeExpPort     int
-		skipNodeExporter bool
+		hosts              []string
+		hostsFile          string
+		appPort            int
+		nodeExpPort        int
+		skipNodeExporter   bool
 		insecureSkipVerify bool
 	)
 

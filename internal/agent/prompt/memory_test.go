@@ -412,7 +412,7 @@ func TestClassifyTaskTypeForPrompt(t *testing.T) {
 		{"awk 处理数据", "文件操作"},
 		{"ssh 远程执行", "远程操作"},
 		{"远程连接服务器", "网络诊断"}, // "连接"先匹配到网络诊断
-		{"远程执行脚本", "远程操作"},    // 无"连接"关键词，匹配"远程"
+		{"远程执行脚本", "远程操作"},  // 无"连接"关键词，匹配"远程"
 		{"hello world", "通用运维"},
 		{"", "通用运维"},
 	}
@@ -474,10 +474,10 @@ func TestIsIPAddress(t *testing.T) {
 		{"10.0.0.1", true},
 		{"0.0.0.0", true},
 		{"255.255.255.255", true},
-		{"1.2.3", false},       // only 3 parts
-		{"1.2.3.4.5", false},   // 5 parts
+		{"1.2.3", false},     // only 3 parts
+		{"1.2.3.4.5", false}, // 5 parts
 		{"abc.def.ghi.jkl", false},
-		{"256.1.1.1", false},   // > 255
+		{"256.1.1.1", false}, // > 255
 		{"", false},
 		{"localhost", false},
 		{"192.168.1.999", false},

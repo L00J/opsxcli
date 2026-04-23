@@ -945,10 +945,10 @@ func TestFormatDuration_零(t *testing.T) {
 // TestParseListItem 测试列表项解析
 func TestParseListItem(t *testing.T) {
 	tests := []struct {
-		name         string
-		input        string
-		wantMarker   string
-		wantText     string
+		name       string
+		input      string
+		wantMarker string
+		wantText   string
 	}{
 		{"dash列表", "- item text", "•", "item text"},
 		{"star列表", "* item text", "•", "item text"},

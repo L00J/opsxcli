@@ -25,7 +25,7 @@ type ToolStatus struct {
 // NewToolStatus 创建工具状态提示
 func NewToolStatus() *ToolStatus {
 	return &ToolStatus{
-		spinner: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+		spinner:     []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
 		stopChan:    make(chan struct{}),
 		displayMode: "detailed", // 默认详细模式
 	}
@@ -186,20 +186,20 @@ func (ts *ToolStatus) renderFinalStatus(toolName string, duration time.Duration,
 func (ts *ToolStatus) getToolIcon(toolName string) string {
 	iconMap := map[string]string{
 		// 网络工具
-		"curl":       "🌐",
-		"wget":       "⬇️",
-		"ping":       "📡",
-		"telnet":     "🔌",
-		"ssh":        "🔐",
-		"request":    "🌐",
+		"curl":    "🌐",
+		"wget":    "⬇️",
+		"ping":    "📡",
+		"telnet":  "🔌",
+		"ssh":     "🔐",
+		"request": "🌐",
 
 		// 系统工具
-		"bash":       "⚙️",
-		"shell":      "⚙️",
-		"ps":         "📊",
-		"top":        "📈",
-		"free":       "💾",
-		"df":         "💿",
+		"bash":  "⚙️",
+		"shell": "⚙️",
+		"ps":    "📊",
+		"top":   "📈",
+		"free":  "💾",
+		"df":    "💿",
 
 		// 文件工具
 		"cat":        "📄",
@@ -210,33 +210,33 @@ func (ts *ToolStatus) getToolIcon(toolName string) string {
 		"file_edit":  "✏️",
 
 		// Kubernetes
-		"kubectl":         "☸️",
-		"kubectl_get":     "☸️",
-		"kubectl_logs":    "☸️",
-		"kubectl_describe":"☸️",
-		"kubectl_delete":  "☸️",
+		"kubectl":          "☸️",
+		"kubectl_get":      "☸️",
+		"kubectl_logs":     "☸️",
+		"kubectl_describe": "☸️",
+		"kubectl_delete":   "☸️",
 
 		// 容器
-		"docker":     "🐳",
+		"docker": "🐳",
 
 		// 数据库
-		"redis":      "🔴",
-		"mysql":      "🐬",
-		"postgres":   "🐘",
+		"redis":    "🔴",
+		"mysql":    "🐬",
+		"postgres": "🐘",
 
 		// 代码工具
-		"git_status": "📝",
-		"git_diff":   "📝",
-		"code_search":"🔎",
+		"git_status":  "📝",
+		"git_diff":    "📝",
+		"code_search": "🔎",
 
 		// 监控
 		"sys_monitor": "📊",
 		"net_monitor": "📡",
 
 		// Web相关
-		"web_search":  "🔍",
-		"web_fetch":   "🌐",
-		"api_call":    "🔌",
+		"web_search": "🔍",
+		"web_fetch":  "🌐",
+		"api_call":   "🔌",
 	}
 
 	if icon, ok := iconMap[strings.ToLower(toolName)]; ok {
@@ -288,8 +288,8 @@ func (ts *ToolStatus) getToolDisplayName(toolName string) string {
 		"postgres": "PostgreSQL",
 
 		// 代码工具
-		"git_status": "Git Status",
-		"git_diff":   "Git Diff",
+		"git_status":  "Git Status",
+		"git_diff":    "Git Diff",
 		"code_search": "Code Search",
 
 		// 监控

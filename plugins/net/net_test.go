@@ -231,9 +231,9 @@ func TestTabTypeConstants(t *testing.T) {
 
 func TestInterfaceInfo(t *testing.T) {
 	info := &InterfaceInfo{
-		Name:     "eth0",
-		MTU:      1500,
-		IsUp:     true,
+		Name:      "eth0",
+		MTU:       1500,
+		IsUp:      true,
 		BytesSent: 1000,
 		BytesRecv: 2000,
 	}
@@ -256,9 +256,9 @@ func TestNetStats(t *testing.T) {
 
 func TestInterfaceTraffic(t *testing.T) {
 	traffic := &InterfaceTraffic{
-		Name:       "eth0",
-		SendRate:   1024.5,
-		RecvRate:   2048.0,
+		Name:         "eth0",
+		SendRate:     1024.5,
+		RecvRate:     2048.0,
 		PeakSendRate: 5000.0,
 		PeakRecvRate: 8000.0,
 	}

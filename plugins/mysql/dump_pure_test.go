@@ -22,9 +22,9 @@ func TestFilterTables_AllPass(t *testing.T) {
 func TestFilterTables_IgnoreOne(t *testing.T) {
 	tables := []string{"users", "orders", "products"}
 	opts := DumpOptions{
-		Format:     "sql",
-		WithData:   true,
-		WithSchema: true,
+		Format:       "sql",
+		WithData:     true,
+		WithSchema:   true,
 		IgnoreTables: []string{"orders"},
 	}
 	result := filterTables(tables, opts)

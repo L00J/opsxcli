@@ -42,7 +42,7 @@ func TestCalcDiskIOLinux_CrossPlatform(t *testing.T) {
 				WeightedIO: 15000,
 			},
 			deltaTime:          1.0,
-			wantAvgQuSz:        15.0, // (30000-15000)/1.0/1000
+			wantAvgQuSz:        15.0,  // (30000-15000)/1.0/1000
 			wantUtilPercent:    100.0, // (20000-10000)/1.0/10 = 1000, capped to 100
 			wantAwaitPositive:  true,
 			wantRAwaitPositive: true,
@@ -93,7 +93,7 @@ func TestCalcDiskIOLinux_CrossPlatform(t *testing.T) {
 			},
 			deltaTime:          0.1,
 			wantAvgQuSz:        2000.0, // 200000/0.1/1000
-			wantUtilPercent:    100.0,   // capped
+			wantUtilPercent:    100.0,  // capped
 			wantAwaitPositive:  true,
 			wantRAwaitPositive: true,
 			wantWAwaitPositive: true,

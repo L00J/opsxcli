@@ -67,49 +67,49 @@ func newMockScreen() *mockScreen {
 	return &mockScreen{cells: make(map[[2]int]rune)}
 }
 
-func (m *mockScreen) Init() error                                                       { return nil }
-func (m *mockScreen) Fini()                                                             {}
-func (m *mockScreen) Clear()                                                            {}
-func (m *mockScreen) Fill(rune, tcell.Style)                                            {}
-func (m *mockScreen) SetCell(x int, y int, style tcell.Style, ch ...rune)              {}
+func (m *mockScreen) Init() error                                         { return nil }
+func (m *mockScreen) Fini()                                               {}
+func (m *mockScreen) Clear()                                              {}
+func (m *mockScreen) Fill(rune, tcell.Style)                              {}
+func (m *mockScreen) SetCell(x int, y int, style tcell.Style, ch ...rune) {}
 func (m *mockScreen) SetContent(x, y int, main rune, comb []rune, st tcell.Style) {
 	m.cells[[2]int{x, y}] = main
 }
 func (m *mockScreen) GetContent(x, y int) (rune, []rune, tcell.Style, int) {
 	return m.cells[[2]int{x, y}], nil, tcell.StyleDefault, 1
 }
-func (m *mockScreen) SetStyle(tcell.Style)                                              {}
-func (m *mockScreen) ShowCursor(int, int)                                               {}
-func (m *mockScreen) HideCursor()                                                       {}
-func (m *mockScreen) SetCursorStyle(tcell.CursorStyle)                                  {}
-func (m *mockScreen) Size() (int, int)                                                  { return 40, 20 }
-func (m *mockScreen) ChannelEvents(ch chan<- tcell.Event, quit <-chan struct{})         {}
-func (m *mockScreen) PollEvent() tcell.Event                                            { return nil }
-func (m *mockScreen) HasPendingEvent() bool                                             { return false }
-func (m *mockScreen) PostEvent(tcell.Event) error                                       { return nil }
-func (m *mockScreen) PostEventWait(tcell.Event)                                         {}
-func (m *mockScreen) EnableMouse(...tcell.MouseFlags)                                   {}
-func (m *mockScreen) DisableMouse()                                                     {}
-func (m *mockScreen) EnablePaste()                                                      {}
-func (m *mockScreen) DisablePaste()                                                     {}
-func (m *mockScreen) EnableFocus()                                                      {}
-func (m *mockScreen) DisableFocus()                                                     {}
-func (m *mockScreen) HasMouse() bool                                                    { return false }
-func (m *mockScreen) Colors() int                                                       { return 256 }
-func (m *mockScreen) Show()                                                             {}
-func (m *mockScreen) Sync()                                                             {}
-func (m *mockScreen) CharacterSet() string                                              { return "UTF-8" }
-func (m *mockScreen) RegisterRuneFallback(rune, string)                                 {}
-func (m *mockScreen) UnregisterRuneFallback(rune)                                       {}
-func (m *mockScreen) CanDisplay(r rune, checkFallbacks bool) bool                      { return true }
-func (m *mockScreen) Resize(int, int, int, int)                                         {}
-func (m *mockScreen) SetSize(int, int)                                                  {}
-func (m *mockScreen) LockRegion(int, int, int, int, bool)                               {}
-func (m *mockScreen) HasKey(tcell.Key) bool                                             { return true }
-func (m *mockScreen) Suspend() error                                                    { return nil }
-func (m *mockScreen) Resume() error                                                     { return nil }
-func (m *mockScreen) Beep() error                                                       { return nil }
-func (m *mockScreen) Tty() (tcell.Tty, bool)                                            { return nil, false }
+func (m *mockScreen) SetStyle(tcell.Style)                                      {}
+func (m *mockScreen) ShowCursor(int, int)                                       {}
+func (m *mockScreen) HideCursor()                                               {}
+func (m *mockScreen) SetCursorStyle(tcell.CursorStyle)                          {}
+func (m *mockScreen) Size() (int, int)                                          { return 40, 20 }
+func (m *mockScreen) ChannelEvents(ch chan<- tcell.Event, quit <-chan struct{}) {}
+func (m *mockScreen) PollEvent() tcell.Event                                    { return nil }
+func (m *mockScreen) HasPendingEvent() bool                                     { return false }
+func (m *mockScreen) PostEvent(tcell.Event) error                               { return nil }
+func (m *mockScreen) PostEventWait(tcell.Event)                                 {}
+func (m *mockScreen) EnableMouse(...tcell.MouseFlags)                           {}
+func (m *mockScreen) DisableMouse()                                             {}
+func (m *mockScreen) EnablePaste()                                              {}
+func (m *mockScreen) DisablePaste()                                             {}
+func (m *mockScreen) EnableFocus()                                              {}
+func (m *mockScreen) DisableFocus()                                             {}
+func (m *mockScreen) HasMouse() bool                                            { return false }
+func (m *mockScreen) Colors() int                                               { return 256 }
+func (m *mockScreen) Show()                                                     {}
+func (m *mockScreen) Sync()                                                     {}
+func (m *mockScreen) CharacterSet() string                                      { return "UTF-8" }
+func (m *mockScreen) RegisterRuneFallback(rune, string)                         {}
+func (m *mockScreen) UnregisterRuneFallback(rune)                               {}
+func (m *mockScreen) CanDisplay(r rune, checkFallbacks bool) bool               { return true }
+func (m *mockScreen) Resize(int, int, int, int)                                 {}
+func (m *mockScreen) SetSize(int, int)                                          {}
+func (m *mockScreen) LockRegion(int, int, int, int, bool)                       {}
+func (m *mockScreen) HasKey(tcell.Key) bool                                     { return true }
+func (m *mockScreen) Suspend() error                                            { return nil }
+func (m *mockScreen) Resume() error                                             { return nil }
+func (m *mockScreen) Beep() error                                               { return nil }
+func (m *mockScreen) Tty() (tcell.Tty, bool)                                    { return nil, false }
 
 func TestDrawBox_NoTitle(t *testing.T) {
 	s := newMockScreen()
@@ -154,11 +154,11 @@ func TestRuneWidth(t *testing.T) {
 	})
 
 	t.Run("CJK中文字符宽度为2", func(t *testing.T) {
-		assert.Equal(t, 2, runeWidth('中'))  // U+4E2D
-		assert.Equal(t, 2, runeWidth('文'))  // U+6587
-		assert.Equal(t, 2, runeWidth('字'))  // U+5B57
-		assert.Equal(t, 2, runeWidth('你'))  // U+4F60
-		assert.Equal(t, 2, runeWidth('好'))  // U+597D
+		assert.Equal(t, 2, runeWidth('中')) // U+4E2D
+		assert.Equal(t, 2, runeWidth('文')) // U+6587
+		assert.Equal(t, 2, runeWidth('字')) // U+5B57
+		assert.Equal(t, 2, runeWidth('你')) // U+4F60
+		assert.Equal(t, 2, runeWidth('好')) // U+597D
 	})
 
 	t.Run("韩文字符宽度为2", func(t *testing.T) {
@@ -176,11 +176,11 @@ func TestRuneWidth(t *testing.T) {
 	})
 
 	t.Run("其他Unicode字符宽度为1", func(t *testing.T) {
-		assert.Equal(t, 1, runeWidth('é'))  // U+00E9 拉丁字母带锐音符
-		assert.Equal(t, 1, runeWidth('ñ'))  // U+00F1
-		assert.Equal(t, 1, runeWidth('ü'))  // U+00FC
-		assert.Equal(t, 1, runeWidth('©'))  // U+00A9
-		assert.Equal(t, 1, runeWidth('®'))  // U+00AE
+		assert.Equal(t, 1, runeWidth('é')) // U+00E9 拉丁字母带锐音符
+		assert.Equal(t, 1, runeWidth('ñ')) // U+00F1
+		assert.Equal(t, 1, runeWidth('ü')) // U+00FC
+		assert.Equal(t, 1, runeWidth('©')) // U+00A9
+		assert.Equal(t, 1, runeWidth('®')) // U+00AE
 	})
 
 	t.Run("CJK兼容表意文字宽度为2", func(t *testing.T) {
@@ -322,4 +322,3 @@ func TestDrawBox_LargeBox(t *testing.T) {
 	assert.Equal(t, 'i', s.cells[[2]int{3, 0}])
 	assert.Equal(t, 'g', s.cells[[2]int{4, 0}])
 }
-

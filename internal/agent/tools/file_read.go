@@ -69,13 +69,13 @@ type FileLine struct {
 
 // FileReadResult 文件读取结果结构
 type FileReadResult struct {
-	Path        string     `json:"path"`
-	TotalLines  int        `json:"total_lines"`
-	Lines       []FileLine `json:"lines"`
-	IsBinary    bool       `json:"is_binary,omitempty"`
-	Truncated   bool       `json:"truncated,omitempty"`
-	ReadLines   int        `json:"read_lines"`
-	StartLine   int        `json:"start_line"`
+	Path       string     `json:"path"`
+	TotalLines int        `json:"total_lines"`
+	Lines      []FileLine `json:"lines"`
+	IsBinary   bool       `json:"is_binary,omitempty"`
+	Truncated  bool       `json:"truncated,omitempty"`
+	ReadLines  int        `json:"read_lines"`
+	StartLine  int        `json:"start_line"`
 }
 
 // Execute 执行文件读取

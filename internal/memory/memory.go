@@ -19,17 +19,17 @@ const (
 
 // Memory 记忆项
 type Memory struct {
-	ID          int64       `json:"id"`
-	Type        MemoryType  `json:"type"`
-	SessionID   *string     `json:"session_id,omitempty"`   // 会话ID（短暂记忆）
-	Category    string      `json:"category"`               // 分类：knowledge, preference, environment
-	Key         string      `json:"key"`                    // 键
-	Value       string      `json:"value"`                  // 值（JSON格式）
-	Metadata    string      `json:"metadata,omitempty"`     // 元数据
-	AccessCount int         `json:"access_count"`           // 访问次数
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
-	ExpiresAt   *time.Time  `json:"expires_at,omitempty"`   // 过期时间
+	ID          int64      `json:"id"`
+	Type        MemoryType `json:"type"`
+	SessionID   *string    `json:"session_id,omitempty"` // 会话ID（短暂记忆）
+	Category    string     `json:"category"`             // 分类：knowledge, preference, environment
+	Key         string     `json:"key"`                  // 键
+	Value       string     `json:"value"`                // 值（JSON格式）
+	Metadata    string     `json:"metadata,omitempty"`   // 元数据
+	AccessCount int        `json:"access_count"`         // 访问次数
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ExpiresAt   *time.Time `json:"expires_at,omitempty"` // 过期时间
 }
 
 // MemoryManager 记忆管理器
@@ -43,13 +43,13 @@ type MemoryManager struct {
 
 // ConversationContext 对话上下文（短暂记忆）
 type ConversationContext struct {
-	SessionID    string          `json:"session_id"`
-	Messages     []llm.Message   `json:"messages"`      // 对话历史
-	Summary      string          `json:"summary"`       // 对话摘要
-	ToolUsage    map[string]int  `json:"tool_usage"`    // 工具使用统计
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
-	MaxMessages  int             `json:"max_messages"`  // 最大消息数
+	SessionID   string         `json:"session_id"`
+	Messages    []llm.Message  `json:"messages"`   // 对话历史
+	Summary     string         `json:"summary"`    // 对话摘要
+	ToolUsage   map[string]int `json:"tool_usage"` // 工具使用统计
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	MaxMessages int            `json:"max_messages"` // 最大消息数
 }
 
 // NewMemoryManager 创建记忆管理器
@@ -57,9 +57,9 @@ func NewMemoryManager(database *db.DB) *MemoryManager {
 	return &MemoryManager{
 		db:               database,
 		shortTermCache:   make(map[string]*ConversationContext),
-		maxShortTermSize: 100 * 1024 * 1024,  // 100MB 短暂记忆
-		maxLongTermSize:  400 * 1024 * 1024,  // 400MB 永久记忆
-		totalLimit:       500 * 1024 * 1024,  // 500MB 总限制
+		maxShortTermSize: 100 * 1024 * 1024, // 100MB 短暂记忆
+		maxLongTermSize:  400 * 1024 * 1024, // 400MB 永久记忆
+		totalLimit:       500 * 1024 * 1024, // 500MB 总限制
 	}
 }
 

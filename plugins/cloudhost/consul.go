@@ -21,10 +21,10 @@ type HostEntry struct {
 
 // ConsulServiceRegistration Consul 服务注册数据
 type ConsulServiceRegistration struct {
-	ID      string              `json:"id"`
-	Name    string              `json:"name"`
-	Address string              `json:"address"`
-	Port    int                 `json:"port"`
+	ID      string               `json:"id"`
+	Name    string               `json:"name"`
+	Address string               `json:"address"`
+	Port    int                  `json:"port"`
 	Checks  []ConsulServiceCheck `json:"checks"`
 }
 
@@ -41,12 +41,12 @@ type ConsulHealthCheckResult struct {
 
 // CloudHostRegistry 云主机 Consul 注册器
 type CloudHostRegistry struct {
-	consulURL    string
-	hosts        []HostEntry
-	appPort      int
-	nodeExpPort  int
-	metricsPath  string
-	httpClient   *http.Client
+	consulURL   string
+	hosts       []HostEntry
+	appPort     int
+	nodeExpPort int
+	metricsPath string
+	httpClient  *http.Client
 }
 
 // NewCloudHostRegistry 创建云主机注册器

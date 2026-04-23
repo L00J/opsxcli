@@ -171,8 +171,8 @@ func TestParseRedisCommand_EdgeCases(t *testing.T) {
 		want  []string
 	}{
 		{"Tab分隔", "GET\tmykey", []string{"GET", "mykey"}}, // tab不是空格，不会分割
-		{"换行符", "GET\nmykey", []string{"GET", "mykey"}},     // 换行也不是空格
-		{"只有引号", "\"\"", []string(nil)}, // 空引号不产生内容
+		{"换行符", "GET\nmykey", []string{"GET", "mykey"}},   // 换行也不是空格
+		{"只有引号", "\"\"", []string(nil)},                   // 空引号不产生内容
 		{"不匹配引号_双引号未关闭", "SET key \"unclosed", []string{"SET", "key", "unclosed"}},
 		{"不匹配引号_单引号未关闭", "SET key 'unclosed", []string{"SET", "key", "unclosed"}},
 	}

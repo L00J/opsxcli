@@ -28,7 +28,7 @@ func ExecPod(kubeconfigPath, podName, namespace, container string, command []str
 
 	// 构建 exec API 路径
 	apiPath := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/exec", namespace, podName)
-	
+
 	// 构建查询参数
 	params := url.Values{}
 	for _, cmd := range command {
@@ -55,7 +55,7 @@ func ExecPod(kubeconfigPath, podName, namespace, container string, command []str
 	// 创建 WebSocket 连接
 	ctx := context.Background()
 	tlsConfig := &tls.Config{InsecureSkipVerify: false}
-	
+
 	// 从 http.Client 获取 TLS 配置
 	if transport, ok := client.httpClient.Transport.(*http.Transport); ok {
 		tlsConfig = transport.TLSClientConfig
@@ -89,7 +89,7 @@ func ExecPod(kubeconfigPath, podName, namespace, container string, command []str
 	// 处理 Ctrl+C
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	
+
 	// 启动 goroutine 处理输入输出
 	errCh := make(chan error, 2)
 
@@ -106,13 +106,13 @@ func ExecPod(kubeconfigPath, podName, namespace, container string, command []str
 				errCh <- err
 				return
 			}
-			
+
 			// Kubernetes exec 协议：第一个字节是流类型
 			// 0: stdin, 1: stdout, 2: stderr, 3: error
 			if len(message) > 0 {
 				streamType := message[0]
 				data := message[1:]
-				
+
 				switch streamType {
 				case 1: // stdout
 					os.Stdout.Write(data)
@@ -138,7 +138,7 @@ func ExecPod(kubeconfigPath, podName, namespace, container string, command []str
 					}
 					return
 				}
-				
+
 				// 添加流类型前缀 (0 = stdin)
 				msg := append([]byte{0}, buf[:n]...)
 				err = conn.Write(ctx, websocket.MessageBinary, msg)

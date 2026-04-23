@@ -158,10 +158,10 @@ func (c *ClaudeClient) Complete(ctx context.Context, req *CompletionRequest) (*C
 		ID      string `json:"id"`
 		Model   string `json:"model"`
 		Content []struct {
-			Type  string `json:"type"`
-			Text  string `json:"text,omitempty"`
-			ID    string `json:"id,omitempty"`
-			Name  string `json:"name,omitempty"`
+			Type  string      `json:"type"`
+			Text  string      `json:"text,omitempty"`
+			ID    string      `json:"id,omitempty"`
+			Name  string      `json:"name,omitempty"`
 			Input interface{} `json:"input,omitempty"`
 		} `json:"content"`
 		Usage struct {

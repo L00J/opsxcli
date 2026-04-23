@@ -77,23 +77,23 @@ func NewBenchCmd() *cobra.Command {
 
 			if jsonOutput {
 				out, _ := json.Marshal(struct {
-					URL            string             `json:"url"`
-					Method         string             `json:"method"`
-					Concurrency    int                `json:"concurrency"`
-					TotalRequests  int                `json:"total_requests"`
-					SuccessReqs    int                `json:"success_requests"`
-					FailedReqs     int                `json:"failed_requests"`
-					TotalTime      string             `json:"total_time"`
-					QPS            float64            `json:"qps"`
-					MinLatency     string             `json:"min_latency"`
-					AvgLatency     string             `json:"avg_latency"`
-					P50Latency     string             `json:"p50_latency"`
-					P90Latency     string             `json:"p90_latency"`
-					P95Latency     string             `json:"p95_latency"`
-					P99Latency     string             `json:"p99_latency"`
-					MaxLatency     string             `json:"max_latency"`
-					StatusCodes    map[int]int        `json:"status_codes"`
-					Errors         []string           `json:"errors,omitempty"`
+					URL           string      `json:"url"`
+					Method        string      `json:"method"`
+					Concurrency   int         `json:"concurrency"`
+					TotalRequests int         `json:"total_requests"`
+					SuccessReqs   int         `json:"success_requests"`
+					FailedReqs    int         `json:"failed_requests"`
+					TotalTime     string      `json:"total_time"`
+					QPS           float64     `json:"qps"`
+					MinLatency    string      `json:"min_latency"`
+					AvgLatency    string      `json:"avg_latency"`
+					P50Latency    string      `json:"p50_latency"`
+					P90Latency    string      `json:"p90_latency"`
+					P95Latency    string      `json:"p95_latency"`
+					P99Latency    string      `json:"p99_latency"`
+					MaxLatency    string      `json:"max_latency"`
+					StatusCodes   map[int]int `json:"status_codes"`
+					Errors        []string    `json:"errors,omitempty"`
 				}{
 					URL:           opts.URL,
 					Method:        opts.Method,

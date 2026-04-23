@@ -25,12 +25,12 @@ type ComposeUpOptions struct {
 
 // ComposeDownOptions docker compose down 选项
 type ComposeDownOptions struct {
-	File       string // 指定 compose 文件 (-f)
-	Project    string // 项目名称 (-p)
-	RemoveOrphans bool // 移除孤立容器 (--remove-orphans)
-	Volumes    bool   // 删除卷 (--volumes)
-	Images     string // 删除镜像类型 (--rmi, all/local)
-	Timeout    int    // 超时秒数 (--timeout)
+	File          string // 指定 compose 文件 (-f)
+	Project       string // 项目名称 (-p)
+	RemoveOrphans bool   // 移除孤立容器 (--remove-orphans)
+	Volumes       bool   // 删除卷 (--volumes)
+	Images        string // 删除镜像类型 (--rmi, all/local)
+	Timeout       int    // 超时秒数 (--timeout)
 }
 
 // ComposePSOptions docker compose ps 选项
@@ -44,50 +44,50 @@ type ComposePSOptions struct {
 
 // ComposeLogsOptions docker compose logs 选项
 type ComposeLogsOptions struct {
-	File      string   // 指定 compose 文件 (-f)
-	Project   string   // 项目名称 (-p)
-	Follow    bool     // 持续输出 (-f)
-	Tail      string   // 显示最后 N 行 (--tail)
-	Since     string   // 显示自此时间后的日志 (--since)
-	Until     string   // 显示至此时间前的日志 (--until)
-	Timestamps bool    // 显示时间戳 (-t)
-	Services  []string // 指定服务
+	File       string   // 指定 compose 文件 (-f)
+	Project    string   // 项目名称 (-p)
+	Follow     bool     // 持续输出 (-f)
+	Tail       string   // 显示最后 N 行 (--tail)
+	Since      string   // 显示自此时间后的日志 (--since)
+	Until      string   // 显示至此时间前的日志 (--until)
+	Timestamps bool     // 显示时间戳 (-t)
+	Services   []string // 指定服务
 }
 
 // ComposeBuildOptions docker compose build 选项
 type ComposeBuildOptions struct {
-	File      string   // 指定 compose 文件 (-f)
-	Project   string   // 项目名称 (-p)
-	NoCache   bool     // 不使用缓存 (--no-cache)
-	Pull      bool     // 始终拉取最新镜像 (--pull)
-	Parallel  bool     // 并行构建 (--parallel)
-	Quiet     bool     // 静默模式 (-q)
-	Services  []string // 指定构建的服务
+	File     string   // 指定 compose 文件 (-f)
+	Project  string   // 项目名称 (-p)
+	NoCache  bool     // 不使用缓存 (--no-cache)
+	Pull     bool     // 始终拉取最新镜像 (--pull)
+	Parallel bool     // 并行构建 (--parallel)
+	Quiet    bool     // 静默模式 (-q)
+	Services []string // 指定构建的服务
 }
 
 // ComposePullOptions docker compose pull 选项
 type ComposePullOptions struct {
-	File        string   // 指定 compose 文件 (-f)
-	Project     string   // 项目名称 (-p)
-	Quiet       bool     // 静默模式 (-q)
-	IgnoreFailures bool  // 忽略拉取失败 (--ignore-build-failures)
-	Services    []string // 指定拉取的服务
+	File           string   // 指定 compose 文件 (-f)
+	Project        string   // 项目名称 (-p)
+	Quiet          bool     // 静默模式 (-q)
+	IgnoreFailures bool     // 忽略拉取失败 (--ignore-build-failures)
+	Services       []string // 指定拉取的服务
 }
 
 // ComposeRestartOptions docker compose restart 选项
 type ComposeRestartOptions struct {
-	File      string   // 指定 compose 文件 (-f)
-	Project   string   // 项目名称 (-p)
-	Timeout   int      // 超时秒数 (--timeout)
-	Services  []string // 指定重启的服务
+	File     string   // 指定 compose 文件 (-f)
+	Project  string   // 项目名称 (-p)
+	Timeout  int      // 超时秒数 (--timeout)
+	Services []string // 指定重启的服务
 }
 
 // ComposeStopOptions docker compose stop 选项
 type ComposeStopOptions struct {
-	File      string   // 指定 compose 文件 (-f)
-	Project   string   // 项目名称 (-p)
-	Timeout   int      // 超时秒数 (--timeout)
-	Services  []string // 指定停止的服务
+	File     string   // 指定 compose 文件 (-f)
+	Project  string   // 项目名称 (-p)
+	Timeout  int      // 超时秒数 (--timeout)
+	Services []string // 指定停止的服务
 }
 
 // =============================================================================

@@ -16,7 +16,7 @@ func drawOverview(screen tcell.Screen, data *SystemData, width, height int) {
 	panelHeight := 12
 
 	// 左侧：CPU 和内存
-	leftWidth := width / 2 - 2
+	leftWidth := width/2 - 2
 	drawResourcePanel(screen, data, 2, y, leftWidth, panelHeight)
 
 	// 右侧：系统信息和网络

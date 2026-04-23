@@ -360,8 +360,8 @@ func TestIsListItem_EdgeCases(t *testing.T) {
 		{"1234. too long", false}, // prefix > 3 digits
 		{"", false},
 		{"no list", false},
-		{"1", false},    // too short
-		{"1.x", false},  // no space
+		{"1", false},      // too short
+		{"1.x", false},    // no space
 		{"0. zero", true}, // valid number list
 	}
 	for _, tt := range tests {
@@ -417,8 +417,8 @@ func TestIsDivider_EdgeCases(t *testing.T) {
 		{"---", true},
 		{"***", true},
 		{"___", true},
-		{"- - -", false},   // spaces break the triple pattern
-		{"* * *", false},   // spaces break the triple pattern
+		{"- - -", false},    // spaces break the triple pattern
+		{"* * *", false},    // spaces break the triple pattern
 		{"--", false},       // too short
 		{"", false},         // empty
 		{"a---", false},     // invalid char
@@ -444,8 +444,8 @@ func TestIsTableLine(t *testing.T) {
 		{"|a|b|", true},
 		{"| single |", true}, // 2 pipes meets >= 2 requirement
 		{"no pipes", false},
-		{"| a | b", false},   // doesn't end with |
-		{"a | b |", false},   // doesn't start with |
+		{"| a | b", false}, // doesn't end with |
+		{"a | b |", false}, // doesn't start with |
 		{"", false},
 	}
 	for _, tt := range tests {

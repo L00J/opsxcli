@@ -20,23 +20,23 @@ func GetResources(kubeconfigPath, resourceType, namespace string, allNamespaces 
 
 	// 资源类型别名映射
 	resourceMap := map[string]string{
-		"po":     "pods",
-		"pod":    "pods",
-		"pods":   "pods",
-		"deploy": "deployments",
-		"deployment": "deployments",
+		"po":          "pods",
+		"pod":         "pods",
+		"pods":        "pods",
+		"deploy":      "deployments",
+		"deployment":  "deployments",
 		"deployments": "deployments",
-		"svc":     "services",
-		"service": "services",
-		"services": "services",
-		"ing":     "ingresses",
-		"ingress": "ingresses",
-		"ingresses": "ingresses",
-		"node":    "nodes",
-		"nodes":   "nodes",
-		"ns":      "namespaces",
-		"namespace": "namespaces",
-		"namespaces": "namespaces",
+		"svc":         "services",
+		"service":     "services",
+		"services":    "services",
+		"ing":         "ingresses",
+		"ingress":     "ingresses",
+		"ingresses":   "ingresses",
+		"node":        "nodes",
+		"nodes":       "nodes",
+		"ns":          "namespaces",
+		"namespace":   "namespaces",
+		"namespaces":  "namespaces",
 	}
 
 	fullType := resourceMap[resourceType]
@@ -494,12 +494,12 @@ func DescribeResource(kubeconfigPath, resourceType, name, namespace string) erro
 
 	// 资源类型映射
 	resourceMap := map[string]string{
-		"po":     "pod",
-		"pod":    "pod",
-		"deploy": "deployment",
+		"po":         "pod",
+		"pod":        "pod",
+		"deploy":     "deployment",
 		"deployment": "deployment",
-		"svc":     "service",
-		"service": "service",
+		"svc":        "service",
+		"service":    "service",
 	}
 
 	fullType := resourceMap[resourceType]

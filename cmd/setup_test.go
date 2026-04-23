@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestNewSetupCmd_Basic(t *testing.T) {
@@ -11,4 +11,3 @@ func TestNewSetupCmd_Basic(t *testing.T) {
 	assert.Contains(t, cmd.Use, "setup")
 	assert.NotEmpty(t, cmd.Long)
 }
-

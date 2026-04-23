@@ -82,8 +82,8 @@ func TestIPAddressesToString(t *testing.T) {
 
 func TestCertToInfo(t *testing.T) {
 	now := time.Now()
-	notBefore := now.Add(-24 * time.Hour)       // 昨天
-	notAfter := now.Add(180 * 24 * time.Hour)    // 180 天后
+	notBefore := now.Add(-24 * time.Hour)     // 昨天
+	notAfter := now.Add(180 * 24 * time.Hour) // 180 天后
 
 	cert := &x509.Certificate{
 		SerialNumber:       big.NewInt(12345),
@@ -229,10 +229,10 @@ func TestFormatOutput_Warning(t *testing.T) {
 
 func TestFormatOutput_WithIPAddresses(t *testing.T) {
 	info := &CertificateInfo{
-		Domain:   "test.com",
-		Issuer:   "Test",
-		Subject:  "test.com",
-		Port:     443,
+		Domain:    "test.com",
+		Issuer:    "Test",
+		Subject:   "test.com",
+		Port:      443,
 		IPAddress: []string{"1.2.3.4", "5.6.7.8"},
 	}
 

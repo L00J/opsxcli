@@ -281,8 +281,8 @@ func TestAnalyzeSummary_SingleLineNoNewline(t *testing.T) {
 func TestAnalyzeOutputTool_Execute_AnalyzeMode(t *testing.T) {
 	tool := NewAnalyzeOutputTool()
 	result, err := tool.Execute(context.Background(), map[string]interface{}{
-		"output":         "hello world\nthis is a test",
-		"analysis_type":  "summary",
+		"output":        "hello world\nthis is a test",
+		"analysis_type": "summary",
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -293,8 +293,8 @@ func TestAnalyzeOutputTool_Execute_AnalyzeMode(t *testing.T) {
 func TestAnalyzeOutputTool_Execute_ErrorDetect(t *testing.T) {
 	tool := NewAnalyzeOutputTool()
 	result, err := tool.Execute(context.Background(), map[string]interface{}{
-		"output":         "Error: something went wrong",
-		"analysis_type":  "error_detect",
+		"output":        "Error: something went wrong",
+		"analysis_type": "error_detect",
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -304,8 +304,8 @@ func TestAnalyzeOutputTool_Execute_ErrorDetect(t *testing.T) {
 func TestAnalyzeOutputTool_Execute_KeyExtract(t *testing.T) {
 	tool := NewAnalyzeOutputTool()
 	result, err := tool.Execute(context.Background(), map[string]interface{}{
-		"output":         "listening on 192.168.1.1:8080",
-		"analysis_type":  "key_extract",
+		"output":        "listening on 192.168.1.1:8080",
+		"analysis_type": "key_extract",
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -325,9 +325,9 @@ func TestAnalyzeOutputTool_Execute_DefaultMode(t *testing.T) {
 func TestAnalyzeOutputTool_Execute_CompareMode(t *testing.T) {
 	tool := NewAnalyzeOutputTool()
 	result, err := tool.Execute(context.Background(), map[string]interface{}{
-		"output":         "text one",
-		"analysis_type":  "compare",
-		"context":        "text two",
+		"output":        "text one",
+		"analysis_type": "compare",
+		"context":       "text two",
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -337,8 +337,8 @@ func TestAnalyzeOutputTool_Execute_CompareMode(t *testing.T) {
 func TestAnalyzeOutputTool_Execute_CompareWithoutContext(t *testing.T) {
 	tool := NewAnalyzeOutputTool()
 	result, err := tool.Execute(context.Background(), map[string]interface{}{
-		"output":         "text one",
-		"analysis_type":  "compare",
+		"output":        "text one",
+		"analysis_type": "compare",
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -361,11 +361,10 @@ func TestAnalyzeOutputTool_Execute_EmptyOutput(t *testing.T) {
 func TestAnalyzeOutputTool_Execute_UnsupportedType(t *testing.T) {
 	tool := NewAnalyzeOutputTool()
 	result, err := tool.Execute(context.Background(), map[string]interface{}{
-		"output":         "some text",
-		"analysis_type":  "unsupported",
+		"output":        "some text",
+		"analysis_type": "unsupported",
 	})
 	assert.Error(t, err)
 	assert.NotNil(t, result)
 	assert.False(t, result.Success)
 }
-

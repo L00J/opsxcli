@@ -460,10 +460,10 @@ func (m *mockDynamicRiskTool) RiskLevelForArgs(args map[string]interface{}) tool
 // TestController_Check_dynamicRisk 测试 DynamicRiskTool 接口动态风险评估
 func TestController_Check_dynamicRisk(t *testing.T) {
 	tests := []struct {
-		name      string
-		mode      SafetyMode
-		riskFn    func(args map[string]interface{}) tools.RiskLevel
-		args      map[string]interface{}
+		name         string
+		mode         SafetyMode
+		riskFn       func(args map[string]interface{}) tools.RiskLevel
+		args         map[string]interface{}
 		wantApproved bool
 	}{
 		{
@@ -472,7 +472,7 @@ func TestController_Check_dynamicRisk(t *testing.T) {
 			riskFn: func(args map[string]interface{}) tools.RiskLevel {
 				return tools.RiskSafe
 			},
-			args:      map[string]interface{}{"command": "ls -la"},
+			args:         map[string]interface{}{"command": "ls -la"},
 			wantApproved: true,
 		},
 		{
@@ -481,7 +481,7 @@ func TestController_Check_dynamicRisk(t *testing.T) {
 			riskFn: func(args map[string]interface{}) tools.RiskLevel {
 				return tools.RiskMedium
 			},
-			args:      map[string]interface{}{"command": "echo hello"},
+			args:         map[string]interface{}{"command": "echo hello"},
 			wantApproved: true,
 		},
 		{
@@ -490,7 +490,7 @@ func TestController_Check_dynamicRisk(t *testing.T) {
 			riskFn: func(args map[string]interface{}) tools.RiskLevel {
 				return tools.RiskHigh
 			},
-			args:      map[string]interface{}{"command": "rm file.txt"},
+			args:         map[string]interface{}{"command": "rm file.txt"},
 			wantApproved: true, // confirmFn 返回 true
 		},
 		{
@@ -499,7 +499,7 @@ func TestController_Check_dynamicRisk(t *testing.T) {
 			riskFn: func(args map[string]interface{}) tools.RiskLevel {
 				return tools.RiskCritical
 			},
-			args:      map[string]interface{}{"command": "rm -rf /data"},
+			args:         map[string]interface{}{"command": "rm -rf /data"},
 			wantApproved: true, // confirmFn 返回 true
 		},
 		{
@@ -508,7 +508,7 @@ func TestController_Check_dynamicRisk(t *testing.T) {
 			riskFn: func(args map[string]interface{}) tools.RiskLevel {
 				return tools.RiskMedium
 			},
-			args:      map[string]interface{}{"command": "echo hello"},
+			args:         map[string]interface{}{"command": "echo hello"},
 			wantApproved: true, // confirmFn 返回 true
 		},
 		{
@@ -517,7 +517,7 @@ func TestController_Check_dynamicRisk(t *testing.T) {
 			riskFn: func(args map[string]interface{}) tools.RiskLevel {
 				return tools.RiskSafe
 			},
-			args:      map[string]interface{}{"command": "ls"},
+			args:         map[string]interface{}{"command": "ls"},
 			wantApproved: true,
 		},
 	}

@@ -103,14 +103,14 @@ func TestNewAgent(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.5,
-		ToolTimeout:       30 * time.Second,
-		MaxTokens:         2048,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   5000,
+		MaxIterations:   5,
+		Temperature:     0.5,
+		ToolTimeout:     30 * time.Second,
+		MaxTokens:       2048,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 5000,
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
@@ -162,10 +162,10 @@ func TestNewAgentWithNilSafetyCtl(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		SafetyMode:        SafetyModeStrict,
-		SessionDir:        sessionDir,
-		OutputMaxLength:   5000,
+		MaxIterations:   5,
+		SafetyMode:      SafetyModeStrict,
+		SessionDir:      sessionDir,
+		OutputMaxLength: 5000,
 	}
 
 	agent := NewAgent(mockLLM, registry, config, nil)
@@ -198,21 +198,21 @@ func TestAgentRunDirectAnswer(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
+		MaxIterations:   5,
+		Temperature:     0.3,
+		ToolTimeout:     10 * time.Second,
+		MaxTokens:       1024,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 10000,
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
- defer agent.Close()
+	defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "What is the meaning of life?")
@@ -292,21 +292,21 @@ func TestAgentRunWithToolCall(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
+		MaxIterations:   5,
+		Temperature:     0.3,
+		ToolTimeout:     10 * time.Second,
+		MaxTokens:       1024,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 10000,
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
- defer agent.Close()
+	defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Please run the mock tool.")
@@ -398,21 +398,21 @@ func TestAgentRunWithMultipleToolCalls(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
+		MaxIterations:   5,
+		Temperature:     0.3,
+		ToolTimeout:     10 * time.Second,
+		MaxTokens:       1024,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 10000,
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
- defer agent.Close()
+	defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Run the mock tool twice.")
@@ -445,21 +445,21 @@ func TestAgentRunWithLLMError(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
+		MaxIterations:   5,
+		Temperature:     0.3,
+		ToolTimeout:     10 * time.Second,
+		MaxTokens:       1024,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 10000,
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
- defer agent.Close()
+	defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "This will fail.")
@@ -523,21 +523,21 @@ func TestAgentRunMaxIterations(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     3,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
+		MaxIterations:   3,
+		Temperature:     0.3,
+		ToolTimeout:     10 * time.Second,
+		MaxTokens:       1024,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 10000,
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
- defer agent.Close()
+	defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "This will hit max iterations.")
@@ -878,21 +878,21 @@ func TestAgentRunWithToolExecutionError(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
+		MaxIterations:   5,
+		Temperature:     0.3,
+		ToolTimeout:     10 * time.Second,
+		MaxTokens:       1024,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 10000,
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
- defer agent.Close()
+	defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Run the failing tool.")
@@ -965,21 +965,21 @@ func TestAgentRunWithToolResultFailure(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
+		MaxIterations:   5,
+		Temperature:     0.3,
+		ToolTimeout:     10 * time.Second,
+		MaxTokens:       1024,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 10000,
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
- defer agent.Close()
+	defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Run the failing tool.")
@@ -1046,21 +1046,21 @@ func TestAgentRunWithLoopDetection(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
+		MaxIterations:   5,
+		Temperature:     0.3,
+		ToolTimeout:     10 * time.Second,
+		MaxTokens:       1024,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 10000,
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
- defer agent.Close()
+	defer agent.Close()
 
 	ctx := context.Background()
 	_, err := agent.Run(ctx, "Trigger loop detection.")
@@ -1113,21 +1113,21 @@ func TestAgentRunWithUnknownTool(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
+		MaxIterations:   5,
+		Temperature:     0.3,
+		ToolTimeout:     10 * time.Second,
+		MaxTokens:       1024,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 10000,
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
- defer agent.Close()
+	defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Call unknown tool.")
@@ -1197,21 +1197,21 @@ func TestAgentRunWithInvalidToolArguments(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
+		MaxIterations:   5,
+		Temperature:     0.3,
+		ToolTimeout:     10 * time.Second,
+		MaxTokens:       1024,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 10000,
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
- defer agent.Close()
+	defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Call with bad args.")
@@ -1286,21 +1286,21 @@ func TestAgentRunWithOutputTruncation(t *testing.T) {
 	sessionDir := t.TempDir()
 
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        sessionDir,
-		AutoApprove:       true,
-		OutputMaxLength:   50, // Very small to force truncation
+		MaxIterations:   5,
+		Temperature:     0.3,
+		ToolTimeout:     10 * time.Second,
+		MaxTokens:       1024,
+		SafetyMode:      SafetyModeBalanced,
+		SessionDir:      sessionDir,
+		AutoApprove:     true,
+		OutputMaxLength: 50, // Very small to force truncation
 	}
 
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
 
 	agent := NewAgent(mockLLM, registry, config, safetyCtl)
- defer agent.Close()
+	defer agent.Close()
 
 	ctx := context.Background()
 	result, err := agent.Run(ctx, "Get long output.")

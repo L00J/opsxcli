@@ -97,7 +97,7 @@ func drawMemory(screen tcell.Screen, data *SystemData, width, height int) {
 
 	// 使用两列布局
 	leftX := 4
-	rightX := width / 2 + 2
+	rightX := width/2 + 2
 	lineHeight := 1
 
 	// 左列

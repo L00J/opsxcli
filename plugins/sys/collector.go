@@ -18,12 +18,12 @@ type DataCollector struct {
 	ctx            context.Context
 	updateInterval time.Duration
 	lastNetStats   map[string]*NetStatSnapshot     // 用于计算网络速率
-	lastProcIO     map[int32]*ProcessIO             // 用于计算进程磁盘 I/O 速率
-	lastCPUTimes   []cpu.TimesStat                  // 用于计算 CPU 详细统计
-	lastDiskIO     map[string]*disk.IOCountersStat  // 用于计算磁盘 I/O 详细统计
-	firstCollect   bool                             // 标记是否是首次收集
-	maxUserProcs   int                              // 缓存 ulimit -u 结果
-	maxProcsOnce   sync.Once                        // 确保 ulimit 只执行一次
+	lastProcIO     map[int32]*ProcessIO            // 用于计算进程磁盘 I/O 速率
+	lastCPUTimes   []cpu.TimesStat                 // 用于计算 CPU 详细统计
+	lastDiskIO     map[string]*disk.IOCountersStat // 用于计算磁盘 I/O 详细统计
+	firstCollect   bool                            // 标记是否是首次收集
+	maxUserProcs   int                             // 缓存 ulimit -u 结果
+	maxProcsOnce   sync.Once                       // 确保 ulimit 只执行一次
 }
 
 // ProcessIO 进程 I/O 快照

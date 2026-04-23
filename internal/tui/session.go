@@ -24,14 +24,14 @@ type SessionMessage struct {
 
 // InteractiveSession 交互式会话
 type InteractiveSession struct {
-	mu           sync.RWMutex
-	state        SessionState
-	messages     []SessionMessage
-	inputChan    chan string
-	outputChan   chan string
-	errorChan    chan error
-	cancelFunc   context.CancelFunc
-	allowInput   bool // 是否允许在运行时输入
+	mu         sync.RWMutex
+	state      SessionState
+	messages   []SessionMessage
+	inputChan  chan string
+	outputChan chan string
+	errorChan  chan error
+	cancelFunc context.CancelFunc
+	allowInput bool // 是否允许在运行时输入
 }
 
 // NewInteractiveSession 创建交互式会话

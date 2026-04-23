@@ -28,16 +28,16 @@ func init() {
 // NewAgentCmd 创建 agent 命令（统一入口）
 func NewAgentCmd() *cobra.Command {
 	var (
-		provider       string
-		safetyMode     string
-		interactive    bool
-		query          string
-		debug          bool
-		autoApprove    bool
+		provider        string
+		safetyMode      string
+		interactive     bool
+		query           string
+		debug           bool
+		autoApprove     bool
 		backgroundTasks bool
-		resumeID       string
-		listSessions   bool
-		exportID       string
+		resumeID        string
+		listSessions    bool
+		exportID        string
 	)
 
 	agentCmd := &cobra.Command{
@@ -280,12 +280,12 @@ func runInteractiveWithTasks(ag *core.Agent, manager session.Manager, provider s
 	ctx := context.Background()
 
 	var tasks []struct {
-		id       string
-		desc     string
-		query    string
-		status   string
-		output   string
-		err      error
+		id     string
+		desc   string
+		query  string
+		status string
+		output string
+		err    error
 	}
 
 	for {

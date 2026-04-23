@@ -127,9 +127,9 @@ func TestParseDdArgs_CaseInsensitiveKeys(t *testing.T) {
 
 func TestParseDdArgs_BsWithSuffix(t *testing.T) {
 	tests := []struct {
-		name     string
-		args     []string
-		wantBs   int64
+		name   string
+		args   []string
+		wantBs int64
 	}{
 		{"bs_1K", []string{"bs=1K"}, 1024},
 		{"bs_1M", []string{"bs=1M"}, 1048576},

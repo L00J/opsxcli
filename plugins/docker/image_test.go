@@ -322,10 +322,10 @@ func TestImageInspectResultDefaults(t *testing.T) {
 
 func TestContainerConfigInfo(t *testing.T) {
 	config := ContainerConfigInfo{
-		User:      "nginx",
+		User:       "nginx",
 		WorkingDir: "/app",
-		Env:       []string{"PATH=/usr/local/bin:/usr/bin", "LANG=en_US.UTF-8"},
-		Cmd:       []string{"nginx", "-g", "daemon off;"},
+		Env:        []string{"PATH=/usr/local/bin:/usr/bin", "LANG=en_US.UTF-8"},
+		Cmd:        []string{"nginx", "-g", "daemon off;"},
 	}
 	assert.Equal(t, "nginx", config.User)
 	assert.Equal(t, "/app", config.WorkingDir)
@@ -337,23 +337,23 @@ func TestContainerConfigInfo(t *testing.T) {
 
 func TestParseImageInspect(t *testing.T) {
 	raw := map[string]interface{}{
-		"Id":          "sha256:abcdef1234567890",
-		"Author":      "",
+		"Id":           "sha256:abcdef1234567890",
+		"Author":       "",
 		"Architecture": "amd64",
-		"Os":          "linux",
-		"Size":        float64(187600000),
-		"VirtualSize": float64(250000000),
-		"Created":     "2024-04-25T00:00:00Z",
-		"RepoTags":    []interface{}{"nginx:latest"},
-		"RepoDigests": []interface{}{"nginx@sha256:abc123"},
+		"Os":           "linux",
+		"Size":         float64(187600000),
+		"VirtualSize":  float64(250000000),
+		"Created":      "2024-04-25T00:00:00Z",
+		"RepoTags":     []interface{}{"nginx:latest"},
+		"RepoDigests":  []interface{}{"nginx@sha256:abc123"},
 		"Config": map[string]interface{}{
 			"Labels": map[string]interface{}{
 				"maintainer": "NGINX Docker Maintainers",
 			},
-			"Env":         []interface{}{"PATH=/usr/local/bin"},
-			"Cmd":         []interface{}{"nginx", "-g", "daemon off;"},
-			"Entrypoint":  []interface{}{"/docker-entrypoint.sh"},
-			"WorkingDir":  "",
+			"Env":        []interface{}{"PATH=/usr/local/bin"},
+			"Cmd":        []interface{}{"nginx", "-g", "daemon off;"},
+			"Entrypoint": []interface{}{"/docker-entrypoint.sh"},
+			"WorkingDir": "",
 			"ExposedPorts": map[string]interface{}{
 				"80/tcp": map[string]interface{}{},
 			},

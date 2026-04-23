@@ -12,16 +12,16 @@ import (
 
 // 系统命名空间列表
 var systemNamespaces = map[string]bool{
-	"ingress-nginx":          true,
-	"kube-system":            true,
-	"kuboard":                true,
-	"prometheus":             true,
-	"devops":                 true,
-	"monitor":                true,
-	"logging":                true,
-	"istio-system":           true,
-	"istio-egressgateway":    true,
-	"istio-ingressgateway":   true,
+	"ingress-nginx":        true,
+	"kube-system":          true,
+	"kuboard":              true,
+	"prometheus":           true,
+	"devops":               true,
+	"monitor":              true,
+	"logging":              true,
+	"istio-system":         true,
+	"istio-egressgateway":  true,
+	"istio-ingressgateway": true,
 }
 
 // DeploymentResource Deployment资源信息

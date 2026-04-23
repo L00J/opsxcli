@@ -21,8 +21,8 @@ func TestParseHostAddress(t *testing.T) {
 		{"user@[::1]:2222", "user", "::1", 2222, false},
 		{"user@192.168.1.1:22", "user", "192.168.1.1", 22, false},
 		{"192.168.1.1:2222", "root", "192.168.1.1", 2222, false},
-		{"user@", "", "", 0, true},   // 空主机名
-		{"", "", "", 0, true},         // 完全为空
+		{"user@", "", "", 0, true}, // 空主机名
+		{"", "", "", 0, true},      // 完全为空
 	}
 
 	for _, tt := range tests {

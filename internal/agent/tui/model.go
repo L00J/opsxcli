@@ -603,7 +603,7 @@ func (m Model) View() string {
 		viewportStyle.Width(m.width).Render(m.viewport.View()),
 		"",
 		footer,
-		inputStyle.Width(m.width - 2).Render(m.textarea.View()),
+		inputStyle.Width(m.width-2).Render(m.textarea.View()),
 	)
 
 	// 审批弹窗叠加

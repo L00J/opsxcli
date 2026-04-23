@@ -8,17 +8,17 @@ import (
 
 // Scheduler 管理定时规则检查调度。
 type Scheduler struct {
-	mu          sync.RWMutex
-	checker     Checker
-	router      *Router
-	history     *HistoryManager
-	silence     *SilenceManager
-	escalation  *EscalationManager
-	rules       []Rule
+	mu           sync.RWMutex
+	checker      Checker
+	router       *Router
+	history      *HistoryManager
+	silence      *SilenceManager
+	escalation   *EscalationManager
+	rules        []Rule
 	activeAlerts map[string]*Alert // ruleName -> Alert
-	lastCheck   map[string]time.Time
-	stopCh      chan struct{}
-	running     bool
+	lastCheck    map[string]time.Time
+	stopCh       chan struct{}
+	running      bool
 }
 
 // SchedulerOption 配置调度器选项。

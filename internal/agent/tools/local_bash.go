@@ -483,4 +483,3 @@ func (a *BashCommandAnalyzer) GetRiskDescription(command string) string {
 func (a *BashCommandAnalyzer) IsReadOnly(command string) bool {
 	return a.AnalyzeRisk(command) == RiskSafe
 }
-

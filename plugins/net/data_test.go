@@ -8,6 +8,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/shirou/gopsutil/v3/net"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"opsxcli/plugins/netstat"
 )
@@ -59,7 +60,7 @@ func TestGetActiveConnectionsFromSS_Mixed(t *testing.T) {
 
 func TestGetActiveConnectionsFromSS_SortedByQueueSize(t *testing.T) {
 	conns := []netstat.SsConnection{
-		{State: "ESTABLISHED", LocalAddr: "a", RecvQ: 10, SendQ: 20},  // total 30
+		{State: "ESTABLISHED", LocalAddr: "a", RecvQ: 10, SendQ: 20},   // total 30
 		{State: "ESTABLISHED", LocalAddr: "b", RecvQ: 500, SendQ: 500}, // total 1000
 		{State: "ESTABLISHED", LocalAddr: "c", RecvQ: 100, SendQ: 100}, // total 200
 	}
@@ -233,7 +234,7 @@ func TestHandleEvent_Escape(t *testing.T) {
 	defer monitor.cancel()
 
 	screen := tcell.NewSimulationScreen("")
-	screen.Init()
+	require.NoError(t, screen.Init())
 	evt := tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone)
 
 	result := handleEvent(monitor, evt)
@@ -245,7 +246,7 @@ func TestHandleEvent_CtrlC(t *testing.T) {
 	defer monitor.cancel()
 
 	screen := tcell.NewSimulationScreen("")
-	screen.Init()
+	require.NoError(t, screen.Init())
 	evt := tcell.NewEventKey(tcell.KeyCtrlC, 0, tcell.ModNone)
 
 	result := handleEvent(monitor, evt)
@@ -257,7 +258,7 @@ func TestHandleEvent_TabKey(t *testing.T) {
 	defer monitor.cancel()
 
 	screen := tcell.NewSimulationScreen("")
-	screen.Init()
+	require.NoError(t, screen.Init())
 
 	// Tab (same as Left in this code)
 	evt := tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone)
@@ -272,7 +273,7 @@ func TestHandleEvent_RightKey(t *testing.T) {
 	defer monitor.cancel()
 
 	screen := tcell.NewSimulationScreen("")
-	screen.Init()
+	require.NoError(t, screen.Init())
 
 	evt := tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone)
 	result := handleEvent(monitor, evt)
@@ -295,7 +296,7 @@ func TestHandleEvent_LeftKey(t *testing.T) {
 	defer monitor.cancel()
 
 	screen := tcell.NewSimulationScreen("")
-	screen.Init()
+	require.NoError(t, screen.Init())
 
 	evt := tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone)
 	result := handleEvent(monitor, evt)
@@ -314,7 +315,7 @@ func TestHandleEvent_UpAndDown(t *testing.T) {
 	defer monitor.cancel()
 
 	screen := tcell.NewSimulationScreen("")
-	screen.Init()
+	require.NoError(t, screen.Init())
 
 	// Up from 0 should stay at 0
 	evt := tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
@@ -351,7 +352,7 @@ func TestHandleEvent_QKey(t *testing.T) {
 	defer monitor.cancel()
 
 	screen := tcell.NewSimulationScreen("")
-	screen.Init()
+	require.NoError(t, screen.Init())
 
 	evt := tcell.NewEventKey(tcell.KeyRune, 'q', tcell.ModNone)
 	result := handleEvent(monitor, evt)
@@ -363,7 +364,7 @@ func TestHandleEvent_RKey(t *testing.T) {
 	defer monitor.cancel()
 
 	screen := tcell.NewSimulationScreen("")
-	screen.Init()
+	require.NoError(t, screen.Init())
 
 	evt := tcell.NewEventKey(tcell.KeyRune, 'r', tcell.ModNone)
 	result := handleEvent(monitor, evt)

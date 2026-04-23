@@ -148,8 +148,8 @@ func checkSystemComponents(client *K8sHTTPClient) []CheckResult {
 
 	// 检查关键系统组件
 	criticalComponents := map[string]string{
-		"coredns":           "kube-system",
-		"metrics-server":    "kube-system",
+		"coredns":                      "kube-system",
+		"metrics-server":               "kube-system",
 		"aws-load-balancer-controller": "kube-system",
 	}
 
@@ -295,7 +295,7 @@ func checkIngresses(client *K8sHTTPClient) []CheckResult {
 		for _, rule := range ing.Spec.Rules {
 			for _, path := range rule.HTTP.Paths {
 				serviceName := path.Backend.Service.Name
-				
+
 				// 检查 Service 是否存在
 				var svc Service
 				apiPath := fmt.Sprintf("/api/v1/namespaces/%s/services/%s", ing.Metadata.Namespace, serviceName)
@@ -329,7 +329,7 @@ func checkIngresses(client *K8sHTTPClient) []CheckResult {
 	// 检查 Ingress Controller
 	var podsList PodList
 	client.Get("/api/v1/namespaces/ingress-nginx/pods", &podsList)
-	
+
 	controllerFound := false
 	for _, pod := range podsList.Items {
 		if strings.Contains(pod.Metadata.Name, "nginx-ingress") || strings.Contains(pod.Metadata.Name, "ingress-controller") {
@@ -502,7 +502,7 @@ func printResults(results []CheckResult) {
 	fmt.Println("║               集群健康检查报告                                 ║")
 	fmt.Println("╚═══════════════════════════════════════════════════════════════╝")
 	fmt.Println()
-	
+
 	fmt.Printf("📊 检查结果汇总: ")
 	if critical > 0 {
 		fmt.Printf("🔴 严重 %d  ", critical)

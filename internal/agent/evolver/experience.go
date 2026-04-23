@@ -16,21 +16,21 @@ import (
 
 // Experience 单条经验记录
 type Experience struct {
-	TaskType     string    `json:"task_type"`      // 任务类型（如"磁盘分析"）
-	ToolSequence []string  `json:"tool_sequence"`  // 最佳工具序列
-	Hint         string    `json:"hint"`           // 学习到的提示
-	SuccessRate  float64   `json:"success_rate"`   // 成功率 (0-1)
-	UsageCount   int       `json:"usage_count"`    // 使用次数
-	CreatedAt    time.Time `json:"created_at"`     // 创建时间
-	LastUsedAt   time.Time `json:"last_used_at"`   // 最后使用时间
+	TaskType     string    `json:"task_type"`     // 任务类型（如"磁盘分析"）
+	ToolSequence []string  `json:"tool_sequence"` // 最佳工具序列
+	Hint         string    `json:"hint"`          // 学习到的提示
+	SuccessRate  float64   `json:"success_rate"`  // 成功率 (0-1)
+	UsageCount   int       `json:"usage_count"`   // 使用次数
+	CreatedAt    time.Time `json:"created_at"`    // 创建时间
+	LastUsedAt   time.Time `json:"last_used_at"`  // 最后使用时间
 }
 
 // ExperienceMemory 经验记忆管理器
 type ExperienceMemory struct {
-	mu           sync.RWMutex
-	experiences  []*Experience     // 所有经验
-	baseDir      string            // 存储目录
-	maxEntries   int               // 最大条目数（防止无限增长）
+	mu          sync.RWMutex
+	experiences []*Experience // 所有经验
+	baseDir     string        // 存储目录
+	maxEntries  int           // 最大条目数（防止无限增长）
 }
 
 // NewExperienceMemory 创建经验记忆

@@ -4,18 +4,18 @@ import "context"
 
 // Message 聊天消息
 type Message struct {
-	Role    string      `json:"role"`    // system, user, assistant, tool
-	Content string      `json:"content"` // 消息内容
-	Name    string      `json:"name,omitempty"`
-	ToolCallID string   `json:"tool_call_id,omitempty"`
+	Role       string     `json:"role"`    // system, user, assistant, tool
+	Content    string     `json:"content"` // 消息内容
+	Name       string     `json:"name,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
 	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
 }
 
 // ToolCall 工具调用
 type ToolCall struct {
-	ID       string         `json:"id"`
-	Type     string         `json:"type"` // function
-	Function FunctionCall   `json:"function"`
+	ID       string       `json:"id"`
+	Type     string       `json:"type"` // function
+	Function FunctionCall `json:"function"`
 }
 
 // FunctionCall 函数调用
@@ -49,10 +49,10 @@ type CompletionRequest struct {
 
 // CompletionResponse 响应结果
 type CompletionResponse struct {
-	ID      string   `json:"id"`
-	Model   string   `json:"model"`
-	Message Message  `json:"message"`
-	Usage   Usage    `json:"usage"`
+	ID      string  `json:"id"`
+	Model   string  `json:"model"`
+	Message Message `json:"message"`
+	Usage   Usage   `json:"usage"`
 }
 
 // Usage 使用统计
@@ -64,8 +64,8 @@ type Usage struct {
 
 // StreamChunk 流式响应块
 type StreamChunk struct {
-	Delta   Message `json:"delta"`
-	Finish  bool    `json:"finish"`
+	Delta  Message `json:"delta"`
+	Finish bool    `json:"finish"`
 }
 
 // Client LLM客户端接口

@@ -18,9 +18,9 @@ var (
 	debugLogger *log.Logger
 	logFile     *os.File
 
-	debugMode  bool
-	quietMode  bool
-	noColor    bool
+	debugMode bool
+	quietMode bool
+	noColor   bool
 )
 
 // Init 初始化日志系统（检测 TTY，自动决定是否启用颜色）

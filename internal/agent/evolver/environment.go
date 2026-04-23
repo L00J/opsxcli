@@ -15,30 +15,30 @@ import (
 
 // KnownServer 已知服务器记录
 type KnownServer struct {
-	Host         string            `json:"host"`           // 主机地址 user@host:port
-	OS           string            `json:"os"`             // 操作系统（自动检测）
-	DefaultUser  string            `json:"default_user"`   // 默认用户名
-	CommonPaths  []string          `json:"common_paths"`   // 常用路径
-	LastUsed     time.Time         `json:"last_used"`      // 最后使用时间
-	UseCount     int               `json:"use_count"`      // 使用次数
-	Tags         []string          `json:"tags"`           // 标签（如 "生产环境"、"测试环境"）
-	CustomInfo   map[string]string `json:"custom_info"`    // 自定义信息
+	Host        string            `json:"host"`         // 主机地址 user@host:port
+	OS          string            `json:"os"`           // 操作系统（自动检测）
+	DefaultUser string            `json:"default_user"` // 默认用户名
+	CommonPaths []string          `json:"common_paths"` // 常用路径
+	LastUsed    time.Time         `json:"last_used"`    // 最后使用时间
+	UseCount    int               `json:"use_count"`    // 使用次数
+	Tags        []string          `json:"tags"`         // 标签（如 "生产环境"、"测试环境"）
+	CustomInfo  map[string]string `json:"custom_info"`  // 自定义信息
 }
 
 // UserPreference 用户偏好
 type UserPreference struct {
-	SafetyMode       string   `json:"safety_mode"`        // 默认安全模式
-	AutoApproveLow   bool     `json:"auto_approve_low"`   // 自动批准低风险操作
-	PreferSudo       bool     `json:"prefer_sudo"`        // 默认使用 sudo
-	TimeoutSeconds   int      `json:"timeout_seconds"`    // 默认超时
-	Editor           string   `json:"editor"`             // 首选编辑器
-	Shell            string   `json:"shell"`              // 首选 shell
+	SafetyMode     string `json:"safety_mode"`      // 默认安全模式
+	AutoApproveLow bool   `json:"auto_approve_low"` // 自动批准低风险操作
+	PreferSudo     bool   `json:"prefer_sudo"`      // 默认使用 sudo
+	TimeoutSeconds int    `json:"timeout_seconds"`  // 默认超时
+	Editor         string `json:"editor"`           // 首选编辑器
+	Shell          string `json:"shell"`            // 首选 shell
 }
 
 // EnvironmentMemory 环境记忆
 type EnvironmentMemory struct {
 	mu           sync.RWMutex
-	KnownServers []*KnownServer    `json:"known_servers"`   // 已知服务器列表
+	KnownServers []*KnownServer    `json:"known_servers"`    // 已知服务器列表
 	UserPrefs    UserPreference    `json:"user_preferences"` // 用户偏好
 	LastQueries  []string          `json:"last_queries"`     // 最近查询（去重，最多 50 条）
 	CustomHints  map[string]string `json:"custom_hints"`     // 用户自定义提示

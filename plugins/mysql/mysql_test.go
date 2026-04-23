@@ -11,10 +11,10 @@ import (
 
 func TestFilterTables(t *testing.T) {
 	tests := []struct {
-		name   string        // 测试名称
-		tables []string      // 输入表列表
-		opts   DumpOptions   // 过滤选项
-		want   []string      // 期望结果
+		name   string      // 测试名称
+		tables []string    // 输入表列表
+		opts   DumpOptions // 过滤选项
+		want   []string    // 期望结果
 	}{
 		{
 			name:   "空表列表",
@@ -105,9 +105,9 @@ func TestFilterTables(t *testing.T) {
 
 func TestFormatSQLValue(t *testing.T) {
 	tests := []struct {
-		name string        // 测试名称
-		val  interface{}   // 输入值
-		want string        // 期望结果
+		name string      // 测试名称
+		val  interface{} // 输入值
+		want string      // 期望结果
 	}{
 		{
 			name: "nil值返回NULL",
@@ -329,7 +329,7 @@ func TestEscapeString(t *testing.T) {
 
 func TestQuoteIdentifier(t *testing.T) {
 	tests := []struct {
-		name string // 测试名称
+		name  string // 测试名称
 		input string // 输入标识符
 		want  string // 期望结果
 	}{

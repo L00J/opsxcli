@@ -118,10 +118,10 @@ func TestGetServiceName(t *testing.T) {
 
 func TestParseHexAddr(t *testing.T) {
 	tests := []struct {
-		name      string
-		addrPort  string
-		wantIP    string
-		wantPort  uint32
+		name     string
+		addrPort string
+		wantIP   string
+		wantPort uint32
 	}{
 		{
 			"IPv4回环地址_端口80",

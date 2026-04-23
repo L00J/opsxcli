@@ -92,7 +92,7 @@ func drawCPU(screen tcell.Screen, data *SystemData, width, height int) {
 			drawText(screen, 4, contentY, coreLabel, ui.ColorInfo)
 
 			// 进度条
-			leftBarWidth := (width - 14) / coresPerRow - 4
+			leftBarWidth := (width-14)/coresPerRow - 4
 			if leftBarWidth > 20 && leftBarWidth < width/2 {
 				drawProgressBar(screen, 12, contentY, leftBarWidth, cpuVal, color)
 				percentStr := fmt.Sprintf("%5.1f%%", cpuVal)

@@ -296,13 +296,13 @@ func TestProcessInfo_Fields(t *testing.T) {
 
 func TestCPUTimesStat_Fields(t *testing.T) {
 	stat := CPUTimesStat{
-		CPU:      "cpu0",
-		User:     45.0,
-		Nice:     1.0,
-		System:   20.0,
-		Idle:     30.0,
-		Iowait:   2.0,
-		Steal:    0.5,
+		CPU:    "cpu0",
+		User:   45.0,
+		Nice:   1.0,
+		System: 20.0,
+		Idle:   30.0,
+		Iowait: 2.0,
+		Steal:  0.5,
 	}
 	assert.Equal(t, "cpu0", stat.CPU)
 	assert.Equal(t, 45.0, stat.User)

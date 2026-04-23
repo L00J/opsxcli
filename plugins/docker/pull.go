@@ -26,23 +26,23 @@ type PullOptions struct {
 // 默认镜像源列表（国内加速源）
 var defaultRegistries = []string{
 	// 高速镜像源
-	"docker.aityp.com",                          // AI TYP 镜像
-	"docker.1ms.run",                            // 1ms 镜像
-	"docker.m.daocloud.io",                      // DaoCloud 镜像
-	"mirror.ccs.tencentyun.com",                 // 腾讯云镜像
+	"docker.aityp.com",          // AI TYP 镜像
+	"docker.1ms.run",            // 1ms 镜像
+	"docker.m.daocloud.io",      // DaoCloud 镜像
+	"mirror.ccs.tencentyun.com", // 腾讯云镜像
 	// 国内大学镜像源
-	"docker.mirrors.sjtug.sjtu.edu.cn",          // 上海交大
-	"docker.nju.edu.cn",                         // 南京大学
-	"docker.mirrors.ustc.edu.cn",                // 中科大
+	"docker.mirrors.sjtug.sjtu.edu.cn", // 上海交大
+	"docker.nju.edu.cn",                // 南京大学
+	"docker.mirrors.ustc.edu.cn",       // 中科大
 	// 其他镜像源
-	"dockerproxy.com",                           // Docker Proxy
-	"docker.xuanyuan.me",                        // 轩辕镜像
-	"docker.1panel.live",                        // 1Panel 镜像
-	"docker-0.unsee.tech",                       // Unsee 镜像
-	"hub-mirror.c.163.com",                      // 网易镜像
+	"dockerproxy.com",      // Docker Proxy
+	"docker.xuanyuan.me",   // 轩辕镜像
+	"docker.1panel.live",   // 1Panel 镜像
+	"docker-0.unsee.tech",  // Unsee 镜像
+	"hub-mirror.c.163.com", // 网易镜像
 	// 官方源（备用）
-	"docker.io",                                 // Docker Hub
-	"registry.cn-hangzhou.aliyuncs.com",         // 阿里云
+	"docker.io",                         // Docker Hub
+	"registry.cn-hangzhou.aliyuncs.com", // 阿里云
 }
 
 // Pull 拉取 Docker 镜像（自动智能加速）

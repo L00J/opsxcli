@@ -10,9 +10,9 @@ import (
 
 func TestIsDangerousCommand(t *testing.T) {
 	tests := []struct {
-		name      string
-		command   string
-		wantDanger bool
+		name        string
+		command     string
+		wantDanger  bool
 		wantPattern string
 	}{
 		// 空输入

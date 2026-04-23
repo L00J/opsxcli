@@ -123,9 +123,9 @@ func humanSize(b uint64) string {
 
 // DfOptions df 命令选项
 type DfOptions struct {
-	Human     bool   // -h 人类可读
-	All       bool   // -a 显示所有文件系统
-	FsType    bool   // -T 显示文件系统类型
+	Human      bool   // -h 人类可读
+	All        bool   // -a 显示所有文件系统
+	FsType     bool   // -T 显示文件系统类型
 	FilterType string // -t type 按文件系统类型过滤
 }
 
@@ -242,29 +242,29 @@ func isVirtualFS(fstype string) bool {
 
 // KillOptions kill 命令选项
 type KillOptions struct {
-	Signal    string // -s signal
-	List      bool   // -l 列出信号
+	Signal string // -s signal
+	List   bool   // -l 列出信号
 }
 
 // 信号映射表
 var signalMap = map[string]syscall.Signal{
-	"TERM":  syscall.SIGTERM,
-	"HUP":   syscall.SIGHUP,
-	"INT":   syscall.SIGINT,
-	"KILL":  syscall.SIGKILL,
-	"USR1":  syscall.SIGUSR1,
-	"USR2":  syscall.SIGUSR2,
-	"STOP":  syscall.SIGSTOP,
-	"CONT":  syscall.SIGCONT,
-	"QUIT":  syscall.SIGQUIT,
-	"ALRM":  syscall.SIGALRM,
-	"PIPE":  syscall.SIGPIPE,
-	"ABRT":  syscall.SIGABRT,
-	"TSTP":  syscall.SIGTSTP,
-	"TTIN":  syscall.SIGTTIN,
-	"TTOU":  syscall.SIGTTOU,
-	"SEGV":  syscall.SIGSEGV,
-	"CHLD":  syscall.SIGCHLD,
+	"TERM": syscall.SIGTERM,
+	"HUP":  syscall.SIGHUP,
+	"INT":  syscall.SIGINT,
+	"KILL": syscall.SIGKILL,
+	"USR1": syscall.SIGUSR1,
+	"USR2": syscall.SIGUSR2,
+	"STOP": syscall.SIGSTOP,
+	"CONT": syscall.SIGCONT,
+	"QUIT": syscall.SIGQUIT,
+	"ALRM": syscall.SIGALRM,
+	"PIPE": syscall.SIGPIPE,
+	"ABRT": syscall.SIGABRT,
+	"TSTP": syscall.SIGTSTP,
+	"TTIN": syscall.SIGTTIN,
+	"TTOU": syscall.SIGTTOU,
+	"SEGV": syscall.SIGSEGV,
+	"CHLD": syscall.SIGCHLD,
 }
 
 // Kill 发送信号给进程
@@ -371,4 +371,3 @@ func listSignals() {
 		fmt.Println()
 	}
 }
-

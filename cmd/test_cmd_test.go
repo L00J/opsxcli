@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestNewTestCmd_Basic(t *testing.T) {
@@ -10,4 +10,3 @@ func TestNewTestCmd_Basic(t *testing.T) {
 	assert.NotNil(t, cmd)
 	assert.Contains(t, cmd.Use, "test")
 }
-

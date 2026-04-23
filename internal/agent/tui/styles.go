@@ -64,11 +64,11 @@ var (
 
 	// 代码块
 	codeBlockStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("#1e1e2e")).
-				Foreground(lipgloss.Color("#cdd6f4")).
-				Padding(1, 2).
-				BorderStyle(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#585b70"))
+			Background(lipgloss.Color("#1e1e2e")).
+			Foreground(lipgloss.Color("#cdd6f4")).
+			Padding(1, 2).
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#585b70"))
 
 	codeBlockLangStyle = lipgloss.NewStyle().
 				Background(lipgloss.Color("#585b70")).
@@ -78,32 +78,32 @@ var (
 				MarginBottom(1)
 
 	inlineCodeStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("#313244")).
-				Foreground(lipgloss.Color("#f5c2e7"))
+			Background(lipgloss.Color("#313244")).
+			Foreground(lipgloss.Color("#f5c2e7"))
 
 	// Markdown
-	h1Style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#f38ba8"))
-	h2Style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#fab387"))
-	h3Style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#f9e2af"))
-	boldStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#cdd6f4"))
+	h1Style    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#f38ba8"))
+	h2Style    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#fab387"))
+	h3Style    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#f9e2af"))
+	boldStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#cdd6f4"))
 	quoteStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.Border{Left: "┃"}).
 			BorderForeground(lipgloss.Color("#6c7086")).
 			PaddingLeft(1).
 			Foreground(lipgloss.Color("#a6adc8"))
-	listStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#cdd6f4"))
+	listStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#cdd6f4"))
 	dividerStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#6c7086")).
 			MarginTop(1).
 			MarginBottom(1)
 
 	// Bash 高亮
-	bashPromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#89b4fa"))
+	bashPromptStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#89b4fa"))
 	bashCommandStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#a6e3a1"))
 	bashCommentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#6c7086"))
-	bashStringStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#a6e3a1"))
+	bashStringStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#a6e3a1"))
 	bashKeywordStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#cba6f7"))
-	bashNumberStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#fab387"))
+	bashNumberStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#fab387"))
 
 	// 其他
 	placeholderStyle = lipgloss.NewStyle().
@@ -157,12 +157,12 @@ var (
 			MarginBottom(1)
 
 	modalContentStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#CAD3F5")).
-			MarginBottom(1)
+				Foreground(lipgloss.Color("#CAD3F5")).
+				MarginBottom(1)
 
 	modalButtonStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#A6DA95"))
+				Bold(true).
+				Foreground(lipgloss.Color("#A6DA95"))
 
 	modalRiskSafeStyle = lipgloss.NewStyle().
 				Bold(true).
@@ -225,8 +225,8 @@ var (
 				Foreground(lipgloss.Color("#A6DA95"))
 
 	dashBarWarnStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#F5A97F"))
+				Foreground(lipgloss.Color("#F5A97F"))
 
 	dashBarDangerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#ED8796"))
+				Foreground(lipgloss.Color("#ED8796"))
 )

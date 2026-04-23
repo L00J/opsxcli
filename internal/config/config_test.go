@@ -62,7 +62,7 @@ func TestLoad_Save_RoundTrip(t *testing.T) {
 	configPath = filepath.Join(tmpDir, "config.json")
 
 	cfg := &Config{
-		MySQL: MySQLConfig{DefaultHost: "testhost", DefaultPort: 3308},
+		MySQL:  MySQLConfig{DefaultHost: "testhost", DefaultPort: 3308},
 		Global: GlobalConfig{Debug: true},
 	}
 	Set(cfg)

@@ -15,7 +15,7 @@ type Session struct {
 
 // JSONLRecord JSONL 文件中的一行记录
 type JSONLRecord struct {
-	Type      string    `json:"type"`       // meta / message / tool_result
+	Type      string    `json:"type"` // meta / message / tool_result
 	Timestamp time.Time `json:"timestamp"`
 
 	// 对于 type=meta:

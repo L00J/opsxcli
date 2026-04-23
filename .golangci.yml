@@ -1,101 +1,74 @@
 # .golangci.yml — opsxcli 代码质量配置
-# 运行: golangci-lint run ./...
-# 安装: https://golangci-lint.run/usage/install/
+# 兼容 golangci-lint v2.x
+
+version: "2"
 
 run:
   timeout: 5m
-  go: '1.24'
   modules-download-mode: readonly
-  skip-dirs:
-    - dist
-    - .claude
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-rules:
-    # 测试文件允许部分放宽
-    - path: _test\.go
-      linters:
-        - dupl
-        - gocyclo
-        - errcheck
-        - gosec
-    # 自动生成的文件或 vendor
-    - path: '(\.generated\.go|vendor/)'
-      linters:
-        - all
-  exclude-use-default: false
 
 linters:
   enable:
-    - errcheck           # 检查未处理的错误
-    - gosimple           # 简化代码建议
-    - govet              # Go 标准 vet 工具
-    - ineffassign        # 检测无效赋值
-    - staticcheck        # 静态分析
-    - unused             # 检测未使用的变量/函数
-    - gocyclo            # 圈复杂度检查
-    - dupl               # 重复代码检测
-    - goconst            # 建议提取常量
-    - gofmt              # 格式化检查
-    - goimports          # import 排序检查
-    - misspell           # 拼写检查
-    - nakedret           # 禁止 naked return
-    - prealloc           # 建议预分配切片
-    - unconvert          # 删除不必要的类型转换
-    - whitespace         # 检查多余空白
-    - gosec              # 安全漏洞扫描
-    - bodyclose          # 检查 HTTP Body 是否关闭
-    - noctx              # 建议传递 context.Context
-    - dogsled            # 检查空白标识符滥用
-    # exportloopref 已在 Go 1.22+ 由 govet:copylocks 替代
-    - gocritic           # 代码批评建议
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gocyclo
+    - dupl
+    - goconst
+    - misspell
+    - nakedret
+    - prealloc
+    - unconvert
+    - whitespace
+    - gosec
+    - bodyclose
+    - noctx
+    - dogsled
+    - gocritic
+  settings:
+    gocyclo:
+      min-complexity: 20
+    dupl:
+      threshold: 150
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    misspell:
+      locale: US
+    nakedret:
+      max-func-lines: 30
+    gosec:
+      excludes:
+        - G104
+    gocritic:
+      enabled-tags:
+        - performance
+        - style
+        - diagnostic
+      disabled-checks:
+        - wrapperFunc
+        - dupImport
+    errcheck:
+      check-blank: false
+    staticcheck:
+      checks:
+        - all
+        - -SA1019
+        - -SA4006
 
-linters-settings:
-  gocyclo:
-    min-complexity: 20     # 圈复杂度阈值（默认 30，严格模式 15）
-  
-  dupl:
-    threshold: 150         # 重复代码行数阈值
-  
-  goconst:
-    min-len: 3             # 最小常量长度
-    min-occurrences: 3     # 最小出现次数才建议提取
-  
-  gofmt:
-    simplify: true
-  
-  misspell:
-    locale: US
-  
-  nakedret:
-    max-func-lines: 30     # 超过 30 行的函数禁止 naked return
-  
-  gosec:
-    excludes:
-      - G104               # 允许部分错误未处理（测试代码）
-    severity: medium
-    confidence: medium
-
-  gocritic:
-    enabled-tags:
-      - performance         # 性能相关建议
-      - style               # 风格建议
-      - diagnostic          # 诊断建议
-    disabled-checks:
-      - wrapperFunc         # 不强制要求用辅助函数
-      - dupImport           # 重复 import 有时是故意的
-
-  errcheck:
-    check-blank: false     # 不强制检查 _ = expr
-    ignore: fmt:.*,os:.*
-
-  staticcheck:
-    checks: ["all", "-SA1019", "-SA4006"]
+formatters:
+  enable:
+    - gofmt
+    - goimports
 
 severity:
-  default-severity: warning
+  default: warning
   rules:
     - linters:
         - gosec

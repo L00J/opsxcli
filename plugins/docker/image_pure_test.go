@@ -229,11 +229,11 @@ func TestGetStr_UnicodeValue(t *testing.T) {
 func TestParseImageInspect_WithAuthor(t *testing.T) {
 	// 带作者的镜像
 	raw := map[string]interface{}{
-		"Id":          "sha256:abc123",
-		"Author":      "test@example.com",
+		"Id":           "sha256:abc123",
+		"Author":       "test@example.com",
 		"Architecture": "arm64",
-		"Os":          "linux",
-		"Created":     "2024-04-25T12:00:00Z",
+		"Os":           "linux",
+		"Created":      "2024-04-25T12:00:00Z",
 	}
 	result := parseImageInspect(raw)
 	assert.Equal(t, "test@example.com", result.Author)

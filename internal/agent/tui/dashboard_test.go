@@ -308,7 +308,7 @@ func TestRenderDashboard_SkillSelectedDetail(t *testing.T) {
 
 func TestDashboardLoadedMsg(t *testing.T) {
 	data := DashboardData{
-		SkillCount:    5,
+		SkillCount:        5,
 		ShortTermSessions: 3,
 	}
 	msg := dashboardLoadedMsg{data: data}
@@ -321,4 +321,3 @@ func TestCreateDashboardViewport(t *testing.T) {
 	assert.Equal(t, 80, vp.Width)
 	assert.Equal(t, 24, vp.Height)
 }
-

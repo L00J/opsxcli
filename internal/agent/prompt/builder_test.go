@@ -167,10 +167,10 @@ func TestBuilderV2_BuildLoopDetectionMessage(t *testing.T) {
 // TestEstimateTokenCount 测试 Token 估算
 func TestEstimateTokenCount(t *testing.T) {
 	tests := []struct {
-		name     string
-		msgs     []llm.Message
-		wantMin  int
-		wantMax  int
+		name    string
+		msgs    []llm.Message
+		wantMin int
+		wantMax int
 	}{
 		{
 			name:    "empty",
@@ -599,9 +599,9 @@ func TestBuilderV2_BuildSystemMessageWithMemory(t *testing.T) {
 
 	t.Run("nil注入器_回退到BuildSystemMessage", func(t *testing.T) {
 		b := &BuilderV2{
-			systemPrompt:     GetStaticSystemPrompt(),
-			memoryInjector:   nil,
-			enableMemory:     true, // 即使启用, injector 为 nil 也回退
+			systemPrompt:   GetStaticSystemPrompt(),
+			memoryInjector: nil,
+			enableMemory:   true, // 即使启用, injector 为 nil 也回退
 		}
 		msg := b.BuildSystemMessageWithMemory("检查内存")
 		normalMsg := b.BuildSystemMessage()

@@ -43,8 +43,8 @@ func (m *mockClient) Stream(ctx context.Context, req *CompletionRequest) (<-chan
 	}
 	ch := make(chan StreamChunk, 1)
 	ch <- StreamChunk{
-		Delta:   Message{Role: "assistant", Content: fmt.Sprintf("来自 %s 的流式响应", m.name)},
-		Finish:  true,
+		Delta:  Message{Role: "assistant", Content: fmt.Sprintf("来自 %s 的流式响应", m.name)},
+		Finish: true,
 	}
 	close(ch)
 	return ch, nil

@@ -35,12 +35,12 @@ func Ps(opts PsOptions) error {
 	}
 
 	type procInfo struct {
-		UID    string
-		PID    int32
-		PPID   int32
-		CPU    float64
-		Mem    float32
-		Cmd    string
+		UID  string
+		PID  int32
+		PPID int32
+		CPU  float64
+		Mem  float32
+		Cmd  string
 	}
 
 	var procs []procInfo
@@ -101,9 +101,9 @@ func Ps(opts PsOptions) error {
 
 // PstreeOptions pstree 命令选项
 type PstreeOptions struct {
-	PID      int  // -p 指定根进程 PID
-	ShowPID  bool // -p 显示 PID
-	FullCmd  bool // -a 显示完整命令行
+	PID     int  // -p 指定根进程 PID
+	ShowPID bool // -p 显示 PID
+	FullCmd bool // -a 显示完整命令行
 }
 
 // Pstree 以树形结构显示进程
@@ -217,9 +217,9 @@ func printProcessTree(p *process.Process, pid int32, procMap map[int32]*process.
 
 // TopOptions top 命令选项
 type TopOptions struct {
-	Delay    int  // -d 刷新间隔(秒)
-	Count    int  // -n 刷新次数
-	ShowAll  bool // -a 显示全部进程
+	Delay   int  // -d 刷新间隔(秒)
+	Count   int  // -n 刷新次数
+	ShowAll bool // -a 显示全部进程
 }
 
 // Top 显示系统进程（简化版，指向 opsxcli sys）
@@ -235,11 +235,11 @@ func Top(opts TopOptions) error {
 	}
 
 	type procInfo struct {
-		PID   int32
-		User  string
-		CPU   float64
-		Mem   float32
-		Cmd   string
+		PID  int32
+		User string
+		CPU  float64
+		Mem  float32
+		Cmd  string
 	}
 
 	var procs []procInfo

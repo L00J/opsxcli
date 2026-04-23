@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestNewMysqldumpCmd_Basic(t *testing.T) {
@@ -31,4 +31,3 @@ func TestNewMysqldumpCmd_NoDatabaseReturnsHelp(t *testing.T) {
 	cmd.SetArgs([]string{"-h", "localhost", "-u", "root"})
 	assert.NoError(t, cmd.Execute())
 }
-

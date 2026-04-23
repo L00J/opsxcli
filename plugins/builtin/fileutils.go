@@ -13,10 +13,10 @@ import (
 
 // TreeOptions tree 命令选项
 type TreeOptions struct {
-	MaxDepth   int  // -L 层级深度
-	All        bool // -a 显示隐藏文件
-	DirsOnly   bool // -d 只显示目录
-	Fullpath   bool // -f 显示完整路径
+	MaxDepth int  // -L 层级深度
+	All      bool // -a 显示隐藏文件
+	DirsOnly bool // -d 只显示目录
+	Fullpath bool // -f 显示完整路径
 }
 
 // Tree 以树形结构显示目录内容

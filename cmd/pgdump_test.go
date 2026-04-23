@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestNewPgdumpCmd_Basic(t *testing.T) {
@@ -33,4 +33,3 @@ func TestNewPgdumpCmd_NoDatabaseReturnsHelp(t *testing.T) {
 	cmd.SetArgs([]string{"-h", "localhost"})
 	assert.NoError(t, cmd.Execute())
 }
-

@@ -13,24 +13,24 @@ import (
 
 // InputModel 交互式输入框模型
 type InputModel struct {
-	prompt       string          // 提示文本
-	value        []rune          // 当前输入值(使用rune支持中文)
-	cursor       int             // 光标位置(rune索引)
-	width        int             // 输入框宽度
-	placeholder  string          // 占位符
-	submitted    bool            // 是否已提交
-	cancelled    bool            // 是否已取消
-	enabled      bool            // 是否启用
-	styles       InputStyles     // 样式
+	prompt      string      // 提示文本
+	value       []rune      // 当前输入值(使用rune支持中文)
+	cursor      int         // 光标位置(rune索引)
+	width       int         // 输入框宽度
+	placeholder string      // 占位符
+	submitted   bool        // 是否已提交
+	cancelled   bool        // 是否已取消
+	enabled     bool        // 是否启用
+	styles      InputStyles // 样式
 }
 
 // InputStyles 输入框样式
 type InputStyles struct {
-	Separator    lipgloss.Style
-	Prompt       lipgloss.Style
-	Input        lipgloss.Style
-	Placeholder  lipgloss.Style
-	Cursor       lipgloss.Style
+	Separator   lipgloss.Style
+	Prompt      lipgloss.Style
+	Input       lipgloss.Style
+	Placeholder lipgloss.Style
+	Cursor      lipgloss.Style
 }
 
 // NewInputModel 创建输入框模型
@@ -222,7 +222,7 @@ func RunInput(prompt string) (string, error) {
 
 	// 打印底部分隔线
 	fmt.Println(separator)
-	fmt.Println()  // 额外的空行
+	fmt.Println() // 额外的空行
 
 	return strings.TrimSpace(line), nil
 }

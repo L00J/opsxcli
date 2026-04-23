@@ -302,8 +302,8 @@ func TestFileRead_formatFileSize_Bytes(t *testing.T) {
 
 func TestFileRead_formatFileSize_KB(t *testing.T) {
 	assert.Equal(t, "1.0 KB", formatFileSize(1024))
-	assert.Equal(t, "1.5 KB", formatFileSize(1536))        // 1.5 * 1024
-	assert.Equal(t, "512.0 KB", formatFileSize(512*1024))  // 512 KB
+	assert.Equal(t, "1.5 KB", formatFileSize(1536))         // 1.5 * 1024
+	assert.Equal(t, "512.0 KB", formatFileSize(512*1024))   // 512 KB
 	assert.Equal(t, "1023.0 KB", formatFileSize(1023*1024)) // just under 1 MB
 }
 

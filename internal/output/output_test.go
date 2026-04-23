@@ -80,7 +80,7 @@ func TestResult_Struct(t *testing.T) {
 	r := Result{
 		Success:  true,
 		Message:  "done",
-		Data:    map[string]int{"count": 42},
+		Data:     map[string]int{"count": 42},
 		ExitCode: 0,
 	}
 	if !r.Success {

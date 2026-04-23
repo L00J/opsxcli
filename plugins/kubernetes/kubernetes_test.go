@@ -279,9 +279,9 @@ func TestCleanAnnotations(t *testing.T) {
 		{"过滤kubectl注解", map[string]string{"kubectl.kubernetes.io/last-applied-configuration": "xxx"}, nil},
 		{"过滤revision注解", map[string]string{"deployment.kubernetes.io/revision": "1"}, nil},
 		{"混合注解", map[string]string{
-			"custom":                                       "value",
+			"custom": "value",
 			"kubectl.kubernetes.io/last-applied-configuration": "xxx",
-			"deployment.kubernetes.io/revision":              "1",
+			"deployment.kubernetes.io/revision":                "1",
 		}, map[string]string{"custom": "value"}},
 	}
 
@@ -366,7 +366,7 @@ func TestCleanService(t *testing.T) {
 			CreationTimestamp: "2024-01-01T00:00:00Z",
 			Annotations: map[string]string{
 				"deployment.kubernetes.io/revision": "1",
-				"note": "important",
+				"note":                              "important",
 			},
 		},
 	}
@@ -388,7 +388,7 @@ func TestCleanIngress(t *testing.T) {
 			CreationTimestamp: "2024-01-01T00:00:00Z",
 			Annotations: map[string]string{
 				"kubectl.kubernetes.io/last-applied-configuration": "xxx",
-				"nginx.ingress.kubernetes.io/rewrite-target":      "/",
+				"nginx.ingress.kubernetes.io/rewrite-target":       "/",
 			},
 		},
 	}
@@ -714,10 +714,10 @@ func TestMetadataLabels(t *testing.T) {
 
 func TestParsePodPath(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
-		wantPod   string
-		wantFile  string
+		name     string
+		input    string
+		wantPod  string
+		wantFile string
 	}{
 		{"标准格式", "mypod:/etc/config.yaml", "mypod", "/etc/config.yaml"},
 		{"无冒号-仅文件路径", "/etc/config.yaml", "", "/etc/config.yaml"},

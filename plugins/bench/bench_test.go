@@ -11,10 +11,10 @@ import (
 
 func TestPercentile(t *testing.T) {
 	tests := []struct {
-		name    string
-		sorted  []time.Duration
-		pct     int
-		want    time.Duration
+		name   string
+		sorted []time.Duration
+		pct    int
+		want   time.Duration
 	}{
 		{
 			name:   "empty",

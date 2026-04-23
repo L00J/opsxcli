@@ -219,8 +219,8 @@ func (m Model) renderDashboardOverview(width int) string {
 	rightCol := fmt.Sprintf("  长期记忆条目: %d\n  长期记忆大小: %.2f MB", data.LongTermItems, data.LongTermSizeMB)
 
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Left,
-		dashCardStyle.Width(width/2 - 2).Render(leftCol),
-		dashCardStyle.Width(width/2 - 2).Render(rightCol),
+		dashCardStyle.Width(width/2-2).Render(leftCol),
+		dashCardStyle.Width(width/2-2).Render(rightCol),
 	))
 	b.WriteString("\n\n")
 

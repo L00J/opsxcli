@@ -43,9 +43,9 @@ func (d *DingtalkNotifier) Name() string {
 
 // dingtalkPayload represents the DingTalk markdown message.
 type dingtalkPayload struct {
-	MsgType  string              `json:"msgtype"`
-	Markdown dingtalkMarkdown    `json:"markdown"`
-	At       *dingtalkAt         `json:"at,omitempty"`
+	MsgType  string           `json:"msgtype"`
+	Markdown dingtalkMarkdown `json:"markdown"`
+	At       *dingtalkAt      `json:"at,omitempty"`
 }
 
 type dingtalkMarkdown struct {

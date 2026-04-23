@@ -11,9 +11,9 @@ import (
 
 func TestShortDigest(t *testing.T) {
 	tests := []struct {
-		name    string
-		digest  string
-		want    string
+		name   string
+		digest string
+		want   string
 	}{
 		{"标准sha256摘要", "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", "abcdef123456"},
 		{"短摘要", "sha256:12345678901234567890", "123456789012"},
@@ -99,10 +99,10 @@ func TestBuildProxyImageName(t *testing.T) {
 
 func TestParseImageAndTag(t *testing.T) {
 	tests := []struct {
-		name      string
-		image     string
-		wantName  string
-		wantTag   string
+		name     string
+		image    string
+		wantName string
+		wantTag  string
 	}{
 		// 标准格式
 		{"镜像名和标签", "nginx:latest", "nginx", "latest"},
@@ -294,9 +294,9 @@ func TestConvertChunksToResumeInfo(t *testing.T) {
 
 func TestConvertResumeInfoToChunks(t *testing.T) {
 	tests := []struct {
-		name          string
+		name         string
 		resumeChunks []ChunkResumeInfo
-		want          []ChunkInfo
+		want         []ChunkInfo
 	}{
 		{
 			"正常转换",

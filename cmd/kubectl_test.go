@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestNewKubectlCmd_Basic(t *testing.T) {
@@ -19,4 +19,3 @@ func TestNewKubectlCmd_HasGetSubCommand(t *testing.T) {
 	}
 	assert.True(t, subNames["get"])
 }
-

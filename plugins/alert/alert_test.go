@@ -23,10 +23,10 @@ func TestParseCheckExpr(t *testing.T) {
 		{"load1 <= 4.5", "load1", "<=", 4.5, false},
 		{"process_count == 100", "process_count", "==", 100, false},
 		{"load15 != 0", "load15", "!=", 0, false},
-		{"unknown_metric > 10", "", "", 0, true},     // 不支持的指标
-		{"", "", "", 0, true},                          // 空表达式
-		{"cpu_percent", "", "", 0, true},               // 缺少运算符
-		{"cpu_percent >> 80", "", "", 0, true},          // 无效运算符
+		{"unknown_metric > 10", "", "", 0, true}, // 不支持的指标
+		{"", "", "", 0, true},                    // 空表达式
+		{"cpu_percent", "", "", 0, true},         // 缺少运算符
+		{"cpu_percent >> 80", "", "", 0, true},   // 无效运算符
 	}
 
 	for _, tt := range tests {
@@ -623,7 +623,7 @@ func TestSilenceManager_Wildcard(t *testing.T) {
 	})
 
 	tests := []struct {
-		name    string
+		name     string
 		silenced bool
 	}{
 		{"disk_full", true},
@@ -823,12 +823,12 @@ func TestFormatCheckResult(t *testing.T) {
 func TestFormatAlert(t *testing.T) {
 	now := time.Now()
 	alert := &Alert{
-		RuleName: "high_cpu",
-		Level:    LevelWarning,
-		State:    StateFiring,
-		Value:    90.5,
+		RuleName:  "high_cpu",
+		Level:     LevelWarning,
+		State:     StateFiring,
+		Value:     90.5,
 		Threshold: 80,
-		FiredAt:  now,
+		FiredAt:   now,
 	}
 	formatted := FormatAlert(alert)
 	if formatted == "" {

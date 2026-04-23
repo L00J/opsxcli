@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"opsxcli/plugins/builtin"
 	"github.com/spf13/cobra"
+	"opsxcli/plugins/builtin"
 )
 
 func init() {

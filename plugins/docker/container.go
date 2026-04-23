@@ -16,15 +16,15 @@ import (
 
 // ContainerInfo 容器基本信息
 type ContainerInfo struct {
-	ID        string `json:"Id"`
-	Names     []string `json:"Names"`
-	Image     string   `json:"Image"`
-	State     string   `json:"State"`
-	Status    string   `json:"Status"`
-	Created   int64    `json:"Created"`
-	Ports     []PortBinding `json:"Ports,omitempty"`
-	Labels    map[string]string `json:"Labels,omitempty"`
-	Command   string   `json:"Command"`
+	ID      string            `json:"Id"`
+	Names   []string          `json:"Names"`
+	Image   string            `json:"Image"`
+	State   string            `json:"State"`
+	Status  string            `json:"Status"`
+	Created int64             `json:"Created"`
+	Ports   []PortBinding     `json:"Ports,omitempty"`
+	Labels  map[string]string `json:"Labels,omitempty"`
+	Command string            `json:"Command"`
 }
 
 // PortBinding 端口映射
@@ -79,12 +79,12 @@ type MountInfo struct {
 
 // PSOptions docker ps 选项
 type PSOptions struct {
-	All      bool   // 显示所有容器（包括停止的）
-	Last     int    // 显示最近创建的 N 个容器
-	Filter   string // 过滤条件
-	Format   string // 输出格式
-	NoTrunc  bool   // 不截断 ID
-	Quiet    bool   // 只显示 ID
+	All     bool   // 显示所有容器（包括停止的）
+	Last    int    // 显示最近创建的 N 个容器
+	Filter  string // 过滤条件
+	Format  string // 输出格式
+	NoTrunc bool   // 不截断 ID
+	Quiet   bool   // 只显示 ID
 }
 
 // RunOptions docker run 选项

@@ -13,17 +13,17 @@ import (
 // MemoryInjector 记忆注入器
 // 负责从 Evolver 引擎获取记忆并格式化为 Prompt 上下文
 type MemoryInjector struct {
-	envMemory   *evolver.EnvironmentMemory
-	expMemory   *evolver.ExperienceMemory
-	factMemory  *evolver.FactualMemory     // v0.5.0: 事实层 (MEMORY.md + USER.md)
-	procMemory  *evolver.ProceduralMemory  // v0.5.0: 程序层 (SKILL_xxx.md)
+	envMemory  *evolver.EnvironmentMemory
+	expMemory  *evolver.ExperienceMemory
+	factMemory *evolver.FactualMemory    // v0.5.0: 事实层 (MEMORY.md + USER.md)
+	procMemory *evolver.ProceduralMemory // v0.5.0: 程序层 (SKILL_xxx.md)
 }
 
 // NewMemoryInjector 创建记忆注入器
 func NewMemoryInjector(envMem *evolver.EnvironmentMemory, expMem *evolver.ExperienceMemory) *MemoryInjector {
 	return &MemoryInjector{
-		envMemory:  envMem,
-		expMemory:  expMem,
+		envMemory: envMem,
+		expMemory: expMem,
 	}
 }
 
@@ -426,5 +426,3 @@ func isIPAddress(s string) bool {
 	}
 	return true
 }
-
-

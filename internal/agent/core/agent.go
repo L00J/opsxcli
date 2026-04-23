@@ -30,12 +30,12 @@ type Agent struct {
 	registry     *tools.Registry
 	config       *Config
 	safetyCtl    *safety.Controller
-	evolver      *evolver.EvolverEngine  // Evolver 自我进化引擎
-	evolveWg     sync.WaitGroup          // 等待后台 Evolver goroutine 完成
+	evolver      *evolver.EvolverEngine // Evolver 自我进化引擎
+	evolveWg     sync.WaitGroup         // 等待后台 Evolver goroutine 完成
 	messages     []llm.Message
 	totalTokens  int
-	tokenizer    *TokenEstimator         // Token 估算器
-	toolCallback ToolCallback            // 工具执行回调（可选，供 TUI 使用）
+	tokenizer    *TokenEstimator // Token 估算器
+	toolCallback ToolCallback    // 工具执行回调（可选，供 TUI 使用）
 
 	// 上一次进化结果（会话级别，用于将 Evolver 结果反馈到后续 Prompt）
 	lastEvolveResult *evolver.EvolveResult

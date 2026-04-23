@@ -317,7 +317,7 @@ func TestDistillPitfalls_AllSuccess(t *testing.T) {
 func TestDistillDescription(t *testing.T) {
 	e := &EvolverEngine{}
 	exec := &TaskExecution{
-		Duration:  10 * time.Second,
+		Duration: 10 * time.Second,
 		ToolCalls: []ToolCallRecord{
 			{Success: true},
 			{Success: false},
@@ -527,13 +527,13 @@ func TestEvolve_SimpleTask_FastPath(t *testing.T) {
 	e.SetEnabled(true)
 
 	exec := &TaskExecution{
-		Query:       "查看磁盘使用",
-		TotalSteps:  2,
-		ToolCalls:   []ToolCallRecord{
+		Query:      "查看磁盘使用",
+		TotalSteps: 2,
+		ToolCalls: []ToolCallRecord{
 			{ToolName: "execute", Args: map[string]interface{}{"command": "df -h"}, Success: true, Duration: time.Second},
 			{ToolName: "execute", Args: map[string]interface{}{"command": "du -sh /var"}, Success: true, Duration: time.Second},
 		},
-		Success: true,
+		Success:  true,
 		Duration: 2 * time.Second,
 	}
 

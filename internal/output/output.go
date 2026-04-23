@@ -16,9 +16,9 @@ const (
 )
 
 var (
-	format   Format = FormatText
-	writer   io.Writer = os.Stdout
-	quiet    bool       = false
+	format Format    = FormatText
+	writer io.Writer = os.Stdout
+	quiet  bool      = false
 )
 
 // SetFormat 设置输出格式
@@ -79,9 +79,9 @@ func JSON(data interface{}) {
 
 // Result 通用命令结果结构（用于 JSON 输出）
 type Result struct {
-	Success   bool            `json:"success"`
-	Message   string          `json:"message,omitempty"`
-	Data      interface{}     `json:"data,omitempty"`
-	Error     string          `json:"error,omitempty"`
-	ExitCode  int             `json:"exit_code,omitempty"`
+	Success  bool        `json:"success"`
+	Message  string      `json:"message,omitempty"`
+	Data     interface{} `json:"data,omitempty"`
+	Error    string      `json:"error,omitempty"`
+	ExitCode int         `json:"exit_code,omitempty"`
 }

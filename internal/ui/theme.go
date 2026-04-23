@@ -8,16 +8,16 @@ import (
 
 // 颜色方案
 var (
-	ColorPrimary      = tcell.ColorDarkBlue
-	ColorSecondary    = tcell.ColorDarkGreen
-	ColorAccent       = tcell.ColorYellow
-	ColorSuccess      = tcell.ColorGreen
-	ColorWarning      = tcell.ColorOrange
-	ColorDanger       = tcell.ColorRed
-	ColorInfo         = tcell.ColorAqua
-	ColorMuted        = tcell.ColorGray
-	ColorText         = tcell.ColorWhite
-	ColorBackground   = tcell.ColorBlack
+	ColorPrimary    = tcell.ColorDarkBlue
+	ColorSecondary  = tcell.ColorDarkGreen
+	ColorAccent     = tcell.ColorYellow
+	ColorSuccess    = tcell.ColorGreen
+	ColorWarning    = tcell.ColorOrange
+	ColorDanger     = tcell.ColorRed
+	ColorInfo       = tcell.ColorAqua
+	ColorMuted      = tcell.ColorGray
+	ColorText       = tcell.ColorWhite
+	ColorBackground = tcell.ColorBlack
 )
 
 // 边框字符（使用 Unicode 绘图字符，跨平台兼容）

@@ -24,16 +24,16 @@ func (s SafetyMode) String() string {
 
 // Config Agent 配置结构体
 type Config struct {
-	MaxIterations      int           // 最大迭代次数，默认 16
-	Temperature        float64       // LLM 温度，默认 0.3
-	ToolTimeout        time.Duration // 工具执行超时，默认 60s
-	MaxTokens          int           // 最大 token 数，默认 4096
-	SafetyMode         SafetyMode    // 安全模式，默认 balanced
-	SessionDir         string        // 会话存储目录，默认 ~/.opsxcli/agent/sessions
-	AutoApprove        bool          // 自动批准（危险，仅测试），默认 false
-	SSHConnectTimeout  time.Duration // SSH 连接超时，默认 10s
-	OutputMaxLength    int           // 输出最大长度（超过则截断），默认 10000
-	MaxContextTokens   int           // 最大上下文 token 数，默认 6000（为 8k 模型留余量）
+	MaxIterations     int           // 最大迭代次数，默认 16
+	Temperature       float64       // LLM 温度，默认 0.3
+	ToolTimeout       time.Duration // 工具执行超时，默认 60s
+	MaxTokens         int           // 最大 token 数，默认 4096
+	SafetyMode        SafetyMode    // 安全模式，默认 balanced
+	SessionDir        string        // 会话存储目录，默认 ~/.opsxcli/agent/sessions
+	AutoApprove       bool          // 自动批准（危险，仅测试），默认 false
+	SSHConnectTimeout time.Duration // SSH 连接超时，默认 10s
+	OutputMaxLength   int           // 输出最大长度（超过则截断），默认 10000
+	MaxContextTokens  int           // 最大上下文 token 数，默认 6000（为 8k 模型留余量）
 }
 
 // NewDefaultConfig 创建默认配置
@@ -44,16 +44,16 @@ func NewDefaultConfig() *Config {
 	}
 
 	return &Config{
-		MaxIterations:      16,
-		Temperature:        0.3,
-		ToolTimeout:        60 * time.Second,
-		MaxTokens:          4096,
-		SafetyMode:         SafetyModeBalanced,
-		SessionDir:         filepath.Join(homeDir, ".opsxcli", "agent", "sessions"),
-		AutoApprove:        false,
-		SSHConnectTimeout:  10 * time.Second,
-		OutputMaxLength:    10000,
-		MaxContextTokens:   6000,
+		MaxIterations:     16,
+		Temperature:       0.3,
+		ToolTimeout:       60 * time.Second,
+		MaxTokens:         4096,
+		SafetyMode:        SafetyModeBalanced,
+		SessionDir:        filepath.Join(homeDir, ".opsxcli", "agent", "sessions"),
+		AutoApprove:       false,
+		SSHConnectTimeout: 10 * time.Second,
+		OutputMaxLength:   10000,
+		MaxContextTokens:  6000,
 	}
 }
 

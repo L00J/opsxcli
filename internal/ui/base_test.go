@@ -13,10 +13,10 @@ import (
 // ===== mockBaseUI 实现 BaseUI 接口 =====
 
 type mockBaseUI struct {
-	drawCount      int
-	eventHandled   bool
+	drawCount       int
+	eventHandled    bool
 	returnFromEvent bool
-	mu             sync.Mutex
+	mu              sync.Mutex
 }
 
 func (m *mockBaseUI) Run(ctx context.Context) error {

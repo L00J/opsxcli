@@ -15,9 +15,9 @@ import (
 
 // mockStreamLLM 支持自定义 Stream 响应的 LLM mock
 type mockStreamLLM struct {
-	streamChunks   []llm.StreamChunk
-	streamChunks2  []llm.StreamChunk // 第二轮响应（工具执行后）
-	streamErr      error
+	streamChunks    []llm.StreamChunk
+	streamChunks2   []llm.StreamChunk // 第二轮响应（工具执行后）
+	streamErr       error
 	streamCallCount int
 }
 
@@ -56,15 +56,15 @@ func newTestAgent(t *testing.T, llmClient llm.Client, registry *tools.Registry) 
 		registry = tools.NewRegistry()
 	}
 	config := &Config{
-		MaxIterations:     5,
-		Temperature:       0.3,
-		ToolTimeout:       10 * time.Second,
-		MaxTokens:         1024,
-		SafetyMode:        SafetyModeBalanced,
-		SessionDir:        t.TempDir(),
-		AutoApprove:       true,
-		OutputMaxLength:   10000,
-		MaxContextTokens:  6000,
+		MaxIterations:    5,
+		Temperature:      0.3,
+		ToolTimeout:      10 * time.Second,
+		MaxTokens:        1024,
+		SafetyMode:       SafetyModeBalanced,
+		SessionDir:       t.TempDir(),
+		AutoApprove:      true,
+		OutputMaxLength:  10000,
+		MaxContextTokens: 6000,
 	}
 	safetyCtl := safety.NewController(safety.SafetyModeBalanced)
 	safetyCtl.SetAutoApprove(true)
@@ -284,9 +284,9 @@ func TestFormatToolCallDetail_LongValue(t *testing.T) {
 
 func TestFormatToolCallDetail_SkipsInternalKeys(t *testing.T) {
 	result := formatToolCallDetail("tool", map[string]interface{}{
-		"_i":       "internal",
-		"_intent":  "secret",
-		"visible":  "yes",
+		"_i":      "internal",
+		"_intent": "secret",
+		"visible": "yes",
 	})
 	if strings.Contains(result, "_i=") {
 		t.Errorf("should skip _i key, got %q", result)

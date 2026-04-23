@@ -104,10 +104,10 @@ func TestStatsOptionsDefaults(t *testing.T) {
 
 func TestProcessInfo(t *testing.T) {
 	proc := ProcessInfo{
-		UID:   "root",
-		PID:   "1234",
-		PPID:  "1",
-		CMD:   "nginx -g daemon off;",
+		UID:  "root",
+		PID:  "1234",
+		PPID: "1",
+		CMD:  "nginx -g daemon off;",
 	}
 	assert.Equal(t, "root", proc.UID)
 	assert.Equal(t, "1234", proc.PID)

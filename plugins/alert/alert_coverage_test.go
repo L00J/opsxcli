@@ -132,8 +132,8 @@ func TestMatchFilter_Combined(t *testing.T) {
 
 	// One doesn't match
 	assert.False(t, hm.matchFilter(entry, &HistoryFilter{
-		RuleName:  "cpu_high",
-		Level:     LevelWarning, // mismatch
+		RuleName: "cpu_high",
+		Level:    LevelWarning, // mismatch
 	}))
 }
 
@@ -208,13 +208,13 @@ func TestBuildAlertContent_WithSilenced(t *testing.T) {
 	silencedAt := time.Date(2025, 6, 15, 10, 5, 0, 0, time.UTC)
 	silenceUntil := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
 	alert := &Alert{
-		RuleName:    "test",
-		Level:       LevelWarning,
-		State:       StateSilenced,
-		Value:       85.0,
-		Threshold:   80.0,
-		FiredAt:     time.Date(2025, 6, 15, 10, 0, 0, 0, time.UTC),
-		SilencedAt:  &silencedAt,
+		RuleName:     "test",
+		Level:        LevelWarning,
+		State:        StateSilenced,
+		Value:        85.0,
+		Threshold:    80.0,
+		FiredAt:      time.Date(2025, 6, 15, 10, 0, 0, 0, time.UTC),
+		SilencedAt:   &silencedAt,
 		SilenceUntil: &silenceUntil,
 	}
 	content := buildAlertContent(alert, nil)

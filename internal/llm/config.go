@@ -11,12 +11,12 @@ import (
 
 // ProviderConfig 提供商配置
 type ProviderConfig struct {
-	Type        string            `json:"type"`         // deepseek, ollama, claude
-	BaseURL     string            `json:"base_url"`     // API基础URL
-	APIKey      string            `json:"api_key"`      // API密钥
-	Model       string            `json:"model"`        // 模型名称
-	Temperature float64           `json:"temperature"`  // 温度参数
-	MaxTokens   int               `json:"max_tokens"`   // 最大token数
+	Type        string            `json:"type"`            // deepseek, ollama, claude
+	BaseURL     string            `json:"base_url"`        // API基础URL
+	APIKey      string            `json:"api_key"`         // API密钥
+	Model       string            `json:"model"`           // 模型名称
+	Temperature float64           `json:"temperature"`     // 温度参数
+	MaxTokens   int               `json:"max_tokens"`      // 最大token数
 	Extra       map[string]string `json:"extra,omitempty"` // 额外参数
 }
 

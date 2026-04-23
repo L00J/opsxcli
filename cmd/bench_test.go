@@ -55,4 +55,3 @@ func TestNewBenchCmd_NoURLShowsHelp(t *testing.T) {
 	err := cmd.Execute()
 	assert.NoError(t, err)
 }
-

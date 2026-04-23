@@ -229,7 +229,7 @@ func cleanService(svc *Service) {
 	// 清理 metadata
 	svc.Metadata.CreationTimestamp = ""
 	svc.Metadata.Annotations = cleanAnnotations(svc.Metadata.Annotations)
-	
+
 	// 清理 clusterIP (动态分配的)
 	svc.Spec.ClusterIP = ""
 }
@@ -246,7 +246,7 @@ func cleanAnnotations(annotations map[string]string) map[string]string {
 	if annotations == nil {
 		return nil
 	}
-	
+
 	cleaned := make(map[string]string)
 	for k, v := range annotations {
 		// 跳过运行时 annotations
@@ -256,7 +256,7 @@ func cleanAnnotations(annotations map[string]string) map[string]string {
 		}
 		cleaned[k] = v
 	}
-	
+
 	if len(cleaned) == 0 {
 		return nil
 	}

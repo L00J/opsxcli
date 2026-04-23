@@ -503,7 +503,6 @@ func TestStepFeedback_SkillDistilled(t *testing.T) {
 	assert.Contains(t, feedback, "提炼")
 }
 
-
 // --- buildReflectionPrompt / NewEvolverEngineWithLLM / stepReflectWithLLM 测试 ---
 
 // mockReflectionClient 模拟 LLM 客户端用于反射测试

@@ -381,18 +381,18 @@ func TestCleanup(t *testing.T) {
 	em.AddExperience(&Experience{
 		TaskType: "recent_bad", SuccessRate: 0.1, UsageCount: 1,
 		ToolSequence: []string{"a"},
-		LastUsedAt: time.Now(), // 最近
+		LastUsedAt:   time.Now(), // 最近
 	})
 	em.AddExperience(&Experience{
 		TaskType: "high_rate", SuccessRate: 0.95, UsageCount: 1,
 		ToolSequence: []string{"b"},
-		LastUsedAt: time.Now().AddDate(0, 0, -60),
+		LastUsedAt:   time.Now().AddDate(0, 0, -60),
 	})
 	// 触发 cleanup
 	em.AddExperience(&Experience{
 		TaskType: "new", SuccessRate: 0.5, UsageCount: 5,
 		ToolSequence: []string{"c"},
-		LastUsedAt: time.Now(),
+		LastUsedAt:   time.Now(),
 	})
 
 	// cleanup 应保留高成功率和最近使用的

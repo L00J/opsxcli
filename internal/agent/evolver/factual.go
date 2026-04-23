@@ -18,7 +18,7 @@ import (
 type FactEntry struct {
 	Key       string    `json:"key"`
 	Value     string    `json:"value"`
-	Category  string    `json:"category"`  // preference, environment, convention, tool_quirk
+	Category  string    `json:"category"` // preference, environment, convention, tool_quirk
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -26,10 +26,10 @@ type FactEntry struct {
 // FactualMemory 事实记忆管理器
 // 管理 MEMORY.md 和 USER.md 两个文件的读写
 type FactualMemory struct {
-	mu        sync.RWMutex
-	baseDir   string
-	facts     map[string]*FactEntry // key -> entry
-	dirty     bool                  // 是否有未持久化的变更
+	mu      sync.RWMutex
+	baseDir string
+	facts   map[string]*FactEntry // key -> entry
+	dirty   bool                  // 是否有未持久化的变更
 }
 
 // NewFactualMemory 创建事实记忆管理器
@@ -67,9 +67,10 @@ func LoadFactualMemory(baseDir string) (*FactualMemory, error) {
 
 // parseMarkdownFile 解析 Markdown 格式的事实文件
 // 格式约定:
-//   ## 类别标题
-//   - key: value
-//   - key: 多行值用缩进
+//
+//	## 类别标题
+//	- key: value
+//	- key: 多行值用缩进
 func (fm *FactualMemory) parseMarkdownFile(filePath string, defaultCategory string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -225,10 +226,10 @@ func (fm *FactualMemory) writeMarkdownFile(filePath string, title string, descri
 // categoryTitle 将分类标识转为可读标题
 func (fm *FactualMemory) categoryTitle(category string) string {
 	titles := map[string]string{
-		"environment": "环境事实",
-		"tool_quirk":  "工具特性",
-		"convention":  "约定俗成",
-		"preference":  "用户偏好",
+		"environment":  "环境事实",
+		"tool_quirk":   "工具特性",
+		"convention":   "约定俗成",
+		"preference":   "用户偏好",
 		"user_profile": "用户画像",
 	}
 	if title, ok := titles[category]; ok {

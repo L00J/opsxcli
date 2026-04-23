@@ -87,7 +87,7 @@ func TestWriteCounter_Write(t *testing.T) {
 func TestWriteCounter_Write多次调用(t *testing.T) {
 	// 测试多次调用 Write 累计字节数
 	wc := &writeCounter{Total: 100}
-	wc.Write([]byte("hello")) // 5
+	wc.Write([]byte("hello"))  // 5
 	wc.Write([]byte(" world")) // 6
 	assert.Equal(t, int64(11), wc.Downloaded)
 }

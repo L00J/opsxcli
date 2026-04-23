@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestNewSSHConfigCmd_Basic(t *testing.T) {
@@ -20,4 +20,3 @@ func TestNewSSHConfigCmd_HasSubCommands(t *testing.T) {
 	assert.True(t, subNames["list"])
 	assert.True(t, subNames["show"])
 }
-

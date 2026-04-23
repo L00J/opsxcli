@@ -492,8 +492,6 @@ func TestSearchCommands(t *testing.T) {
 	}
 }
 
-
-
 // helper
 func min(a, b int) int {
 	if a < b {

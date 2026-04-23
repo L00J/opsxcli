@@ -99,9 +99,9 @@ func TestSearchCommands_SortedByCategoryAndName(t *testing.T) {
 	results := searchCommands([]string{"tool"})
 	assert.Len(t, results, 3)
 	// 先按分类排序，再按名称排序
-	assert.Equal(t, "beta", results[0].Name)   // AAA 分类, beta
-	assert.Equal(t, "zebra", results[1].Name)   // AAA 分类, zebra
-	assert.Equal(t, "alpha", results[2].Name)   // BBB 分类, alpha
+	assert.Equal(t, "beta", results[0].Name)  // AAA 分类, beta
+	assert.Equal(t, "zebra", results[1].Name) // AAA 分类, zebra
+	assert.Equal(t, "alpha", results[2].Name) // BBB 分类, alpha
 }
 
 func TestSearchCommands_MatchByName(t *testing.T) {

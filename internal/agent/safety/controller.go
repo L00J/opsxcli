@@ -36,11 +36,11 @@ func defaultAuditLogPath() string {
 
 // Controller 安全控制器
 type Controller struct {
-	mode        SafetyMode        // 当前安全模式
-	autoApprove bool              // 自动批准（仅测试使用）
-	reader      *bufio.Reader     // 标准输入读取器
-	history     []ExecutionRecord // 执行历史记录
-	auditLog    *AuditLogWriter   // 审计日志写入器
+	mode        SafetyMode                                                                             // 当前安全模式
+	autoApprove bool                                                                                   // 自动批准（仅测试使用）
+	reader      *bufio.Reader                                                                          // 标准输入读取器
+	history     []ExecutionRecord                                                                      // 执行历史记录
+	auditLog    *AuditLogWriter                                                                        // 审计日志写入器
 	confirmFn   func(toolName string, args map[string]interface{}, risk tools.RiskLevel) (bool, error) // 可选的自定义审批函数
 }
 
@@ -50,12 +50,12 @@ type ExecutionRecord struct {
 	Args      map[string]interface{} `json:"args"`
 	RiskLevel tools.RiskLevel        `json:"risk_level"`
 	Approved  bool                   `json:"approved"`
-	Executed  bool                   `json:"executed"`              // 是否已执行
-	Success   bool                   `json:"success"`               // 执行结果
-	Error     string                 `json:"error,omitempty"`       // 错误信息
+	Executed  bool                   `json:"executed"`        // 是否已执行
+	Success   bool                   `json:"success"`         // 执行结果
+	Error     string                 `json:"error,omitempty"` // 错误信息
 	Timestamp time.Time              `json:"timestamp"`
-	SessionID string                 `json:"session_id,omitempty"`  // 会话 ID
-	EventType string                 `json:"event_type,omitempty"`  // 事件类型：check / execute
+	SessionID string                 `json:"session_id,omitempty"` // 会话 ID
+	EventType string                 `json:"event_type,omitempty"` // 事件类型：check / execute
 }
 
 // NewController 创建安全控制器（保持签名兼容）

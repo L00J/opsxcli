@@ -131,9 +131,9 @@ func TestFileSearchExecute_WithFileGlob(t *testing.T) {
 
 	tool := NewFileSearchTool()
 	result, err := tool.Execute(context.Background(), map[string]interface{}{
-		"pattern":    "findme",
-		"path":       tmpDir,
-		"file_glob":  "*.go",
+		"pattern":   "findme",
+		"path":      tmpDir,
+		"file_glob": "*.go",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, result)

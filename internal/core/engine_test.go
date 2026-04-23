@@ -49,4 +49,3 @@ func TestBuildInfo_All_FieldsCount(t *testing.T) {
 	m := bi.All()
 	assert.Len(t, m, 5)
 }
-

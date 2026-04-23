@@ -14,11 +14,11 @@ import (
 // TestParseTarget 使用表驱动测试覆盖 parseTarget 的各种输入情况
 func TestParseTarget(t *testing.T) {
 	tests := []struct {
-		name      string // 测试用例描述
-		input     string // 输入的目标字符串
-		wantUser  string // 期望返回的用户名
-		wantHost  string // 期望返回的主机地址
-		wantErr   bool   // 是否期望返回错误
+		name     string // 测试用例描述
+		input    string // 输入的目标字符串
+		wantUser string // 期望返回的用户名
+		wantHost string // 期望返回的主机地址
+		wantErr  bool   // 是否期望返回错误
 	}{
 		// --- 基本功能测试 ---
 		{
@@ -396,8 +396,8 @@ func TestParseAddr(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "端口带前导零(非标准但strconv.Atoi可解析)-验证行为",
-			input:   "host:08080",
+			name:     "端口带前导零(非标准但strconv.Atoi可解析)-验证行为",
+			input:    "host:08080",
 			wantHost: "host",
 			wantPort: 8080,
 			wantErr:  false,
