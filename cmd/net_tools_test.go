@@ -87,7 +87,7 @@ func TestNewPingCmd_FlagDefaults(t *testing.T) {
 	cmd := NewPingCmd()
 
 	count, _ := cmd.Flags().GetInt("count")
-	assert.Equal(t, -1, count, "count 默认值应为 -1（持续）")
+	assert.Equal(t, 4, count, "count 默认值应为 4")
 }
 
 func TestNewPingCmd_FlagShorthands(t *testing.T) {

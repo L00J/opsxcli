@@ -21,7 +21,8 @@
 
 ### 🌐 网络工具
 - **ssh**: SSH 连接、命令执行、文件传输、端口转发
-- **ping**, **traceroute**, **telnet**, **nc**: 连通性测试
+- **ping**: 原生 ICMP/UDP/TCP 三模式 ping（自动选择、增强统计）
+- **traceroute**, **telnet**, **nc**: 连通性测试
 - **ss**, **netstat**, **nmap**: 连接状态和端口扫描
 - **ifconfig**, **route**, **ip**: 接口和路由管理
 
@@ -207,6 +208,24 @@ opsxcli consul -s https://consul.example.com:8500 --clean
 # kubectl 命令代理
 opsxcli kubectl get pods
 opsxcli kubectl describe pod nginx-xxx
+```
+
+### 原生 Ping（ICMP/UDP/TCP 三模式）
+
+```bash
+# 自动模式（优先ICMP → UDP回退 → TCP兜底）
+opsxcli ping google.com
+
+# 指定探测模式
+opsxcli ping google.com --mode icmp    # 原生ICMP（需root/管理员权限）
+opsxcli ping google.com --mode udp     # UDP ping（无需root）
+opsxcli ping google.com --mode tcp     # TCP连接探测
+
+# 指定次数和间隔
+opsxcli ping google.com -c 10 -i 500ms
+
+# 输出增强统计（标准差、抖动）
+# 自动显示 min/avg/max/stddev/jitter 和丢包率
 ```
 
 ### 网络连接分析
