@@ -73,6 +73,7 @@ Examples:
 	// 添加子命令
 	cmd.AddCommand(newMySQLDumpCmd())
 	cmd.AddCommand(newMySQLRestoreCmd())
+	cmd.AddCommand(newMySQLAnalyzeCmd())
 
 	return cmd
 }
