@@ -15,7 +15,7 @@
 ## 🛠️ 主要功能
 
 ### 💾 数据库工具
-- **mysql**: MySQL 交互式 Shell 和命令执行
+- **mysql**: MySQL 交互式 Shell、命令执行、性能分析（慢查询分析、锁等待检测、死锁分析）
 - **psql**: PostgreSQL 数据库操作
 - **redis**: Redis 单机/集群操作
 

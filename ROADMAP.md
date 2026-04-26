@@ -206,7 +206,7 @@ P2 cmd/集成测试:       3天
 
 | 指标 | v0.8.0 现状 | v0.9.0 目标 | 当前状态 |
 |------|------------|------------|----------|
-| 整体测试覆盖率 | 55.3% | >57% | ✅ 58.1% |
+| 整体测试覆盖率 | 55.3% | >57% | ✅ 58.5% |
 | Ping 功能 | TCP模拟(非root) | 原生ICMP + UDP回退 | ✅ 已完成(三模式+增强统计) |
 || MySQL 诊断 | 基础连接查询 | 慢查询分析+性能报告 | 🔧 进行中(纯函数已完成) |
 | Redis 诊断 | 基础get/set | 内存分析+键空间分析 | 📋 待开发 |
@@ -232,7 +232,7 @@ P2 cmd/集成测试:       3天
 || **慢查询分析** | 解析 information_schema.processlist + slow_query_log | 1.5天 | 🔧 纯函数已完成(需DB连接集成) |
 || **性能报告** | SHOW STATUS/ENGINE STATUS/Variables 关键指标汇总 | 1.5天 | 🔧 纯函数已完成(需DB连接集成) |
 | **索引建议** | 分析 information_schema.STATISTICS 给出索引建议 | 1天 | 📋 待开发 |
-| **锁等待检测** | SHOW ENGINE INNODB STATUS 解析锁等待 | 1天 | 📋 待开发 |
+| **锁等待检测** | SHOW ENGINE INNODB STATUS 解析锁等待 | 1天 | ✅ 纯函数已完成(需DB连接集成) |
 
 ### 🔴 Redis 诊断 (P1)
 
