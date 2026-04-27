@@ -2,7 +2,7 @@
 
 > **版本**: v1.3  
 > **更新日期**: 2026-04-25  
-> **当前测试覆盖**: 58.5% (v0.9.0 开发中)  
+> **当前测试覆盖**: 58.6% (v0.9.0 开发中)  
 > **目标覆盖率**: 57%+ (v0.9.0 ✅ 已达标)
 
 ---
@@ -140,14 +140,27 @@ TestMySQLInteractive       — 交互式 shell 启动（mock）
 ```
 
 #### 1.2 plugins/redis/ (预计 15 个测试用例)
+#### 1.2 plugins/redis/ (预计 15 个测试用例)
 
-```
 TestRedisConnect           — 单机/集群连接
 TestRedisGetSet            — GET/SET 基本操作
 TestRedisAuth              — 密码认证/NOAUTH 处理
 TestRedisParseCommand      — 命令解析（引号/转义）
 TestRedisCompleter         — 命令补全（STRING/HASH/LIST/SET/ZSET）
 TestRedisCluster           — 集群模式 MOVED/ASK 处理
+
+#### 1.2.1 plugins/redis/ 内存分析纯函数 (35 个测试用例, ✅ 已完成)
+
+TestParseMemoryInfo_*          — INFO memory 解析（完整/部分/空/非法值）
+TestParseKeySpace_*            — keyspace 解析（多DB/单DB/空/大数字）
+TestAnalyzeMemoryHealth_*      — 内存健康检查（无警告/使用率/碎片率/系统占比/淘汰策略/综合）
+TestCalculateMemoryEfficiency  — 每键内存效率计算
+TestClassifyKeyPatterns_*      — 键模式分类（多前缀/单类型/空）
+TestParseSlowLogEntry_*        — 慢查询解析（标准格式/复杂命令/Lua脚本）
+TestFormatMemoryReport_*       — 内存报告格式化（含警告/无警告/空）
+TestFormatKeySpaceReport_*     — 键空间报告格式化
+TestFormatSlowLogReport_*      — 慢查询报告格式化（含数据/空数据）
+TestEdgeCases_*                — 边界情况（零值/极大值/负数/NaN）
 ```
 
 #### 1.3 plugins/ssh/ (预计 20 个测试用例)
@@ -311,7 +324,7 @@ TestE2EAgentQuery          — Agent 单次查询全流程（mock LLM）
 | 插件 | 代码行数 | 测试用例 | 覆盖率 | Phase | 状态 |
 |------|----------|----------|--------|-------|------|
 ||| mysql/ | ~800 | 145+ | ~63% | 1 | ✅ 纯函数已覆盖(含analyze+lock分析) |
-| redis/ | ~800 | 15 | ~30% | 1 | ✅ 纯函数已覆盖 |
+| redis/ | ~1200 | 50+ | ~51% | 1 | ✅ 纯函数已覆盖(含内存分析+键空间+慢查询诊断) |
 | ssh/ | ~1,200 | 50 | ~30% | 1 | ✅ 纯函数已覆盖 |
 | netstat/ | ~500 | 30 | ~35% | 1 | ✅ 纯函数已覆盖 |
 | docker/ | ~800 | 45 | ~25% | 1 | ✅ 纯函数已覆盖 |

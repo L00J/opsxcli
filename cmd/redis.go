@@ -82,6 +82,7 @@ Examples:
 		redis.NewGetCmd(),
 		redis.NewSetCmd(),
 		redis.NewInteractiveCmd(),
+		redis.NewAnalyzeCmd(),
 	)
 
 	return rootCmd

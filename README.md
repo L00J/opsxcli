@@ -17,7 +17,7 @@
 ### 💾 数据库工具
 - **mysql**: MySQL 交互式 Shell、命令执行、性能分析（慢查询分析、锁等待检测、死锁分析）
 - **psql**: PostgreSQL 数据库操作
-- **redis**: Redis 单机/集群操作
+- **redis**: Redis 单机/集群操作，内存分析，键空间诊断，慢查询分析
 
 ### 🌐 网络工具
 - **ssh**: SSH 连接、命令执行、文件传输、端口转发
@@ -146,6 +146,12 @@ opsxcli redis -h 127.0.0.1 -p 6001 -c -a password
 # Redis 操作
 opsxcli redis get mykey -h 127.0.0.1
 opsxcli redis set mykey "myvalue" -h 127.0.0.1
+
+# Redis 内存分析（诊断内存使用、键空间分布、慢查询）
+opsxcli redis analyze -h 127.0.0.1 -a password
+opsxcli redis analyze -h 127.0.0.1 --mode memory    # 仅内存分析
+opsxcli redis analyze -h 127.0.0.1 --mode keyspace  # 仅键空间分析
+opsxcli redis analyze -h 127.0.0.1 --mode slowlog   # 仅慢查询分析
 ```
 
 ### SSH 远程操作
