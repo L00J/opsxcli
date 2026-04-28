@@ -225,6 +225,7 @@ func (wc *writeCounter) printProgress() {
 }
 
 // extractTarGz 解压 tar.gz 文件
+// 兼容 tar 内二进制文件名为 opsxcli、opsxcli-linux-amd64、opsxcli-linux-aarch64 等各种格式
 func extractTarGz(tarGzPath, destDir string) error {
 	file, err := os.Open(tarGzPath)
 	if err != nil {
@@ -239,6 +240,8 @@ func extractTarGz(tarGzPath, destDir string) error {
 	defer gzr.Close()
 
 	tr := tar.NewReader(gzr)
+	target := filepath.Join(destDir, "opsxcli")
+	found := false
 
 	for {
 		header, err := tr.Next()
@@ -249,25 +252,47 @@ func extractTarGz(tarGzPath, destDir string) error {
 			return err
 		}
 
-		// 只解压 opsxcli 二进制文件
-		if !strings.HasSuffix(header.Name, "opsxcli") && header.Name != "opsxcli" {
+		// 跳过目录
+		if header.Typeflag != tar.TypeReg {
 			continue
 		}
 
-		target := filepath.Join(destDir, "opsxcli")
-
-		switch header.Typeflag {
-		case tar.TypeReg:
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
-			if err != nil {
-				return err
-			}
-			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
-				return err
-			}
-			f.Close()
+		// 匹配 opsxcli 二进制文件：支持以下格式
+		// - opsxcli（标准格式）
+		// - opsxcli-linux-amd64, opsxcli-linux-aarch64（带平台后缀）
+		// - opsxcli.exe（Windows）
+		// - 子目录中的 opsxcli：subdir/opsxcli
+		baseName := filepath.Base(header.Name)
+		if baseName != "opsxcli" && baseName != "opsxcli.exe" &&
+			!strings.HasPrefix(baseName, "opsxcli-") {
+			continue
 		}
+
+		// 跳过非可执行文件（如 checksums.txt、README 等）
+		if strings.HasSuffix(baseName, ".txt") || strings.HasSuffix(baseName, ".md") {
+			continue
+		}
+
+		if found {
+			// 已经找到并解压了一个二进制文件，跳过后续的
+			continue
+		}
+
+		f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(f, tr); err != nil {
+			f.Close()
+			return err
+		}
+		f.Close()
+		found = true
+		fmt.Printf("📦 解压: %s → %s\n", header.Name, target)
+	}
+
+	if !found {
+		return fmt.Errorf("tar.gz 中未找到 opsxcli 二进制文件")
 	}
 
 	return nil

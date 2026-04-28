@@ -272,7 +272,7 @@ func TestExtractTarGz_子目录中的opsxcli(t *testing.T) {
 }
 
 func TestExtractTarGz_忽略非opsxcli文件(t *testing.T) {
-	// 测试 tar.gz 中包含非 opsxcli 文件时被忽略
+	// 测试 tar.gz 中只包含非 opsxcli 文件时应报错
 	tmpDir := t.TempDir()
 	tarGzPath := filepath.Join(tmpDir, "test.tar.gz")
 
@@ -296,7 +296,8 @@ func TestExtractTarGz_忽略非opsxcli文件(t *testing.T) {
 
 	destDir := t.TempDir()
 	err = extractTarGz(tarGzPath, destDir)
-	require.NoError(t, err)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "未找到 opsxcli 二进制文件")
 
 	// readme.txt 不应被解压
 	_, err = os.Stat(filepath.Join(destDir, "readme.txt"))
@@ -614,7 +615,7 @@ func TestExtractTarGz_包含多个文件的tar(t *testing.T) {
 }
 
 func TestExtractTarGz_空tar(t *testing.T) {
-	// 测试空的 tar.gz 文件
+	// 测试空的 tar.gz 文件（没有二进制文件）
 	tmpDir := t.TempDir()
 	tarGzPath := filepath.Join(tmpDir, "empty.tar.gz")
 
@@ -627,10 +628,181 @@ func TestExtractTarGz_空tar(t *testing.T) {
 
 	destDir := t.TempDir()
 	err := extractTarGz(tarGzPath, destDir)
-	require.NoError(t, err)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "未找到 opsxcli 二进制文件")
 }
 
 // --- copyFile 与 replaceFile 联合测试 ---
+
+// --- extractTarGz 带平台后缀文件名 ---
+
+func TestExtractTarGz_带平台后缀的文件名(t *testing.T) {
+	// 测试 tar 中文件名为 opsxcli-linux-amd64 的情况（v1.0.6 release 实际场景）
+	tmpDir := t.TempDir()
+	tarGzPath := filepath.Join(tmpDir, "test.tar.gz")
+
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	content := "#!/bin/bash\necho opsxcli-v1.0.6"
+	hdr := &tar.Header{
+		Name: "opsxcli-linux-amd64",
+		Mode: 0755,
+		Size: int64(len(content)),
+	}
+	require.NoError(t, tw.WriteHeader(hdr))
+	_, err := io.WriteString(tw, content)
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	require.NoError(t, gzw.Close())
+	require.NoError(t, os.WriteFile(tarGzPath, buf.Bytes(), 0644))
+
+	destDir := t.TempDir()
+	err = extractTarGz(tarGzPath, destDir)
+	require.NoError(t, err)
+
+	// 解压后的文件应重命名为 opsxcli
+	extractedPath := filepath.Join(destDir, "opsxcli")
+	data, err := os.ReadFile(extractedPath)
+	require.NoError(t, err)
+	assert.Equal(t, content, string(data))
+}
+
+func TestExtractTarGz_带aarch64后缀的文件名(t *testing.T) {
+	// 测试 tar 中文件名为 opsxcli-linux-aarch64 的情况
+	tmpDir := t.TempDir()
+	tarGzPath := filepath.Join(tmpDir, "test.tar.gz")
+
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	content := "arm64 binary content"
+	hdr := &tar.Header{
+		Name: "opsxcli-linux-aarch64",
+		Mode: 0755,
+		Size: int64(len(content)),
+	}
+	require.NoError(t, tw.WriteHeader(hdr))
+	_, err := io.WriteString(tw, content)
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	require.NoError(t, gzw.Close())
+	require.NoError(t, os.WriteFile(tarGzPath, buf.Bytes(), 0644))
+
+	destDir := t.TempDir()
+	err = extractTarGz(tarGzPath, destDir)
+	require.NoError(t, err)
+
+	extractedPath := filepath.Join(destDir, "opsxcli")
+	data, err := os.ReadFile(extractedPath)
+	require.NoError(t, err)
+	assert.Equal(t, content, string(data))
+}
+
+func TestExtractTarGz_多个opsxcli文件只解压第一个(t *testing.T) {
+	// 测试 tar 中包含 opsxcli 和 opsxcli-linux-amd64 两个文件，只解压第一个
+	tmpDir := t.TempDir()
+	tarGzPath := filepath.Join(tmpDir, "test.tar.gz")
+
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	files := []struct {
+		name    string
+		content string
+	}{
+		{"opsxcli", "standard content"},
+		{"opsxcli-linux-amd64", "platform-specific content"},
+	}
+
+	for _, f := range files {
+		hdr := &tar.Header{
+			Name: f.name,
+			Mode: 0755,
+			Size: int64(len(f.content)),
+		}
+		require.NoError(t, tw.WriteHeader(hdr))
+		_, err := io.WriteString(tw, f.content)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, tw.Close())
+	require.NoError(t, gzw.Close())
+	require.NoError(t, os.WriteFile(tarGzPath, buf.Bytes(), 0644))
+
+	destDir := t.TempDir()
+	err := extractTarGz(tarGzPath, destDir)
+	require.NoError(t, err)
+
+	// 应使用第一个找到的文件
+	extractedPath := filepath.Join(destDir, "opsxcli")
+	data, err := os.ReadFile(extractedPath)
+	require.NoError(t, err)
+	assert.Equal(t, "standard content", string(data))
+}
+
+func TestExtractTarGz_完全无关的文件报错(t *testing.T) {
+	// tar 中只有非 opsxcli 文件时应该报错
+	tmpDir := t.TempDir()
+	tarGzPath := filepath.Join(tmpDir, "test.tar.gz")
+
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	content := "random content"
+	hdr := &tar.Header{
+		Name: "random-binary",
+		Mode: 0755,
+		Size: int64(len(content)),
+	}
+	require.NoError(t, tw.WriteHeader(hdr))
+	_, err := io.WriteString(tw, content)
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	require.NoError(t, gzw.Close())
+	require.NoError(t, os.WriteFile(tarGzPath, buf.Bytes(), 0644))
+
+	destDir := t.TempDir()
+	err = extractTarGz(tarGzPath, destDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "未找到 opsxcli 二进制文件")
+}
+
+func TestExtractTarGz_Windows格式(t *testing.T) {
+	// 测试 Windows 的 opsxcli.exe 格式
+	tmpDir := t.TempDir()
+	tarGzPath := filepath.Join(tmpDir, "test.tar.gz")
+
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	content := "windows binary"
+	hdr := &tar.Header{
+		Name: "opsxcli.exe",
+		Mode: 0755,
+		Size: int64(len(content)),
+	}
+	require.NoError(t, tw.WriteHeader(hdr))
+	_, err := io.WriteString(tw, content)
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	require.NoError(t, gzw.Close())
+	require.NoError(t, os.WriteFile(tarGzPath, buf.Bytes(), 0644))
+
+	destDir := t.TempDir()
+	err = extractTarGz(tarGzPath, destDir)
+	require.NoError(t, err)
+
+	extractedPath := filepath.Join(destDir, "opsxcli")
+	data, err := os.ReadFile(extractedPath)
+	require.NoError(t, err)
+	assert.Equal(t, content, string(data))
+}
 
 func TestCopyFile后ReplaceFile(t *testing.T) {
 	// 模拟升级流程：先备份，再替换
