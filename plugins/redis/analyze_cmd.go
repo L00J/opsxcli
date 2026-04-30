@@ -65,11 +65,17 @@ Examples:
 				return runSlowLogAnalysis(client, topN)
 			}
 
+			replicationOnly, _ := cmd.Flags().GetBool("replication")
+			if replicationOnly {
+				return runReplicationAnalysis(client)
+			}
+
 			return runFullAnalysis(client, topN)
 		},
 	}
 
 	cmd.Flags().Bool("slowlog", false, "仅分析慢查询日志")
+	cmd.Flags().Bool("replication", false, "分析复制状态（主从拓扑）")
 	cmd.Flags().IntP("top", "n", 10, "慢查询日志显示条数（Top N）")
 
 	return cmd
@@ -174,4 +180,24 @@ func fetchSlowLogEntries(client redis.UniversalClient, topN int) ([]SlowLogEntry
 	}
 
 	return entries, nil
+}
+
+// runReplicationAnalysis 执行复制状态分析
+func runReplicationAnalysis(client redis.UniversalClient) error {
+	replCtx, replCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer replCancel()
+
+	replResult := client.Do(replCtx, "INFO", "replication")
+	if replResult.Err() != nil {
+		return fmt.Errorf("获取复制信息失败: %w", replResult.Err())
+	}
+
+	replRaw, ok := replResult.Val().(string)
+	if !ok {
+		return fmt.Errorf("复制信息格式异常")
+	}
+
+	info := ParseReplicationInfo(replRaw)
+	fmt.Println(FormatReplicationReport(info))
+	return nil
 }

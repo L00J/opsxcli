@@ -201,8 +201,9 @@ class GiteeReleaseUploader:
         lines.append("# Linux/macOS")
         if tool_name == "opsxcli":
             lines.append("tar -xzf opsxcli-*.tar.gz")
-            lines.append("chmod +x opsxcli")
-            lines.append("sudo mv opsxcli /usr/local/bin/")
+            lines.append("BINARY=$(tar tzf opsxcli-*.tar.gz | head -1)")
+            lines.append("chmod +x \"$BINARY\"")
+            lines.append("sudo mv \"$BINARY\" /usr/local/bin/opsxcli")
         else:
             lines.append("tar -xzf opsx-*-linux-amd64.tar.gz")
             lines.append("chmod +x opsx-*")
@@ -635,8 +636,9 @@ class GitHubReleaseUploader:
             "### 📦 手动安装",
             "```bash",
             "tar -xzf opsxcli-*.tar.gz",
-            "chmod +x opsxcli",
-            "sudo mv opsxcli /usr/local/bin/",
+            "BINARY=$(tar tzf opsxcli-*.tar.gz | head -1)",
+            "chmod +x \"$BINARY\"",
+            "sudo mv \"$BINARY\" /usr/local/bin/opsxcli",
             "```",
             "",
             "---",
@@ -1005,8 +1007,9 @@ class GitHubReleaseUploader:
         lines.append("\n### 📖 使用说明\n")
         lines.append("```bash")
         lines.append("tar -xzf opsxcli-*.tar.gz")
-        lines.append("chmod +x opsxcli")
-        lines.append("sudo mv opsxcli /usr/local/bin/")
+        lines.append("BINARY=$(tar tzf opsxcli-*.tar.gz | head -1)")
+        lines.append("chmod +x \"$BINARY\"")
+        lines.append("sudo mv \"$BINARY\" /usr/local/bin/opsxcli")
         lines.append("```")
 
         return "\n".join(lines)

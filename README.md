@@ -17,7 +17,7 @@
 ### 💾 数据库工具
 - **mysql**: MySQL 交互式 Shell、命令执行、性能分析（慢查询分析、锁等待检测、死锁分析）
 - **psql**: PostgreSQL 数据库操作，活跃查询分析、锁等待检测、性能报告
-- **redis**: Redis 单机/集群操作，内存分析，键空间诊断，慢查询分析
+- **redis**: Redis 单机/集群操作，内存分析，键空间诊断，慢查询分析，复制状态分析
 
 ### 🌐 网络工具
 - **ssh**: SSH 连接、命令执行、文件传输、端口转发
@@ -86,10 +86,11 @@ wget "https://gitee.com/opsx-tools/opsxcli/releases/download/latest/opsxcli-$(un
 curl -L -o opsxcli-$(uname -s)-$(uname -m).tar.gz \
   "https://gitee.com/opsx-tools/opsxcli/releases/download/latest/opsxcli-$(uname -s)-$(uname -m).tar.gz"
 
-# 解压并安装
+# 解压并安装（自动检测解压出的二进制文件名）
 tar -xzf opsxcli-*.tar.gz
-chmod +x opsxcli
-sudo mv opsxcli /usr/local/bin/
+BINARY=$(tar tzf opsxcli-*.tar.gz | head -1)
+chmod +x "$BINARY"
+sudo mv "$BINARY" /usr/local/bin/opsxcli
 ```
 
 **注意**: Windows 用户请访问 [Releases 页面](https://gitee.com/opsx-tools/opsxcli/releases) 下载对应的 `.zip` 文件
@@ -152,6 +153,7 @@ opsxcli redis analyze -h 127.0.0.1 -a password
 opsxcli redis analyze -h 127.0.0.1 --mode memory    # 仅内存分析
 opsxcli redis analyze -h 127.0.0.1 --mode keyspace  # 仅键空间分析
 opsxcli redis analyze -h 127.0.0.1 --mode slowlog   # 仅慢查询分析
+opsxcli redis analyze -h 127.0.0.1 --mode replication  # 复制状态分析
 
 # PostgreSQL 性能分析（活跃查询分析、锁等待检测、性能报告）
 opsxcli psql analyze -h 127.0.0.1 -U postgres -d mydb

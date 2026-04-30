@@ -163,6 +163,15 @@ TestFormatSlowLogReport_*      — 慢查询报告格式化（含数据/空数�
 TestEdgeCases_*                — 边界情况（零值/极大值/负数/NaN）
 ```
 
+#### 1.2.2 plugins/redis/ 复制状态分析纯函数 (24 个测试用例, ✅ 已完成)
+
+```
+TestParseReplicationInfo_*       — INFO replication 解析（主节点/从节点/哨兵/空/部分字段）
+TestParseSlaveLine_*             — 从节点行解析（标准/缺失字段/空）
+TestAnalyzeReplicationHealth_*   — 复制健康分析（健康主节点/未连接从节点/延迟分级/断线/哨兵）
+TestFormatReplicationReport_*    — 复制报告格式化（主节点/从节点/哨兵/空数据）
+```
+
 #### 1.3 plugins/ssh/ (预计 20 个测试用例)
 
 ```
@@ -324,7 +333,7 @@ TestE2EAgentQuery          — Agent 单次查询全流程（mock LLM）
 | 插件 | 代码行数 | 测试用例 | 覆盖率 | Phase | 状态 |
 |------|----------|----------|--------|-------|------|
 ||| mysql/ | ~800 | 145+ | ~63% | 1 | ✅ 纯函数已覆盖(含analyze+lock分析) |
-| redis/ | ~1200 | 50+ | ~51% | 1 | ✅ 纯函数已覆盖(含内存分析+键空间+慢查询诊断) |
+| redis/ | ~1350 | 74+ | ~59.6% | 1 | ✅ 纯函数已覆盖(含内存分析+键空间+慢查询+复制状态分析) |
 | ssh/ | ~1,200 | 50 | ~30% | 1 | ✅ 纯函数已覆盖 |
 | netstat/ | ~500 | 30 | ~35% | 1 | ✅ 纯函数已覆盖 |
 || docker/ | ~800 | 45 | ~25% | 1 | ✅ 纯函数已覆盖 |
