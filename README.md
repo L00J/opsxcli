@@ -15,7 +15,7 @@
 ## 🛠️ 主要功能
 
 ### 💾 数据库工具
-- **mysql**: MySQL 交互式 Shell、命令执行、性能分析（慢查询分析、锁等待检测、死锁分析）
+- **mysql**: MySQL 交互式 Shell、命令执行、性能分析（慢查询分析、锁等待检测、死锁分析、索引建议）
 - **psql**: PostgreSQL 数据库操作，活跃查询分析、锁等待检测、性能报告
 - **redis**: Redis 单机/集群操作，内存分析，键空间诊断，慢查询分析，复制状态分析
 
@@ -137,6 +137,9 @@ opsxcli mysql -u root -h localhost -p
 
 # 执行 SQL
 opsxcli mysql -u root -p "password" -h localhost -e "SELECT VERSION()"
+
+# MySQL 性能分析（慢查询分析、锁等待检测、索引建议）
+opsxcli mysql analyze -u root -p "password" -h localhost
 
 # Redis 交互式 shell
 opsxcli redis -h 127.0.0.1
