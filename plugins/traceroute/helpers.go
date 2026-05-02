@@ -100,3 +100,55 @@ func buildUDPAddr(ip net.IP, port int) *net.UDPAddr {
 		Port: port,
 	}
 }
+
+// hopResult 表示单次跳探测的结果
+type hopResult struct {
+	TTL               int
+	Times             []time.Duration
+	ResponderIP       net.IP
+	ReachedDestination bool
+}
+
+// formatHopResult 格式化单跳探测的输出行
+// 返回格式化后的字符串（不包含 fmt.Printf 的副作用）
+func formatHopResult(result hopResult) string {
+	line := formatHopPrefix(result.TTL)
+
+	// 格式化探测时间
+	for _, t := range result.Times {
+		if t < 0 {
+			line += "*  "
+		} else {
+			line += formatElapsedTime(t) + "  "
+		}
+	}
+
+	// 格式化响应者信息
+	if result.ResponderIP != nil {
+		hostname := formatHostDisplay(result.ResponderIP)
+		line += " " + hostname
+	}
+
+	return line
+}
+
+// validateTracerouteParams 验证并规范化 traceroute 参数
+// 返回规范化后的 maxHops 和 packetSize
+func validateTracerouteParams(maxHops, packetSize int) (int, int) {
+	return normalizeMaxHops(maxHops), normalizePacketSize(packetSize)
+}
+
+// formatProbeResult 格式化单次探测结果
+// elapsed < 0 表示超时或错误
+func formatProbeResult(elapsed time.Duration) string {
+	if elapsed < 0 {
+		return "*  "
+	}
+	return formatElapsedTime(elapsed) + "  "
+}
+
+// checkICMPReachDestination 检查 ICMP 消息是否表示到达目标
+// 封装了完整的判断逻辑，包括消息类型和代码
+func checkICMPReachDestination(msgType ipv4.ICMPType, msgCode int, responderIP, targetIP net.IP) bool {
+	return isDestinationReached(msgType, msgCode, responderIP, targetIP)
+}

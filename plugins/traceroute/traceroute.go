@@ -21,12 +21,7 @@ const (
 
 // Traceroute 执行路由追踪
 func Traceroute(host string, maxHops, packetSize int) error {
-	if maxHops <= 0 {
-		maxHops = DefaultMaxHops
-	}
-	if packetSize <= 0 {
-		packetSize = DefaultPacketSize
-	}
+	maxHops, packetSize = validateTracerouteParams(maxHops, packetSize)
 
 	// 解析目标地址
 	ips, err := net.LookupIP(host)
@@ -35,21 +30,13 @@ func Traceroute(host string, maxHops, packetSize int) error {
 		return fmt.Errorf("无法解析主机: %v", err)
 	}
 
-	var targetIP net.IP
-	for _, ip := range ips {
-		if ip.To4() != nil {
-			targetIP = ip
-			break
-		}
-	}
-
+	targetIP := selectIPv4(ips)
 	if targetIP == nil {
 		logger.Error("Traceroute无法找到 %s 的IPv4地址", host)
 		return fmt.Errorf("无法找到IPv4地址")
 	}
 
-	fmt.Printf("traceroute to %s (%s), %d hops max, %d byte packets\n",
-		host, targetIP.String(), maxHops, packetSize)
+	fmt.Print(formatTracerouteHeader(host, targetIP, maxHops, packetSize))
 
 	// 创建接收 ICMP 消息的 socket
 	conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
@@ -88,11 +75,8 @@ func Traceroute(host string, maxHops, packetSize int) error {
 			// 重置 reachedDestination（每次探测独立判断）
 			probeReached := false
 			// 使用递增的端口号，便于识别响应
-			port := DefaultPort + ttl*3 + probe
-			remoteAddr := &net.UDPAddr{
-				IP:   targetIP,
-				Port: port,
-			}
+			port := calculatePort(ttl, probe)
+			remoteAddr := buildUDPAddr(targetIP, port)
 
 			// 发送 UDP 包
 			start := time.Now()
@@ -134,24 +118,8 @@ func Traceroute(host string, maxHops, packetSize int) error {
 			}
 
 			// 检查 ICMP 消息类型，判断是否到达目标
-			// ICMP Time Exceeded (11) = 中间路由器返回，继续追踪
-			// ICMP Destination Unreachable (3) with Code 3 (Port Unreachable) = 目标返回，到达目标
-			switch msg.Type {
-			case ipv4.ICMPTypeTimeExceeded:
-				// TTL 超时，继续追踪（即使 IP 是目标 IP，也可能是目标返回的 TTL 超时，需要继续）
-				probeReached = false
-			case ipv4.ICMPTypeDestinationUnreachable:
-				// Code 在 Message 结构中，Code 3 = Port Unreachable
-				// 如果收到目标 IP 的 Port Unreachable，说明到达了目标
-				if msg.Code == 3 && responderIP != nil && responderIP.Equal(targetIP) {
-					probeReached = true
-				} else {
-					// 其他类型的 Destination Unreachable 或不是目标 IP，继续追踪
-					probeReached = false
-				}
-			default:
-				// 其他类型，继续追踪
-				probeReached = false
+			if msgType, ok := msg.Type.(ipv4.ICMPType); ok {
+				probeReached = isDestinationReached(msgType, msg.Code, responderIP, targetIP)
 			}
 
 			// 如果这次探测到达了目标，标记
@@ -165,16 +133,7 @@ func Traceroute(host string, maxHops, packetSize int) error {
 
 		// 显示响应者信息
 		if responderIP != nil {
-			// 尝试获取主机名
-			hostname := responderIP.String()
-			if names, err := net.LookupAddr(responderIP.String()); err == nil && len(names) > 0 {
-				// 移除末尾的点
-				name := names[0]
-				if len(name) > 0 && name[len(name)-1] == '.' {
-					name = name[:len(name)-1]
-				}
-				hostname = fmt.Sprintf("%s (%s)", name, responderIP.String())
-			}
+			hostname := formatHostDisplay(responderIP)
 			fmt.Printf(" %s\n", hostname)
 
 			// 如果真正到达目标（收到 Port Unreachable），退出
@@ -226,11 +185,8 @@ func tracerouteUDP(host string, targetIP net.IP, maxHops, packetSize int) error 
 		for probe := 0; probe < 3; probe++ {
 			// 重置 reachedDestination（每次探测独立判断）
 			probeReached := false
-			port := DefaultPort + ttl*3 + probe
-			remoteAddr := &net.UDPAddr{
-				IP:   targetIP,
-				Port: port,
-			}
+			port := calculatePort(ttl, probe)
+			remoteAddr := buildUDPAddr(targetIP, port)
 
 			start := time.Now()
 			_, err := conn.WriteTo([]byte(""), remoteAddr)
@@ -276,22 +232,8 @@ func tracerouteUDP(host string, targetIP net.IP, maxHops, packetSize int) error 
 			}
 
 			// 检查 ICMP 消息类型，判断是否到达目标
-			switch msg.Type {
-			case ipv4.ICMPTypeTimeExceeded:
-				// TTL 超时，继续追踪（即使 IP 是目标 IP，也可能是目标返回的 TTL 超时，需要继续）
-				probeReached = false
-			case ipv4.ICMPTypeDestinationUnreachable:
-				// Code 在 Message 结构中，Code 3 = Port Unreachable
-				// 如果收到目标 IP 的 Port Unreachable，说明到达了目标
-				if msg.Code == 3 && responderIP != nil && responderIP.Equal(targetIP) {
-					probeReached = true
-				} else {
-					// 其他类型的 Destination Unreachable 或不是目标 IP，继续追踪
-					probeReached = false
-				}
-			default:
-				// 其他类型，继续追踪
-				probeReached = false
+			if msgType, ok := msg.Type.(ipv4.ICMPType); ok {
+				probeReached = isDestinationReached(msgType, msg.Code, responderIP, targetIP)
 			}
 
 			// 如果这次探测到达了目标，标记
@@ -304,14 +246,7 @@ func tracerouteUDP(host string, targetIP net.IP, maxHops, packetSize int) error 
 
 		// 显示响应者信息
 		if responderIP != nil {
-			hostname := responderIP.String()
-			if names, err := net.LookupAddr(responderIP.String()); err == nil && len(names) > 0 {
-				name := names[0]
-				if len(name) > 0 && name[len(name)-1] == '.' {
-					name = name[:len(name)-1]
-				}
-				hostname = fmt.Sprintf("%s (%s)", name, responderIP.String())
-			}
+			hostname := formatHostDisplay(responderIP)
 			fmt.Printf(" %s\n", hostname)
 
 			// 如果真正到达目标（收到 Port Unreachable），退出
@@ -370,14 +305,7 @@ func tracerouteTCP(host string, targetIP net.IP, maxHops int) error {
 		}
 
 		// 显示目标信息
-		hostname := targetIP.String()
-		if names, err := net.LookupAddr(targetIP.String()); err == nil && len(names) > 0 {
-			name := names[0]
-			if len(name) > 0 && name[len(name)-1] == '.' {
-				name = name[:len(name)-1]
-			}
-			hostname = fmt.Sprintf("%s (%s)", name, targetIP.String())
-		}
+		hostname := formatHostDisplay(targetIP)
 		fmt.Printf(" %s\n", hostname)
 
 		// 如果连接成功，退出（简化实现只显示一跳）
