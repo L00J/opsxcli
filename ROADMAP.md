@@ -206,11 +206,11 @@ P2 cmd/集成测试:       3天
 
 | 指标 | v0.8.0 现状 | v0.9.0 目标 | 当前状态 |
 |------|------------|------------|----------|
-| 整体测试覆盖率 | 55.3% | >57% | ✅ 61.0% |
-| Ping 功能 | TCP模拟(非root) | 原生ICMP + UDP回退 | ✅ 已完成(三模式+增强统计) |
-|| MySQL 诊断 | 基础连接查询 | 慢查询分析+性能报告 | 🔧 进行中(纯函数已完成) |
-|| Redis 诊断 | 基础get/set | 内存分析+键空间分析+慢查询诊断 | 🔧 进行中(纯函数已完成) |
-| PostgreSQL 诊断 | 基础连接查询 | 活跃查询+锁等待分析 | 🔧 进行中(纯函数已完成) |
+|| 整体测试覆盖率 | 55.3% | >57% | ✅ 59.8% |
+|| Ping 功能 | TCP模拟(非root) | 原生ICMP + UDP回退 | ✅ 已完成(三模式+IPv6) |
+|| MySQL 诊断 | 基础连接查询 | 慢查询分析+性能报告 | ✅ 已完成(DB连接集成+纯函数) |
+|| Redis 诊断 | 基础get/set | 内存分析+键空间分析+慢查询诊断 | ✅ 已完成(DB连接集成+纯函数) |
+|| PostgreSQL 诊断 | 基础连接查询 | 活跃查询+锁等待分析 | ✅ 已完成(DB连接集成+psql analyze子命令) |
 
 ### 🌐 原生ICMP Ping (P0)
 
@@ -221,7 +221,7 @@ P2 cmd/集成测试:       3天
 | **ICMP Raw Socket** | golang.org/x/net/icmp 实现 ICMP Echo Request/Reply，需root | 2天 | ✅ 已完成 |
 | **UDP Ping 回退** | 非root环境自动回退到 UDP ping (目标不可达推断) | 1天 | ✅ 已完成 |
 | **Ping 统计增强** | 标准差、抖动(jitter)、TCP兜底、自动模式选择 | 1天 | ✅ 已完成 |
-| **IPv6 支持** | ICMPv6 Echo Request/Reply | 1天 | 📋 待开发 |
+|| **IPv6 支持** | ICMPv6 Echo Request/Reply | 1天 | ✅ 已完成(36测试) |
 
 ### 🗄️ MySQL 性能分析 (P1)
 
@@ -229,10 +229,10 @@ P2 cmd/集成测试:       3天
 
 | 任务 | 说明 | 预估工时 | 状态 |
 |------|------|----------|------|
-|| **慢查询分析** | 解析 information_schema.processlist + slow_query_log | 1.5天 | 🔧 纯函数已完成(需DB连接集成) |
-|| **性能报告** | SHOW STATUS/ENGINE STATUS/Variables 关键指标汇总 | 1.5天 | 🔧 纯函数已完成(需DB连接集成) |
-| **索引建议** | 解析 SHOW INDEX + 冗余索引检测 + 复合索引建议 | 1天 | ✅ 纯函数已完成(需DB连接集成) |
-| **锁等待检测** | SHOW ENGINE INNODB STATUS 解析锁等待 | 1天 | ✅ 纯函数已完成(需DB连接集成) |
+||| **慢查询分析** | 解析 information_schema.processlist + slow_query_log | 1.5天 | ✅ 已完成(DB连接集成) |
+||| **性能报告** | SHOW STATUS/ENGINE STATUS/Variables 关键指标汇总 | 1.5天 | ✅ 已完成(DB连接集成) |
+|| **索引建议** | 解析 SHOW INDEX + 冗余索引检测 + 复合索引建议 | 1天 | ✅ 已完成(DB连接集成) |
+|| **锁等待检测** | SHOW ENGINE INNODB STATUS 解析锁等待 | 1天 | ✅ 已完成(DB连接集成) |
 
 ### 🔴 Redis 诊断 (P1)
 
@@ -240,9 +240,9 @@ P2 cmd/集成测试:       3天
 
 | 任务 | 说明 | 预估工时 | 状态 |
 |------|------|----------|------|
-|| **内存分析** | MEMORY DOCTOR/STATS/USAGE 分析，大Key检测 | 1.5天 | 🔧 纯函数已完成(需Redis连接集成) |
-|| **键空间分析** | SCAN 遍历键分布、过期分析、类型统计 | 1天 | 🔧 纯函数已完成(需Redis连接集成) |
-|| **性能诊断** | LATENCY DOCTOR/SLOWLOG 分析延迟来源 | 1天 | 🔧 纯函数已完成(需Redis连接集成) |
+||| **内存分析** | MEMORY DOCTOR/STATS/USAGE 分析，大Key检测 | 1.5天 | ✅ 已完成(DB连接集成) |
+||| **键空间分析** | SCAN 遍历键分布、过期分析、类型统计 | 1天 | ✅ 已完成(DB连接集成) |
+||| **性能诊断** | LATENCY DOCTOR/SLOWLOG 分析延迟来源 | 1天 | ✅ 已完成(DB连接集成) |
 || **复制状态** | INFO REPLICATION 解析，主从拓扑展示 | 0.5天 | ✅ 纯函数已完成(24测试,59.6%覆盖) |
 
 ### 🐘 PostgreSQL 诊断 (P2)
@@ -251,9 +251,9 @@ P2 cmd/集成测试:       3天
 
 | 任务 | 说明 | 预估工时 | 状态 |
 |------|------|----------|------|
-|| **活跃查询** | pg_stat_activity 分析，长时间查询检测 | 1天 | 🔧 纯函数已完成(需DB连接集成) |
-|| **锁等待分析** | pg_locks 解析，死锁检测 | 1天 | 🔧 纯函数已完成(需DB连接集成) |
-|| **性能报告** | pg_stat_* 关键指标汇总 | 1天 | 🔧 纯函数已完成(需DB连接集成) |
+||| **活跃查询** | pg_stat_activity 分析，长时间查询检测 | 1天 | ✅ 已完成(DB连接集成+psql analyze) |
+||| **锁等待分析** | pg_locks 解析，死锁检测 | 1天 | ✅ 已完成(DB连接集成+psql analyze) |
+||| **性能报告** | pg_stat_* 关键指标汇总 | 1天 | ✅ 已完成(DB连接集成+psql analyze) |
 
 ### 📊 验收标准
 
