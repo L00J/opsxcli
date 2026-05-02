@@ -17,6 +17,7 @@ func newMySQLAnalyzeCmd() *cobra.Command {
 		longQueryTime int // 长查询阈值（秒）
 		showIndexes   bool
 		showProcess   bool
+		showLocks     bool
 		outputFormat  string
 	)
 
@@ -34,6 +35,7 @@ func newMySQLAnalyzeCmd() *cobra.Command {
   - 慢查询分析（SHOW PROCESSLIST + SHOW STATUS）
   - InnoDB 缓冲池命中率检测
   - 自动索引建议（基于 information_schema.STATISTICS）
+  - InnoDB 锁等待分析（SHOW ENGINE INNODB STATUS）
 
 Examples:
   # 分析SQL语句类型
@@ -45,8 +47,14 @@ Examples:
   # 连接数据库进行完整性能分析
   opsxcli mysql analyze -h 192.168.1.100 -u root -p -d mydb
 
-  # 指定长查询阈值
-  opsxcli mysql analyze -h localhost -u root -p --long-query-time 30`,
+  # 仅分析慢查询（阈值30秒）
+  opsxcli mysql analyze -h localhost -u root -p --slow-query --long-query-time 30
+
+  # 仅分析索引
+  opsxcli mysql analyze -h localhost -u root -p --indexes
+
+  # 分析 InnoDB 锁等待
+  opsxcli mysql analyze -h localhost -u root -p --locks`,
 		SilenceUsage:  true,
 		SilenceErrors: false,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -77,37 +85,26 @@ Examples:
 				flags.Password = PromptPassword("Enter password")
 			}
 
-			// 构建性能报告（使用纯函数展示报告格式）
-			report := mysql.PerformanceReport{
-				Uptime:        0,
-				QueriesPerSec: 0,
-				SlowQueries:   0,
-				Connections:   0,
+			// 必须指定 host 才能连接数据库
+			if flags.Host == "" {
+				cmd.Println("请指定数据库连接参数: -h <host> -u <user> -p")
+				cmd.Println("或使用纯分析模式: --sql <sql> 或 --normalize <sql>")
+				return nil
 			}
 
-			// 如果有数据库连接参数，提示需要数据库
-			if flags.Host != "" {
-				cmd.Printf("数据库性能分析功能需要连接到 MySQL 服务器\n")
-				cmd.Printf("目标: %s:%d\n\n", flags.Host, flags.Port)
-
-				// 展示长查询阈值
-				if longQueryTime > 0 {
-					cmd.Printf("长查询阈值: %d 秒\n", longQueryTime)
-				}
-
-				if showIndexes {
-					cmd.Printf("索引分析: 开启\n")
-				}
-				if showProcess {
-					cmd.Printf("进程列表分析: 开启\n")
-				}
+			// 按功能路由
+			slowQueryOnly, _ := cmd.Flags().GetBool("slow-query")
+			switch {
+			case showLocks:
+				return mysql.RunLockAnalysis(flags.Host, flags.Port, flags.User, flags.Password, flags.Database)
+			case showIndexes && !showProcess:
+				return mysql.RunIndexAnalysis(flags.Host, flags.Port, flags.User, flags.Password, flags.Database)
+			case slowQueryOnly:
+				return mysql.RunSlowQueryAnalysis(flags.Host, flags.Port, flags.User, flags.Password, flags.Database, longQueryTime)
+			default:
+				// 完整分析（默认包含进程列表）
+				return mysql.RunFullAnalysis(flags.Host, flags.Port, flags.User, flags.Password, flags.Database, longQueryTime, showIndexes, true)
 			}
-
-			// 输出报告
-			output := mysql.FormatPerformanceReport(report)
-			cmd.Print(output)
-
-			return nil
 		},
 	}
 
@@ -124,6 +121,8 @@ Examples:
 	analyzeCmd.Flags().IntVar(&longQueryTime, "long-query-time", 10, "长查询阈值（秒）")
 	analyzeCmd.Flags().BoolVar(&showIndexes, "indexes", false, "包含索引分析")
 	analyzeCmd.Flags().BoolVar(&showProcess, "process", false, "包含进程列表分析")
+	analyzeCmd.Flags().BoolVar(&showLocks, "locks", false, "分析InnoDB锁等待")
+	analyzeCmd.Flags().Bool("slow-query", false, "仅分析慢查询")
 	analyzeCmd.Flags().StringVar(&outputFormat, "format", "text", "输出格式: text/json")
 
 	return analyzeCmd

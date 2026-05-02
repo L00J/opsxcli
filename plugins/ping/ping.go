@@ -328,7 +328,7 @@ func buildICMPEchoRequest(seq, payloadSize int) []byte {
 	return data
 }
 
-// RunPing 执行增强 ping（ICMP/UDP/TCP 自动选择）
+// RunPing 执行增强 ping（ICMP/UDP/TCP 自动选择，支持 IPv4/IPv6）
 func RunPing(cfg *PingConfig) (*PingResult, error) {
 	// 规范化参数
 	cfg.Interval, cfg.Timeout = normalizeDurations(cfg.Interval, cfg.Timeout)
@@ -346,6 +346,9 @@ func RunPing(cfg *PingConfig) (*PingResult, error) {
 		return nil, err
 	}
 
+	// 检测 IPv6 地址，自动更新 IPVersion
+	useIPv6 := isIPv6(ip)
+
 	// 选择模式
 	mode := selectPingMode(cfg.Mode)
 	cfg.Mode = mode
@@ -359,15 +362,28 @@ func RunPing(cfg *PingConfig) (*PingResult, error) {
 	fmt.Printf("PING %s (%s): %d data bytes, mode=[%s]\n",
 		cfg.Host, ip.String(), cfg.PayloadSize, mode)
 
-	switch mode {
-	case ModeICMP:
-		err = runICMPListen(cfg, ip, result)
-	case ModeUDP:
-		err = runUDPListen(cfg, ip, result)
-	case ModeTCP:
-		err = runTCPPing(cfg, ip, result)
-	default:
-		err = runUDPListen(cfg, ip, result)
+	if useIPv6 {
+		switch mode {
+		case ModeICMP:
+			err = runICMPv6Listen(cfg, ip, result)
+		case ModeUDP:
+			err = runUDPv6Listen(cfg, ip, result)
+		case ModeTCP:
+			err = runTCPv6Ping(cfg, ip, result)
+		default:
+			err = runUDPv6Listen(cfg, ip, result)
+		}
+	} else {
+		switch mode {
+		case ModeICMP:
+			err = runICMPListen(cfg, ip, result)
+		case ModeUDP:
+			err = runUDPListen(cfg, ip, result)
+		case ModeTCP:
+			err = runTCPPing(cfg, ip, result)
+		default:
+			err = runUDPListen(cfg, ip, result)
+		}
 	}
 
 	if err != nil && result.Sent == 0 {

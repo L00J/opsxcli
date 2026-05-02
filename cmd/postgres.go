@@ -95,6 +95,7 @@ Examples:
 	// 添加子命令
 	cmd.AddCommand(newPsqlDumpCmd())
 	cmd.AddCommand(newPsqlRestoreCmd())
+	cmd.AddCommand(newPsqlAnalyzeCmd())
 
 	return cmd
 }
