@@ -103,7 +103,7 @@ brews:
       # 安装 shell 补全脚本
       generate_completions_from_executable(bin/"opsxcli", "completion")
     test: |
-      system "#{bin}/opsxcli", "version"
+      system "#{bin}/opsxcli", "--version"
     caveats: |
       OpsXCLI installed! Quick start:
         opsxcli              # Launch AI DevOps assistant
